@@ -15,12 +15,20 @@ func printUsage() {
 
 switch args.count == 2 ? args[1] : nil {
 case "scan":
-    // M3: one real detector (brief). Discovery and execution environment come
-    // ONLY from the M2-resolved login shell — never from inherited env (D-005).
+    // M4: data-driven registry (D-010, D-017, D-018). Discovery and execution
+    // environment come ONLY from the M2-resolved login shell — never inherited (D-005).
     let environment = ShellEnvironmentResolver.resolve()
-    let tool = CoreDetectors.codex.detect(in: environment)
-    print(ScanRenderer.render(tools: [tool]))
-    exit(0)
+    do {
+        let definitions = try DetectorRegistry.loadDefault()
+        let tools = definitions.map { $0.makeDetector().detect(in: environment) }
+        print(ScanRenderer.render(tools: tools))
+        exit(0)
+    } catch {
+        // Fail loud: a broken registry is an operator-visible error, never a
+        // silently reduced scan (M4 brief req. 3).
+        FileHandle.standardError.write(Data("\(error)\n".utf8))
+        exit(1)
+    }
 case "debug-env":
     // M2: prints the login-shell environment that all later discovery will use.
     // The PATH here has already been resolved from the login shell — reading

@@ -226,14 +226,44 @@ The GUI (M7) is an enhancement, not the product, and is the part most likely to 
 
 ---
 
+## D-017 — Detector schema format: JSON (settles O-003)
+
+**Status:** settled (2026-10-13, at M4)
+**Source:** `AGENT_LENS_SCOPE.md` §11, §17; supersedes the open question in D-010
+
+Detectors are defined in **JSON**, versioned by a `schemaVersion` field in the file.
+
+**Rationale:** JSON parses with Foundation's built-in `JSONDecoder` — the zero-dependency rule (M-series briefs: Package.swift) is preserved without authoring and maintaining a hand-rolled YAML parser. YAML's hand-editing ergonomics were weighed against JSON's mechanical validation; the detector file is small (dozens of lines per tool), so JSON verbosity costs little. Hand-written parsers are themselves a bug class; JSONDecoder is battle-tested.
+
+**Consequence:** contributors add tools by editing `Detectors/DefaultDetectors.json` only (D-010); schema validation is test-enforced and becomes a CI gate once CI exists.
+
+---
+
+## D-018 — First detector set: Codex, OpenCode, Grok CLI (settles O-004)
+
+**Status:** settled (2026-10-13, at M4)
+**Source:** `AGENT_LENS_SCOPE.md` §11; resolves O-004 for the first registry
+
+The first data-driven detector registry covers:
+
+| Tool | Executable | Install mechanism (verified on this machine, 2026-10-13) |
+|---|---|---|
+| Codex | `codex` | npm — `~/.local/lib/node_modules/@openai/codex`, version 0.162.1 |
+| OpenCode | `opencode` | standalone — real binary at `~/.opencode/bin/opencode`, version v2.0.28 |
+| Grok CLI | `grok` | standalone — symlink to `~/.grok/downloads/grok-1.0.52-macos-aarch64`, version 1.0.52 |
+
+All three were on the login-shell PATH per the M2 resolver at draft time. The registry format (D-010, D-017) makes adding further tools a data change, not a code change.
+
+---
+
 ## Open questions
 
 | ID | Question | Decide by |
 |---|---|---|
-| O-001 | Should a co-maintainer with Swift experience be sought? | Before M4 |
+| O-001 | Should a co-maintainer with Swift experience be sought? | Before M5 |
 | O-002 | When to purchase the Apple Developer Program ($99/year) | Only when preparing to ship (§23) |
-| O-003 | Detector schema format: YAML or JSON | M4 |
-| O-004 | Which specific tools the first detector set covers | M4 |
+| ~~O-003~~ | Detector schema format — ~~YAML or JSON~~ → **settled: JSON (D-017)** | M4 |
+| ~~O-004~~ | Which tools in the first set → **settled (D-018)** | M4 |
 
 ---
 

@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "detectors": [
+    {
+      "id": "codex",
+      "displayName": "Codex",
+      "executableName": "codex",
+      "extraSearchRoots": ["~/.local/bin"],
+      "fixture": {
+        "layout": "npmGlobal",
+        "expectedSource": "npm"
+      }
+    },
+    {
+      "id": "opencode",
+      "displayName": "OpenCode",
+      "executableName": "opencode",
+      "extraSearchRoots": ["~/.opencode/bin"],
+      "fixture": {
+        "layout": "singleDirectory",
+        "expectedSource": "standalone"
+      }
+    },
+    {
+      "id": "grok",
+      "displayName": "Grok CLI",
+      "executableName": "grok",
+      "extraSearchRoots": ["~/.grok/bin"],
+      "fixture": {
+        "layout": "singleDirectory",
+        "expectedSource": "standalone"
+      }
+    }
+  ]
+}

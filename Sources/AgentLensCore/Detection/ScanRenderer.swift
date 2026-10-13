@@ -31,14 +31,3 @@ public enum ScanRenderer {
         }
     }
 }
-
-/// The single M3 fixture detector (hardcoded by design — the data-driven
-/// detector registry arrives at M4, O-003). Verified against this machine's
-/// real install while drafting the brief.
-public enum CoreDetectors {
-    public static let codex = ToolDetector(
-        displayName: "Codex",
-        executableName: "codex",
-        extraSearchRoots: ["~/.local/bin"]
-    )
-}
