@@ -16,6 +16,12 @@ switch args.count == 2 ? args[1] : nil {
 case "scan":
     print(WalkingSkeleton.renderScanReport(tools: WalkingSkeleton.tools))
     exit(0)
+case "debug-env":
+    // M2: prints the login-shell environment that all later discovery will use.
+    // The PATH here has already been resolved from the login shell — reading
+    // ProcessInfo's PATH is forbidden for discovery (D-005).
+    print(ShellEnvironmentResolver.renderDebugEnvironment(ShellEnvironmentResolver.resolve()))
+    exit(0)
 case nil:
     // No argument: usage only, but a clean exit (brief requirement).
     printUsage()
