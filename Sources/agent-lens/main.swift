@@ -20,8 +20,13 @@ case "scan":
     let environment = ShellEnvironmentResolver.resolve()
     do {
         let definitions = try DetectorRegistry.loadDefault()
-        let tools = definitions.map { $0.makeDetector().detect(in: environment) }
-        print(ScanRenderer.render(tools: tools))
+        let reports = definitions.map { definition in
+            PathDiagnosticsScanner.scan(
+                detector: definition.makeDetector(),
+                environment: environment
+            )
+        }
+        print(DiagnosticsScanRenderer.render(reports: reports, isDegraded: environment.isDegraded))
         exit(0)
     } catch {
         // Fail loud: a broken registry is an operator-visible error, never a

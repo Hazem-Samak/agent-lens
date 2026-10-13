@@ -280,7 +280,8 @@ Record each milestone result here. Include the T3 Code build string so a regress
 | M4 — Detector schema + registry | 2026-10-13 | **passed** — `agent-lens scan` reports all three D-018 tools from the registry; per-tool version diffs MATCH (codex 0.162.1 / opencode 2.0.28 / grok 1.0.52); 9 schema-violation cases rejected named; 4th tool via data-only edit proven live then reverted; `swift test` 22/22 (transcripts in `walkthroughs/M4-detector-registry.md`) | n/a — Swift 6.4, swift-driver 1.168.6 | O-003/O-004 settled as D-017 (JSON) / D-018 (Codex, OpenCode, Grok) before implementation. D-010 fulfilled: adding a tool requires zero source changes. Known grep-trap in the first acceptance loop fixed and recorded; the brief's check was corrected accordingly.
 | M3 — One real detector | | | | |
 | M4 — Detector schema + 3–5 tools | | | | |
-| M5 — Duplicate / PATH diagnostics | | | | |
+| Pre-M5 stabilization | 2026-10-13 (EEST) | **passed** — 34-test stabilization baseline accepted | n/a — Hermes orchestration; Swift 6.4 | `walkthroughs/pre-m5-stabilization.md` |
+| M5 — Duplicate / PATH diagnostics | 2026-10-13 (EEST) | **passed** — final review-found canonical-target fix and 2 regression tests accepted; fresh full suite 46/46 (2.016s) plus no-override rerun 46/46 (2.026s), both exit 0; three CLI winners/versions verified, aliases 0/1/1, 0 shadowed each; login+interactive PATH MATCH; dispatch unchanged | n/a — Hermes orchestration; Swift 6.4 | Acceptance: `walkthroughs/pre-m5-stabilization.md`; `walkthroughs/M5-duplicate-path-diagnostics.md` |
 | M6 — Version / update probing | | | | |
 | M7 — First UI | | | | |
 
