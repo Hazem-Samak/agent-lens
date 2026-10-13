@@ -244,7 +244,7 @@ Record each milestone result here. Include the T3 Code build string so a regress
 | Milestone | Date | Result | T3 Code build | Notes |
 |---|---|---|---|---|
 | M0 — Toolchain | 2026-10-13 | **passed** — `swift build` / `swift run agent-lens` / `swift test` all exit 0 (raw transcripts in `walkthroughs/M0-toolchain.md`) | n/a — no orchestrator build string in use; Swift 6.4, swift-driver 1.168.6 | Repo live at github.com/Hazem-Samak/agent-lens. Scaffold per D-011; walkthrough folder is a user-directed addition to the M0 allow-list. |
-| M1 — Walking skeleton | | | | |
+| M1 — Walking skeleton | 2026-10-13 | **passed** — `agent-lens scan` prints hardcoded Codex/npm report (exit 0); unknown command exits 1; `swift test` 3/3 green (transcripts in `walkthroughs/M1-walking-skeleton.md`) | n/a — Swift 6.4, swift-driver 1.168.6 | Real argument dispatch via `CommandLine.arguments`; renderer in AgentLensCore is a pure function ready to receive real detection output in M2+ |
 | M2 — Environment resolution | | | | |
 | M3 — One real detector | | | | |
 | M4 — Detector schema + 3–5 tools | | | | |
