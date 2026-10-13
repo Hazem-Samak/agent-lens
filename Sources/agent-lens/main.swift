@@ -1,6 +1,7 @@
 // agent-lens — the CLI executable (D-016: the MVP ships as a command-line tool).
 //
-// M1: argument-ordered dispatch and a hardcoded report. Argument index 1 is the
+// M3: `scan` performs real detection (ToolDetector + ShellEnvironment); the
+// argument-ordered dispatch from M1 is unchanged. Argument index 1 is the
 // subcommand (index 0 is the program name).
 
 import AgentLensCore
@@ -14,7 +15,11 @@ func printUsage() {
 
 switch args.count == 2 ? args[1] : nil {
 case "scan":
-    print(WalkingSkeleton.renderScanReport(tools: WalkingSkeleton.tools))
+    // M3: one real detector (brief). Discovery and execution environment come
+    // ONLY from the M2-resolved login shell — never from inherited env (D-005).
+    let environment = ShellEnvironmentResolver.resolve()
+    let tool = CoreDetectors.codex.detect(in: environment)
+    print(ScanRenderer.render(tools: [tool]))
     exit(0)
 case "debug-env":
     // M2: prints the login-shell environment that all later discovery will use.

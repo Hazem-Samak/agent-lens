@@ -19,7 +19,9 @@ import Testing
 }
 
 @Test func unknownCommandHasNonZeroSemanticsViaUsageText() {
-    // Without executing real Processes (forbidden in M1), assert the usage text
-    // the CLI exits with in the unknown-command branch.
-    #expect(WalkingSkeleton.usageMessage.contains("agent-lens <scan>"))
+    // Without executing real Processes, assert the usage text the CLI exits
+    // with in the unknown-command branch. Updated for M3: debug-env (M2) is now
+    // listed; dispatch itself is unchanged from M1.
+    #expect(WalkingSkeleton.usageMessage.contains("agent-lens <scan"))
+    #expect(WalkingSkeleton.usageMessage.contains("debug-env"))
 }

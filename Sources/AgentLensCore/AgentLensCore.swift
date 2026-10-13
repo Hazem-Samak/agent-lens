@@ -40,5 +40,5 @@ public enum WalkingSkeleton {
     }
 
     /// One-line usage message, shown for the no-argument and unknown-command cases.
-    public static let usageMessage = "usage: agent-lens <scan>"
+    public static let usageMessage = "usage: agent-lens <scan|debug-env>"
 }

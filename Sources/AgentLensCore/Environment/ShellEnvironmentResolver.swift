@@ -33,6 +33,21 @@ public struct ShellEnvironment: Sendable {
     public let raw: [String: String]
     /// True when the fallback PATH was used because capture failed or timed out.
     public let isDegraded: Bool
+
+    /// Public so M3 tests can inject synthetic environments without touching M2 logic.
+    public init(
+        shellPath: String,
+        pathEntries: [String],
+        pathJoined: String,
+        raw: [String: String],
+        isDegraded: Bool
+    ) {
+        self.shellPath = shellPath
+        self.pathEntries = pathEntries
+        self.pathJoined = pathJoined
+        self.raw = raw
+        self.isDegraded = isDegraded
+    }
 }
 
 public enum ShellEnvironmentResolver {
