@@ -15,8 +15,10 @@ private func makeExecutable(script: String, at fileURL: URL) throws -> String {
 }
 
 private func tempRoot(_ label: String) throws -> URL {
-    let dir = FileManager.default.temporaryDirectory
-        .appendingPathComponent("agentlens-m4-\(label)-\(UUID().uuidString)")
+    let base = ProcessInfo.processInfo.environment["AGENT_LENS_TEST_SCRATCH"]
+        .map { URL(fileURLWithPath: $0, isDirectory: true) }
+        ?? FileManager.default.temporaryDirectory
+    let dir = base.appendingPathComponent("agentlens-m4-\(label)-\(UUID().uuidString)", isDirectory: true)
     try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
     return dir
 }

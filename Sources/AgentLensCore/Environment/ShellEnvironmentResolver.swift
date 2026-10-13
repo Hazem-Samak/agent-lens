@@ -164,58 +164,23 @@ public enum ShellEnvironmentResolver {
         script: String = ShellEnvironmentResolver.defaultCaptureScript,
         timeout: TimeInterval = ShellEnvironmentResolver.captureTimeout
     ) -> CaptureOutcome {
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: shellPath)
-        process.arguments = ["-l", "-i", "-c", script]
-        let stdout = Pipe()
-        let stderr = Pipe()
-        process.standardOutput = stdout
-        process.standardError = stderr
-        process.standardInput = FileHandle.nullDevice
-
-        do {
-            try process.run()
-        } catch {
+        guard let result = BoundedProcessRunner.run(
+            executablePath: shellPath,
+            arguments: ["-l", "-i", "-c", script],
+            timeout: timeout
+        ) else {
             return CaptureOutcome(dump: nil, timedOut: false)
         }
-
-        // Read on a queued thread so a wedged shell cannot hang the app (M2 req. 3).
-        let box = CapturedDataBox()
-        let finishedReading = DispatchSemaphore(value: 0)
-        DispatchQueue.global(qos: .userInitiated).async {
-            box.store(stdout.fileHandleForReading.readDataToEndOfFile())
-            finishedReading.signal()
-        }
-        let waitResult = finishedReading.wait(timeout: .now() + timeout)
-        if waitResult == .timedOut {
-            if process.isRunning { process.terminate() }
+        guard !result.timedOut else {
             return CaptureOutcome(dump: nil, timedOut: true)
         }
-        process.waitUntilExit()
-
-        guard let data = box.load() else {
+        guard !result.outputLimitExceeded, result.exitStatus == 0 else {
             return CaptureOutcome(dump: nil, timedOut: false)
         }
-        return CaptureOutcome(dump: parseEnvironmentDump(data), timedOut: false)
-    }
-
-    /// Thread-safe box so the read queue can hand the captured data back.
-    /// (A plain captured var cannot be mutated in a Swift 6 concurrent closure.)
-    private final class CapturedDataBox: @unchecked Sendable {
-        private let lock = NSLock()
-        private var data: Data?
-
-        func store(_ newValue: Data) {
-            lock.lock()
-            data = newValue
-            lock.unlock()
-        }
-
-        func load() -> Data? {
-            lock.lock()
-            defer { lock.unlock() }
-            return data
-        }
+        return CaptureOutcome(
+            dump: parseEnvironmentDump(result.standardOutput),
+            timedOut: false
+        )
     }
 
     // MARK: Environment building (pure, unit-tested)
@@ -232,7 +197,7 @@ public enum ShellEnvironmentResolver {
         // Keep the raw environment internally consistent for Process.environment.
         raw["PATH"] = path
         let entries = path
-            .split(separator: ":", omittingEmptySubsequences: true)
+            .split(separator: ":", omittingEmptySubsequences: false)
             .map(String.init)
         return ShellEnvironment(
             shellPath: shellPath,

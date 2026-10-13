@@ -103,10 +103,28 @@ public struct ToolDetector: Sendable {
     private func findExecutable(roots: [String]) -> String? {
         let fileManager = FileManager.default
         for root in roots {
-            let candidate = (root as NSString).appendingPathComponent(executableName)
-            if fileManager.isExecutableFile(atPath: candidate) {
-                return candidate
+            let candidate = root.isEmpty
+                ? executableName
+                : (root as NSString).appendingPathComponent(executableName)
+            let currentDirectory = URL(
+                fileURLWithPath: fileManager.currentDirectoryPath,
+                isDirectory: true
+            )
+            let candidateURL = URL(
+                fileURLWithPath: candidate,
+                relativeTo: currentDirectory
+            ).standardizedFileURL
+            let resolvedURL = candidateURL.resolvingSymlinksInPath().standardizedFileURL
+            var isDirectory: ObjCBool = false
+            guard fileManager.fileExists(atPath: resolvedURL.path, isDirectory: &isDirectory),
+                  !isDirectory.boolValue,
+                  let attributes = try? fileManager.attributesOfItem(atPath: resolvedURL.path),
+                  attributes[.type] as? FileAttributeType == .typeRegular,
+                  fileManager.isExecutableFile(atPath: resolvedURL.path)
+            else {
+                continue
             }
+            return candidate
         }
         return nil
     }
@@ -142,32 +160,19 @@ public struct ToolDetector: Sendable {
         environment: ShellEnvironment,
         timeout: TimeInterval
     ) -> String? {
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: executablePath)
-        process.arguments = ["--version"]
-        process.environment = environment.raw
-        let stdout = Pipe()
-        process.standardOutput = stdout
-        process.standardError = FileHandle.nullDevice
-        process.standardInput = FileHandle.nullDevice
-
-        do { try process.run() } catch { return nil }
-
-        let box = CapturedDataBox()
-        let finishedReading = DispatchSemaphore(value: 0)
-        DispatchQueue.global(qos: .userInitiated).async {
-            box.store(stdout.fileHandleForReading.readDataToEndOfFile())
-            finishedReading.signal()
-        }
-        if finishedReading.wait(timeout: .now() + timeout) == .timedOut {
-            if process.isRunning { process.terminate() }
+        guard let result = BoundedProcessRunner.run(
+            executablePath: executablePath,
+            arguments: ["--version"],
+            environment: environment.raw,
+            timeout: timeout
+        ),
+        !result.timedOut,
+        !result.outputLimitExceeded,
+        result.exitStatus == 0
+        else {
             return nil
         }
-        process.waitUntilExit()
-
-        guard let data = box.load(),
-              let output = String(data: data, encoding: .utf8)
-        else { return nil }
+        guard let output = String(data: result.standardOutput, encoding: .utf8) else { return nil }
         let firstLine = output.split(separator: "\n", omittingEmptySubsequences: true).first
         return Self.extractVersionToken(from: firstLine.map(String.init) ?? "")
     }
@@ -181,11 +186,4 @@ public struct ToolDetector: Sendable {
         return String(line[match])
     }
 
-    /// Thread-safe box for the queued read (same pattern as the M2 resolver).
-    private final class CapturedDataBox: @unchecked Sendable {
-        private let lock = NSLock()
-        private var data: Data?
-        func store(_ newValue: Data) { lock.lock(); data = newValue; lock.unlock() }
-        func load() -> Data? { lock.lock(); defer { lock.unlock() }; return data }
-    }
 }

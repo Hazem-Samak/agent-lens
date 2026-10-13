@@ -1,6 +1,16 @@
-import Testing
+import Darwin
 import Foundation
+import Testing
 @testable import AgentLensCore
+
+private func resolverFixtureRoot() throws -> URL {
+    let base = ProcessInfo.processInfo.environment["AGENT_LENS_TEST_SCRATCH"]
+        .map { URL(fileURLWithPath: $0, isDirectory: true) }
+        ?? FileManager.default.temporaryDirectory
+    let root = base.appendingPathComponent("agentlens-resolver-\(UUID().uuidString)", isDirectory: true)
+    try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+    return root
+}
 
 // M2 tests. From here on the tests are the only mechanism that distinguishes
 // working code from plausible-looking code (D-012, M1 brief "why the test matters").
@@ -62,6 +72,21 @@ import Foundation
     #expect(environment.pathJoined == "/a:/b")
 }
 
+@Test func buildEnvironmentPreservesLeadingTrailingAndInternalEmptyPATHComponents() {
+    let path = ":/first::/second:"
+    let environment = ShellEnvironmentResolver.buildEnvironment(
+        shellPath: "/bin/sh",
+        outcome: ShellEnvironmentResolver.CaptureOutcome(
+            dump: ["PATH": path], timedOut: false
+        )
+    )
+
+    #expect(!environment.isDegraded)
+    #expect(environment.pathJoined == path)
+    #expect(environment.raw["PATH"] == path)
+    #expect(environment.pathEntries == ["", "/first", "", "/second", ""])
+}
+
 @Test func captureTimesOutAgainstAHangingShell() {
     // A script that never finishes must trip the timeout, not hang (M2 req. 3).
     let outcome = ShellEnvironmentResolver.capture(
@@ -73,6 +98,43 @@ import Foundation
     #expect(outcome.dump == nil)
 }
 
+@Test func captureKillsTerminationResistantProcessAfterEarlyStdoutEOF() throws {
+    let root = try resolverFixtureRoot()
+    defer { try? FileManager.default.removeItem(at: root) }
+    let pidFile = root.appendingPathComponent("child.pid")
+    let script = "printf '%s' \"$$\" > '\(pidFile.path)'; exec 1>&-; trap '' TERM; exec /bin/sleep 2"
+
+    let started = DispatchTime.now().uptimeNanoseconds
+    let outcome = ShellEnvironmentResolver.capture(
+        shellPath: "/bin/sh",
+        script: script,
+        timeout: 0.1
+    )
+    let elapsed = Double(DispatchTime.now().uptimeNanoseconds - started) / 1_000_000_000
+    let pidText = try String(contentsOf: pidFile, encoding: .utf8)
+    let pid = try #require(pid_t(pidText))
+    defer {
+        if kill(pid, 0) == 0 { _ = kill(pid, SIGKILL) }
+    }
+
+    #expect(outcome.timedOut)
+    #expect(outcome.dump == nil)
+    #expect(elapsed >= 0.08 && elapsed < 0.5, "elapsed: \(elapsed)")
+    #expect(kill(pid, 0) == -1)
+}
+
+@Test func captureDiscardsLargeStderrWithoutBlocking() {
+    let script = "i=0; while [ \"$i\" -lt 4096 ]; do printf '................................' >&2; i=$((i + 1)); done; \(ShellEnvironmentResolver.defaultCaptureScript)"
+    let outcome = ShellEnvironmentResolver.capture(
+        shellPath: "/bin/sh",
+        script: script,
+        timeout: 1
+    )
+
+    #expect(!outcome.timedOut)
+    #expect(outcome.dump?["PATH"] != nil)
+}
+
 @Test func captureParsesASuccessfulRealShellRun() {
     // End-to-end against a real shell with the production script shape.
     let script = #"printf "\n__AGENTLENS_ENV_BEGIN__\n"; env -0; printf "__AGENTLENS_ENV_END__\n""#
@@ -81,4 +143,21 @@ import Foundation
     let dump = try? #require(outcome.dump)
     #expect(dump?["PATH"] != nil)
     #expect(dump?["HOME"] != nil)
+}
+
+@Test func captureRejectsSentinelsFromANonzeroShellExit() {
+    let outcome = ShellEnvironmentResolver.capture(
+        shellPath: "/bin/sh",
+        script: "\(ShellEnvironmentResolver.defaultCaptureScript); exit 7",
+        timeout: 2
+    )
+
+    #expect(!outcome.timedOut)
+    let dumpWasRejected = outcome.dump == nil
+    #expect(dumpWasRejected, "capture accepted sentinels from a failed shell")
+    let environment = ShellEnvironmentResolver.buildEnvironment(
+        shellPath: "/bin/sh", outcome: outcome
+    )
+    let environmentIsDegraded = environment.isDegraded
+    #expect(environmentIsDegraded, "failed shell capture must use degraded fallback")
 }
