@@ -15,12 +15,18 @@ private func makeExecutable(script: String, at fileURL: URL) throws -> String {
 }
 
 private func tempRoot(_ label: String) throws -> URL {
-    let base = ProcessInfo.processInfo.environment["AGENT_LENS_TEST_SCRATCH"]
-        .map { URL(fileURLWithPath: $0, isDirectory: true) }
-        ?? FileManager.default.temporaryDirectory
+    let environment = ProcessInfo.processInfo.environment
+    guard let basePath = [environment["AGENT_LENS_TEST_SCRATCH"], environment["TMPDIR"]]
+        .compactMap({ $0 })
+        .first(where: { !$0.isEmpty })
+    else {
+        throw NSError(domain: "AgentLensTests", code: 1,
+                      userInfo: [NSLocalizedDescriptionKey: "no approved test scratch root is available"])
+    }
+    let base = URL(fileURLWithPath: basePath, isDirectory: true).resolvingSymlinksInPath()
     let dir = base.appendingPathComponent("agentlens-m4-\(label)-\(UUID().uuidString)", isDirectory: true)
     try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-    return dir
+    return dir.resolvingSymlinksInPath()
 }
 
 private func environment(pathEntries: [URL]) -> ShellEnvironment {

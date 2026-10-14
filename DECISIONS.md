@@ -282,7 +282,7 @@ Record each milestone result here. Include the T3 Code build string so a regress
 | M4 — Detector schema + 3–5 tools | | | | |
 | Pre-M5 stabilization | 2026-10-13 (EEST) | **passed** — 34-test stabilization baseline accepted | n/a — Hermes orchestration; Swift 6.4 | `walkthroughs/pre-m5-stabilization.md` |
 | M5 — Duplicate / PATH diagnostics | 2026-10-13 (EEST) | **passed** — final review-found canonical-target fix and 2 regression tests accepted; fresh full suite 46/46 (2.016s) plus no-override rerun 46/46 (2.026s), both exit 0; three CLI winners/versions verified, aliases 0/1/1, 0 shadowed each; login+interactive PATH MATCH; dispatch unchanged | n/a — Hermes orchestration; Swift 6.4 | Acceptance: `walkthroughs/pre-m5-stabilization.md`; `walkthroughs/M5-duplicate-path-diagnostics.md` |
-| M6 — Version / update probing | | | | |
+| M6 — Version / update probing | 2026-10-14 (EEST) | **passed / independently accepted** — two distinct fresh builds each passed 180/180 (23.447s and 22.716s, exit 0); all 12 CLI forms passed; live M5 prefix remained byte-identical; accepted source/test snapshot and real app-cache content stayed unchanged | n/a — Hermes orchestration; Swift 6.4; final test runs used invocation-local Swift Testing macro-plugin loading, with no package or toolchain change | `walkthroughs/M6-version-update-probing.md`; two independent read-only review axes and targeted blocker rereview passed. Homebrew-formula-only; latest known metadata, not guaranteed globally latest. No M7 or package operations. |
 | M7 — First UI | | | | |
 
 ---
@@ -292,3 +292,12 @@ Record each milestone result here. Include the T3 Code build string so a regress
 MCP servers, agent skills, configuration files, generic system utilities, arbitrary binaries, security scanning, generic Mac applications, Mac cleaning, AI chat, cloud sync, user accounts, telemetry, plugin marketplace, automatic broad cleanup, Windows, Linux.
 
 See `AGENT_LENS_SCOPE.md` §15 for the authoritative list.
+
+## D-019 — M6 update checks are opt-in Homebrew formula diagnostics
+
+**Status:** settled (2026-10-14, at M6)
+**Source:** `AGENT_LENS_SCOPE.md` §21, §27.1/3/5, §28.2–3, §29.4–5/10–12; `briefs/M6-version-update-probing.md`
+
+M6 preserves local detection and adds an opt-in, asynchronous, tri-state update result based on the selected installation and verified Homebrew formula metadata. The adapter supports formulae only and runs at most three bounded queries per eligible batch; it does not run `brew update` or perform package operations. Unsupported managers, unsupported version schemes, and opaque process failures remain neutral `unknown` results. Only verified successful metadata is cached, in schema 3 with a six-hour TTL and a 1 MiB limit; the cache is keyed by full manager/formula/selection/context identity and does not store raw environment values. Status is recomputed from current local facts on every run.
+
+**Consequence:** latest means latest known to Homebrew metadata at observation time, not a guarantee of the newest upstream release. npm, standalone, cask, uv/pip, and Cargo adapters remain outside M6. M7 is still pending.

@@ -4,18 +4,18 @@ import Testing
 @testable import AgentLensCore
 
 private func diagnosticsFixtureRoot(_ label: String) throws -> URL {
-    let base: URL
-    if let scratch = ProcessInfo.processInfo.environment["AGENT_LENS_TEST_SCRATCH"], !scratch.isEmpty {
-        base = URL(fileURLWithPath: scratch, isDirectory: true)
-    } else {
-        base = URL(fileURLWithPath: NSHomeDirectory(), isDirectory: true)
-            .appendingPathComponent(".hermes", isDirectory: true)
-            .appendingPathComponent("cache", isDirectory: true)
-            .appendingPathComponent("scratch", isDirectory: true)
+    let environment = ProcessInfo.processInfo.environment
+    guard let basePath = [environment["AGENT_LENS_TEST_SCRATCH"], environment["TMPDIR"]]
+        .compactMap({ $0 })
+        .first(where: { !$0.isEmpty })
+    else {
+        throw NSError(domain: "AgentLensTests", code: 1,
+                      userInfo: [NSLocalizedDescriptionKey: "no approved test scratch root is available"])
     }
+    let base = URL(fileURLWithPath: basePath, isDirectory: true).resolvingSymlinksInPath()
     let root = base.appendingPathComponent("agentlens-m5-\(label)-\(UUID().uuidString)", isDirectory: true)
     try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
-    return root
+    return root.resolvingSymlinksInPath()
 }
 
 @discardableResult

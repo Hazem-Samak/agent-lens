@@ -4,12 +4,18 @@ import Testing
 @testable import AgentLensCore
 
 private func resolverFixtureRoot() throws -> URL {
-    let base = ProcessInfo.processInfo.environment["AGENT_LENS_TEST_SCRATCH"]
-        .map { URL(fileURLWithPath: $0, isDirectory: true) }
-        ?? FileManager.default.temporaryDirectory
+    let environment = ProcessInfo.processInfo.environment
+    guard let basePath = [environment["AGENT_LENS_TEST_SCRATCH"], environment["TMPDIR"]]
+        .compactMap({ $0 })
+        .first(where: { !$0.isEmpty })
+    else {
+        throw NSError(domain: "AgentLensTests", code: 1,
+                      userInfo: [NSLocalizedDescriptionKey: "no approved test scratch root is available"])
+    }
+    let base = URL(fileURLWithPath: basePath, isDirectory: true).resolvingSymlinksInPath()
     let root = base.appendingPathComponent("agentlens-resolver-\(UUID().uuidString)", isDirectory: true)
     try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
-    return root
+    return root.resolvingSymlinksInPath()
 }
 
 // M2 tests. From here on the tests are the only mechanism that distinguishes

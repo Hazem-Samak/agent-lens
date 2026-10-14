@@ -32,12 +32,18 @@ private func fixtureEnvironment(
 }
 
 private func fixtureRoot(_ label: String) throws -> URL {
-    let base = ProcessInfo.processInfo.environment["AGENT_LENS_TEST_SCRATCH"]
-        .map { URL(fileURLWithPath: $0, isDirectory: true) }
-        ?? FileManager.default.temporaryDirectory
+    let environment = ProcessInfo.processInfo.environment
+    guard let basePath = [environment["AGENT_LENS_TEST_SCRATCH"], environment["TMPDIR"]]
+        .compactMap({ $0 })
+        .first(where: { !$0.isEmpty })
+    else {
+        throw NSError(domain: "AgentLensTests", code: 1,
+                      userInfo: [NSLocalizedDescriptionKey: "no approved test scratch root is available"])
+    }
+    let base = URL(fileURLWithPath: basePath, isDirectory: true).resolvingSymlinksInPath()
     let root = base.appendingPathComponent("agentlens-m3-\(label)-\(UUID().uuidString)", isDirectory: true)
     try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
-    return root
+    return root.resolvingSymlinksInPath()
 }
 
 private func agentLensCoreProductsDirectory() throws -> URL {
