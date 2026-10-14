@@ -1196,31 +1196,41 @@ private let nonUTF8Transports: [(label: String, encoding: String.Encoding, bom: 
     ) == .unknown(installed: Version("1.2.3"), reason: .identityUnverified))
 }
 
-@Test func stableSuffixCannotForgeARevisionAndSeparateManagerRevisionRemainsSupported() async throws {
+@Test func unsupportedStableFormatsRemainUnsupportedThroughRunBatch() async throws {
     let fixture = try makeBrewFixture("stable-suffix-revision")
     let environment = m6Environment(pathEntries: [fixture.binDirectory])
-    for revision in [0, 4] {
-        let runner = ScriptedRunner { _, arguments in
-            switch arguments.first {
-            case "--cellar": .success(Data("\(fixture.cellar)\n".utf8))
-            case "info": .success(infoJSON([
-                (name: "codex", stable: "1.2.3_99", revision: revision, installed: ["1.2.3"])
-            ]))
-            default: .success(outdatedJSON([]))
+    for stable in ["HEAD", "1.x", "1.2.3_99"] {
+        for revision in [0, 4] {
+            let runner = ScriptedRunner { _, arguments in
+                switch arguments.first {
+                case "--cellar": .success(Data("\(fixture.cellar)\n".utf8))
+                case "info": .success(infoJSON([
+                    (name: "codex", stable: stable, revision: revision, installed: ["1.2.3"])
+                ]))
+                default: .success(outdatedJSON([]))
+                }
             }
+            let batch = try #require(try? await HomebrewUpdateProbe.runBatch(
+                manager: HomebrewManager(entryPath: fixture.brewPath, canonicalTarget: fixture.brewPath),
+                formulas: ["codex"], environment: environment, runner: runner
+            ).get())
+            let record = try #require(batch.formulas["codex"]?.first)
+            #expect(record.isValid)
+            #expect(record.stable == stable)
+            #expect(record.revision == revision)
+            #expect(record.installedVersions == ["1.2.3"])
+            #expect(resolve(
+                selectedTarget: "\(fixture.cellar)/codex/1.2.3/bin/codex",
+                localVersion: "1.2.3",
+                batch: batch
+            ) == .unknown(installed: Version("1.2.3"), reason: .unsupportedVersion))
         }
-        let batch = try #require(try? await HomebrewUpdateProbe.runBatch(
-            manager: HomebrewManager(entryPath: fixture.brewPath, canonicalTarget: fixture.brewPath),
-            formulas: ["codex"], environment: environment, runner: runner
-        ).get())
-        #expect(batch.formulas["codex"]?.first?.isValid == false)
-        #expect(resolve(
-            selectedTarget: "\(fixture.cellar)/codex/1.2.3/bin/codex",
-            localVersion: "1.2.3",
-            batch: batch
-        ) == .unknown(installed: Version("1.2.3"), reason: .identityUnverified))
     }
+}
 
+@Test func validStableWithSeparateManagerRevisionRemainsSupportedThroughRunBatch() async throws {
+    let fixture = try makeBrewFixture("genuine-revision")
+    let environment = m6Environment(pathEntries: [fixture.binDirectory])
     let genuineRevisionRunner = ScriptedRunner { _, arguments in
         switch arguments.first {
         case "--cellar": .success(Data("\(fixture.cellar)\n".utf8))
@@ -1239,6 +1249,95 @@ private let nonUTF8Transports: [(label: String, encoding: String.Encoding, bom: 
         localVersion: "1.2.3",
         batch: genuineRevisionBatch
     ) == .updateAvailable(installed: Version("1.2.3"), latest: Version("1.2.3_99")))
+}
+
+@Test func unsupportedStableValidatesMatchingOutdatedRecordsFirst() async throws {
+    let fixture = try makeBrewFixture("unsupported-stable-outdated-priority")
+    let malformedOutdated = Data("""
+    {"formulae":[{"name":"codex","current_version":42,"installed_versions":["1.2.3"]}],"casks":[]}
+    """.utf8)
+    let duplicateOutdated = Data("""
+    {"formulae":[
+      {"name":"codex","current_version":"1.2.4","installed_versions":["1.2.3"]},
+      {"name":"codex","current_version":"1.2.5","installed_versions":["1.2.3"]}
+    ],"casks":[]}
+    """.utf8)
+    let cases: [(label: String, outdated: Data, reason: UnknownReason)] = [
+        ("malformed matching outdated record", malformedOutdated, .identityUnverified),
+        ("duplicate matching outdated records", duplicateOutdated, .identityUnverified),
+        ("valid matching outdated record", outdatedJSON([
+            (name: "codex", current: "1.2.4", installed: ["1.2.3"]),
+        ]), .unsupportedVersion),
+    ]
+
+    for testCase in cases {
+        let runner = ScriptedRunner { _, arguments in
+            switch arguments.first {
+            case "--cellar": .success(Data("\(fixture.cellar)\n".utf8))
+            case "info": .success(infoJSON([
+                (name: "codex", stable: "HEAD", revision: 0, installed: ["1.2.3"]),
+            ]))
+            default: .success(testCase.outdated)
+            }
+        }
+        let batch = try #require(try? await HomebrewUpdateProbe.runBatch(
+            manager: HomebrewManager(entryPath: fixture.brewPath, canonicalTarget: fixture.brewPath),
+            formulas: ["codex"],
+            environment: m6Environment(pathEntries: [fixture.binDirectory]),
+            runner: runner
+        ).get())
+        #expect(resolve(
+            selectedTarget: "\(fixture.cellar)/codex/1.2.3/bin/codex",
+            localVersion: "1.2.3",
+            batch: batch
+        ) == .unknown(installed: Version("1.2.3"), reason: testCase.reason), "case: \(testCase.label)")
+    }
+}
+
+@Test func unsupportedStableDoesNotOverrideIdentityOrSelectedKegFailures() async throws {
+    let fixture = try makeBrewFixture("unsupported-stable-identity-priority")
+    let malformedIdentity = Data("""
+    {"formulae":[{"name":"codex","full_name":"wrong/tap/not-codex","revision":0,
+    "versions":{"stable":"HEAD"},"installed":[{"version":"1.2.3"}]}],"casks":[]}
+    """.utf8)
+    let borrowedIdentity = Data("""
+    {"formulae":[
+      {"name":"codex","full_name":"codex","revision":0,"versions":{"stable":"HEAD"},"installed":[{"version":"1.2.3"}]},
+      {"name":"other","full_name":"codex","revision":0,"versions":{"stable":"1.2.3"},"installed":[{"version":"1.2.3"}]}
+    ],"casks":[]}
+    """.utf8)
+    let cases: [(label: String, data: Data, formulas: [String])] = [
+        ("malformed formula identity", malformedIdentity, ["codex"]),
+        ("duplicate formula records", infoJSON([
+            (name: "codex", stable: "HEAD", revision: 0, installed: ["1.2.3"]),
+            (name: "codex", stable: "1.x", revision: 0, installed: ["1.2.3"]),
+        ]), ["codex"]),
+        ("selected keg missing from inventory", infoJSON([
+            (name: "codex", stable: "HEAD", revision: 0, installed: ["0.9.0"]),
+        ]), ["codex"]),
+        ("unsupported record has a borrowed identity", borrowedIdentity, ["codex", "other"]),
+    ]
+
+    for testCase in cases {
+        let runner = ScriptedRunner { _, arguments in
+            switch arguments.first {
+            case "--cellar": .success(Data("\(fixture.cellar)\n".utf8))
+            case "info": .success(testCase.data)
+            default: .success(outdatedJSON([]))
+            }
+        }
+        let batch = try #require(try? await HomebrewUpdateProbe.runBatch(
+            manager: HomebrewManager(entryPath: fixture.brewPath, canonicalTarget: fixture.brewPath),
+            formulas: testCase.formulas,
+            environment: m6Environment(pathEntries: [fixture.binDirectory]),
+            runner: runner
+        ).get())
+        #expect(resolve(
+            selectedTarget: "\(fixture.cellar)/codex/1.2.3/bin/codex",
+            localVersion: "1.2.3",
+            batch: batch
+        ) == .unknown(installed: Version("1.2.3"), reason: .identityUnverified), "case: \(testCase.label)")
+    }
 }
 
 @Test func directlyConstructedStableSuffixIsUnsupportedDespiteDefaultValidity() {

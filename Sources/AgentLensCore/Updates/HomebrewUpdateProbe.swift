@@ -232,7 +232,6 @@ public enum HomebrewUpdateProbe {
             guard let fullName = record["full_name"] as? String,
                   let versions = record["versions"] as? [String: Any],
                   let stable = versions["stable"] as? String,
-                  isSupportedUpstreamVersion(stable),
                   let revision = strictNonnegativeInt(record["revision"]),
                   let installed = installedVersionList(record["installed"]),
                   formulaIdentityConsistent(name: name, fullName: fullName)
@@ -592,8 +591,9 @@ public enum HomebrewStatusResolver {
             return .unknown(installed: installed, reason: .identityUnverified)
         }
 
-        // The formula record must be unique, valid, and must list the selected keg as installed.
-        // An invalid marker or a duplicated stem is ambiguity, never a silent omission.
+        // The formula record must be unique, structurally valid, and must list the selected keg
+        // as installed. Unsupported stable text is retained by parseInfo and classified only
+        // after these identity checks; an invalid marker or duplicate is never guessed through.
         //
         // `isValid` is not trusted here: a record can be constructed directly or restored from a
         // cache with `isValid` defaulting to true, so the name/full-name agreement is re-derived
@@ -608,14 +608,6 @@ public enum HomebrewStatusResolver {
             return .unknown(installed: installed, reason: .identityUnverified)
         }
 
-        // Publicly constructed records can bypass parseInfo's validation. Do not interpret a
-        // revision-looking suffix in `stable` as upstream text or compose it with `revision`.
-        guard record.revision >= 0,
-              HomebrewUpdateProbe.isSupportedUpstreamVersion(record.stable)
-        else {
-            return .unknown(installed: installed, reason: .unsupportedVersion)
-        }
-
         // No other record may claim this full name under a different stem: an ambiguous alias
         // cannot be attributed to the selected keg. Invalid markers are scanned too — they keep
         // their raw full name precisely so a borrowed identity poisons this match instead of
@@ -625,14 +617,6 @@ public enum HomebrewStatusResolver {
         }
         guard !aliasConflict else {
             return .unknown(installed: installed, reason: .identityUnverified)
-        }
-
-        // Compare the selected package revision against the candidate latest package, not the
-        // bare CLI banner text.
-        let latest = record.packageVersion
-        guard let comparison = VersionComparison.ordering(keg.kegVersion, latest, scheme: .homebrewStable)
-        else {
-            return .unknown(installed: installed, reason: .unsupportedVersion)
         }
 
         // Cross-check the outdated records associated by the verified full name. A bare-name
@@ -653,12 +637,43 @@ public enum HomebrewStatusResolver {
             return .unknown(installed: installed, reason: .identityUnverified)
         }
 
+        // Outdated identity shape is independent of version comparison. Reject malformed or
+        // duplicated matching records before an unsupported stable format can determine the
+        // result; comparisons against `latest` remain below, after a supported stable is known.
         let outdatedCandidates = batch.outdated[record.fullName] ?? []
-        if !outdatedCandidates.isEmpty {
+        let outdatedRecord: HomebrewOutdatedRecord?
+        if outdatedCandidates.isEmpty {
+            outdatedRecord = nil
+        } else {
             guard outdatedCandidates.count == 1,
-                  let outdated = outdatedCandidates.first,
-                  outdated.isValid,
-                  outdated.currentVersion == latest,
+                  let candidate = outdatedCandidates.first,
+                  candidate.isValid
+            else {
+                return .unknown(installed: installed, reason: .identityUnverified)
+            }
+            outdatedRecord = candidate
+        }
+
+        // Publicly constructed records can bypass parseInfo's validation. Do not interpret a
+        // revision-looking suffix in `stable` as upstream text or compose it with `revision`.
+        // This check follows identity and alias validation so unsupported metadata cannot hide a
+        // malformed, duplicated, or unselected record.
+        guard record.revision >= 0,
+              HomebrewUpdateProbe.isSupportedUpstreamVersion(record.stable)
+        else {
+            return .unknown(installed: installed, reason: .unsupportedVersion)
+        }
+
+        // Compare the selected package revision against the candidate latest package, not the
+        // bare CLI banner text.
+        let latest = record.packageVersion
+        guard let comparison = VersionComparison.ordering(keg.kegVersion, latest, scheme: .homebrewStable)
+        else {
+            return .unknown(installed: installed, reason: .unsupportedVersion)
+        }
+
+        if let outdated = outdatedRecord {
+            guard outdated.currentVersion == latest,
                   outdatedInstalledAgree(outdated: outdated, record: record, latest: latest),
                   !(comparison == .equal && outdated.installedVersions.contains(keg.kegVersion))
             else {

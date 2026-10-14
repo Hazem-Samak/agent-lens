@@ -521,3 +521,78 @@ The parent completed independent M6 acceptance and recorded the M6 decision/log 
 checkpoint, remaining work was parent-owned documentation validation, authorized commit/push to `main`,
 and branch cleanup after verified inclusion. Current publication truth is Git refs/history and the parent's
 publication report. M7 remains outside this closeout.
+
+## POST-ACCEPTANCE CORRECTION — 2026-10-15 EEST
+
+The parent accepted the unsupported-version reason-priority correction after an independent fresh full
+gate and targeted artifact-only rereview. The original M6 acceptance and its 180-test results above remain
+historical and unchanged; this is a separately accepted working-tree correction, not a rewrite of that
+acceptance.
+
+The correction validates the matching full-formula `outdated` record's uniqueness and structural validity
+before classifying an unsupported stable version. Comparisons that require a supported latest version remain
+after that validation. Unsupported stable values (`HEAD`, `1.x`, and an embedded revision suffix) remain
+`unknown(.unsupportedVersion)`; malformed or duplicate matching outdated records remain
+`unknown(.identityUnverified)`. Local version text is retained, and unknown results are not cached. The
+Homebrew adapter remains formula-only and reports latest-known manager metadata, not guaranteed global
+latest.
+
+The original `stableSuffixCannotForgeARevisionAndSeparateManagerRevisionRemainsSupported` test was replaced
+by `unsupportedStableFormatsRemainUnsupportedThroughRunBatch` and
+`validStableWithSeparateManagerRevisionRemainsSupportedThroughRunBatch`. The correction also adds
+`unsupportedStableDoesNotOverrideIdentityOrSelectedKegFailures`,
+`unsupportedStableValidatesMatchingOutdatedRecordsFirst`, and
+`unsupportedStableKeepsLocalTextAndDoesNotCreateCacheEntry`.
+
+### Parent acceptance evidence
+
+The authoritative ledger is
+`/Users/corvette/.hermes/cache/scratch/agent-lens-m6-reason-fix.r9royqqm/parent-final.8k_ou5hw/acceptance.json`.
+The parent ran:
+
+```text
+swift test --build-system swiftbuild --scratch-path /Users/corvette/.hermes/cache/scratch/agent-lens-m6-reason-fix.r9royqqm/parent-final.8k_ou5hw/build -Xswiftc -load-plugin-library -Xswiftc /Library/Developer/CommandLineTools/usr/lib/swift/host/plugins/testing/libTestingMacros.dylib
+TMPDIR=/Users/corvette/.hermes/cache/scratch
+AGENT_LENS_TEST_PRODUCTS=unset
+AGENT_LENS_TEST_SCRATCH=unset
+```
+
+Verbatim excerpts from
+`/Users/corvette/.hermes/cache/scratch/agent-lens-m6-reason-fix.r9royqqm/parent-final.8k_ou5hw/full.log`:
+
+```text
+Build complete! (20.04 secs)
+✔ Test run with 184 tests in 0 suites passed after 23.145 seconds.
+```
+
+The recorded process exit was `0`. The independent compiled classification proof also compiled and ran with
+exit `0`; its raw results are in
+`/Users/corvette/.hermes/cache/scratch/agent-lens-m6-reason-fix.r9royqqm/parent-final.8k_ou5hw/classification-proof.log`:
+
+```text
+stable=HEAD reason=unsupportedVersion PASS
+stable=1.x reason=unsupportedVersion PASS
+stable=1.2.3_99 reason=unsupportedVersion PASS
+case=malformed reason=identityUnverified PASS
+case=duplicate reason=identityUnverified PASS
+supported control PASS
+```
+
+Targeted artifact-only rereview `deleg_cee2bd5f` passed with no security concerns, logic errors, or
+suggestions; the prior reason-priority blocker is closed. The parent ledger records unchanged source/test
+snapshot hashes, protected tracked files, and real app-cache content during acceptance.
+
+### Acceptance checkpoint and test-environment limits
+
+The correction was accepted on `fix/m6-unsupported-version-reason` from the `13afef5` checkpoint. The parent
+is authorized to publish the correction with the M7 plan to `main`; current Git refs/history are authoritative
+for publication and integration status. This records the acceptance checkpoint, not a claim that publication
+has occurred. M7 remains plan-only.
+
+The passing “no overrides” gate left `AGENT_LENS_TEST_PRODUCTS` and `AGENT_LENS_TEST_SCRATCH` unset but
+explicitly set `TMPDIR` to the approved scratch path above; it does not establish that ordinary `swift test`
+under the default Darwin temporary directory passes. Known test-fixture portability failures remain there:
+home-relative fixture paths when scratch is outside the home directory, the sandbox temp-decoy denial
+control, and `/var` versus `/private/var` working-directory spelling. These are test-harness/platform
+limitations, not product update-probe failures; no portability fix is included. Swift Testing macro
+discovery is intermittent on this machine, so the accepted run used the explicit plugin fallback.

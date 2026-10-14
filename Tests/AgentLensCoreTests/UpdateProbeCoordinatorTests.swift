@@ -444,6 +444,32 @@ private func probeSubject(_ diagnostic: ToolPathDiagnostic, id: String, displayN
     #expect(FileManager.default.fileExists(atPath: s.url.path) == false)
 }
 
+@Test func unsupportedStableKeepsLocalTextAndDoesNotCreateCacheEntry() async throws {
+    let s = try scenario("unsupported-stable")
+    let runner = CountingRunner { arguments in
+        switch arguments.first {
+        case "--cellar": .success(Data("\(s.fixture.cellar)\n".utf8))
+        case "info": .success(infoJSON([
+            (name: "codex", stable: "HEAD", revision: 0, installed: ["0.162.1_1"]),
+        ]))
+        default: .success(outdatedJSON([]))
+        }
+    }
+    let results = await UpdateProbeCoordinator.run(
+        subjects: [probeSubject(toolDetection(s, version: "0.162.1"), id: "codex")],
+        environment: m6Environment(pathEntries: [s.fixture.binDirectory]),
+        mode: .refresh,
+        runner: runner,
+        cacheURL: s.url,
+        now: { s.clockValue }
+    )
+    let result = try #require(results.first)
+    #expect(result.status == .unknown(installed: Version("0.162.1"), reason: .unsupportedVersion))
+    #expect(result.localVersion == "0.162.1")
+    #expect(result.provenance == .freshProbe(observedAt: s.clockValue))
+    #expect(FileManager.default.fileExists(atPath: s.url.path) == false)
+}
+
 @Test func plainScanReportsNotCheckedAndMakesNoManagerCall() async throws {
     let s = try scenario("plain")
     let runner = CountingRunner(handler: healthyHandler(cellar: s.fixture.cellar))
