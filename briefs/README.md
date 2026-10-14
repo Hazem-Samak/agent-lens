@@ -45,11 +45,15 @@ Per §29.6: **ambiguity → strongest reasoning model. Volume → fastest model.
 
 | Brief | Milestone | Status |
 |---|---|---|
-| `M0-toolchain.md` | Toolchain | ready |
-| `M1-walking-skeleton.md` | Walking skeleton | ready |
-| `M2-environment-resolution.md` | Environment resolution | ready — **highest risk in the project** |
+| `M0-toolchain.md` | Toolchain | passed |
+| `M1-walking-skeleton.md` | Walking skeleton | passed |
+| `M2-environment-resolution.md` | Environment resolution | passed — **highest risk in the project** |
+| `M3-real-detector.md` | One real detector | passed |
+| `M4-detector-registry.md` | Detector schema + registry | passed |
+| `M5-duplicate-path-diagnostics.md` | Duplicate / PATH diagnostics | passed |
+| `M6-version-update-probing.md` | Version / update probing | passed |
 
-M3 onward are written after M2 passes, because M2's outcome may change what M3 needs to look like.
+M0–M6 are complete. M7 (`M7-first-ui.md`) will be drafted next, building on the accepted M0–M6 engine.
 
 ---
 
