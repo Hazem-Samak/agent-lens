@@ -1,8 +1,27 @@
 # Agent Lens
 
-A macOS-native utility that tells you **which AI CLI tools are actually installed, where they came from, and which copy PATH resolves to**. Built in Swift 6 (D-001): an `AgentLensCore` engine plus an `agent-lens` CLI, with a SwiftUI app arriving later.
+A macOS-native utility that tells you **which AI CLI tools are actually installed, where they came from, and which copy PATH resolves to**. Built in Swift 6 (D-001): an `AgentLensCore` engine plus an `agent-lens` CLI, with a SwiftUI native macOS development app added at M7.
 
 This repository surfaces the diagnostic that no existing tool answers: when multiple copies of an AI CLI exist on your machine, which one wins — and why. See `AGENT_LENS_SCOPE.md` for the full scope and `DECISIONS.md` for settled design decisions.
+
+## Development app (M7)
+
+A scratch-only, unsigned native macOS development app was added at M7. Build it locally with `scripts/build-dev-app.py` (default `debug`; `--configuration release` is also supported) into a fresh scratch root outside the repo and protected roots, e.g. under `$HOME/.hermes/cache/scratch`:
+
+```sh
+m7_root="$HOME/.hermes/cache/scratch/agent-lens-m7-$(uuidgen)"
+mkdir -p "$m7_root/tmp"
+TMPDIR="$m7_root/tmp" python3 scripts/build-dev-app.py \
+  --scratch-root "$m7_root/dev-app" --configuration debug
+```
+
+The builder prints the absolute `.app` path. Open it from Finder or with:
+
+```sh
+open "$m7_root/dev-app/AgentLensApp-debug.app"
+```
+
+This is local development only: unsigned, no signing, notarization, install, release, or GitHub delivery. It is not a release product. See [walkthrough](walkthroughs/M7-first-ui.md) for the measured implementation/acceptance walkthrough, including debug/release builder command shapes and the packaging trust boundary.
 
 ## Usage
 

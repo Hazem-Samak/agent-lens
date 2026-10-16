@@ -26,5 +26,20 @@ let package = Package(
             name: "AgentLensCoreTests",
             dependencies: ["AgentLensCore"]
         ),
+        // The typed app boundary (M7). Consumes AgentLensCore; never SwiftUI or AppKit, so the
+        // engine stays presentation-free (D-002) and the CLI remains an independent product.
+        .target(
+            name: "AgentLensAppSupport",
+            dependencies: ["AgentLensCore"]
+        ),
+        .testTarget(
+            name: "AgentLensAppSupportTests",
+            dependencies: ["AgentLensAppSupport", "AgentLensCore"]
+        ),
+        // The first native SwiftUI window (M7).
+        .executableTarget(
+            name: "AgentLensApp",
+            dependencies: ["AgentLensAppSupport", "AgentLensCore"]
+        ),
     ]
 )

@@ -52,8 +52,9 @@ Per §29.6: **ambiguity → strongest reasoning model. Volume → fastest model.
 | `M4-detector-registry.md` | Detector schema + registry | passed |
 | `M5-duplicate-path-diagnostics.md` | Duplicate / PATH diagnostics | passed |
 | `M6-version-update-probing.md` | Version / update probing | passed |
+| `M7-first-ui.md` | First UI | passed — technical acceptance + user visual approval 2026-10-16; closeout documentation under parent review |
 
-M0–M6 are complete. M7 (`M7-first-ui.md`) will be drafted next, building on the accepted M0–M6 engine.
+M0–M6 complete. M7 passed technical acceptance and user approved initial UI 2026-10-16; closeout documentation under parent review. M7 (`M7-first-ui.md`) implemented the first native SwiftUI macOS app; see [`../walkthroughs/M7-first-ui.md`](../walkthroughs/M7-first-ui.md) for the measured implementation/acceptance walkthrough. The frozen `briefs/M7-first-ui.md` plan remains untouched as the historical plan; the walkthrough records current status.
 
 ---
 
