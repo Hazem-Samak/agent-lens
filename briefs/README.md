@@ -52,9 +52,12 @@ Per §29.6: **ambiguity → strongest reasoning model. Volume → fastest model.
 | `M4-detector-registry.md` | Detector schema + registry | passed |
 | `M5-duplicate-path-diagnostics.md` | Duplicate / PATH diagnostics | passed |
 | `M6-version-update-probing.md` | Version / update probing | passed |
-| `M7-first-ui.md` | First UI | passed — technical acceptance + user visual approval 2026-10-16; closeout documentation under parent review |
+| `M7-first-ui.md` | First UI | passed — technical acceptance + user visual approval 2026-10-16; delivered to `main` as `36a3f1c` |
+| [`M8-path-actions.md`](M8-path-actions.md) | Copy Path and Reveal in Finder | draft — planning authorized 2026-10-17; implementation not started |
 
-M0–M6 complete. M7 passed technical acceptance and user approved initial UI 2026-10-16; closeout documentation under parent review. M7 (`M7-first-ui.md`) implemented the first native SwiftUI macOS app; see [`../walkthroughs/M7-first-ui.md`](../walkthroughs/M7-first-ui.md) for the measured implementation/acceptance walkthrough. The frozen `briefs/M7-first-ui.md` plan remains untouched as the historical plan; the walkthrough records current status.
+M0–M7 complete. M7 passed technical acceptance and user approved the initial UI 2026-10-16; source and closeout documentation were committed and pushed as `36a3f1c`. Local `main`, `origin/main`, and GitHub `main` were independently checked at that commit on 2026-10-17. M7 (`M7-first-ui.md`) implemented the first native SwiftUI macOS app; see [`../walkthroughs/M7-first-ui.md`](../walkthroughs/M7-first-ui.md) for the measured implementation/acceptance walkthrough. The frozen M7 brief remains untouched as the historical plan.
+
+M8 is the next bounded proposal, covering path actions in tool details. Read [`M8-path-actions.md`](M8-path-actions.md) before planning or implementing those actions. The user authorized drafting the brief, not implementation; no M8 implementation branch or worker has been started. Model assignments must be confirmed against the live catalog before dispatch; the M0–M7 table above does not assign M8 workers.
 
 ---
 

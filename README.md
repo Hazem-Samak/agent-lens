@@ -21,7 +21,9 @@ The builder prints the absolute `.app` path. Open it from Finder or with:
 open "$m7_root/dev-app/AgentLensApp-debug.app"
 ```
 
-This is local development only: unsigned, no signing, notarization, install, release, or GitHub delivery. It is not a release product. See [walkthrough](walkthroughs/M7-first-ui.md) for the measured implementation/acceptance walkthrough, including debug/release builder command shapes and the packaging trust boundary.
+M7 source and acceptance documentation are delivered on `main` in commit `36a3f1c`. The app remains local development only: unsigned, with no signed/notarized app distribution or public release. See [walkthrough](walkthroughs/M7-first-ui.md) for the measured implementation/acceptance walkthrough, including debug/release builder command shapes and the packaging trust boundary.
+
+The next milestone is drafted in [M8 — Copy Path and Reveal in Finder](briefs/M8-path-actions.md). It is a plan for native path actions in tool details; implementation has not started. See the [milestone index](briefs/README.md) for status.
 
 ## Usage
 

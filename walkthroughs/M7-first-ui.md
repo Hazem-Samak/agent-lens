@@ -1,7 +1,7 @@
 # M7 — First Native UI
 
-Branch: `feat/m7-first-ui`
-Status: **passed** — implementation and parent independent technical acceptance complete; user visual approval of the initial native UI obtained 2026-10-16 (Africa/Cairo). Git uncommitted/unpublished; parent owns final docs review and publication.
+Implementation branch: `feat/m7-first-ui` (historical; merged and removed).
+Status: **passed and delivered** — implementation and parent independent technical acceptance complete; user visual approval of the initial native UI obtained 2026-10-16 (Africa/Cairo). Source and closeout documentation are committed and pushed to `main` as `36a3f1c`; delivery refs independently rechecked 2026-10-17. The app remains an unsigned local development build.
 
 This walkthrough records the measured M7 implementation/acceptance. The frozen plan remains in [brief](../briefs/M7-first-ui.md) (historical plan, untouched); this document records current status.
 
@@ -190,7 +190,7 @@ Uses `R/final-technical-acceptance-matrix.md` test names and receipts; not the f
 
 ## Integrity / hash boundary
 
-`R/closeout-before.json` pins 68 project files. Independent re-hash before/after closeout: 65 unchanged + exactly 3 allowlisted doc changes (`DECISIONS.md`, `README.md`, `briefs/README.md`) + 1 new walkthrough (`walkthroughs/M7-first-ui.md`) = 69 files total. All 29 Core/CLI source and test files unchanged; closeout changes only the 3 approved docs and adds one walkthrough. The changed index (`briefs/README.md`) is **not** included in the preserved count. `git diff --check` clean; local links inspected. No extra tests run. No prior evidence or worker reports edited. `R/closeout-review-before.json` confirms 0 mismatches during the R1 review (historical); R2/R3 new fingerprints will be recorded by the parent — no claim that the final review has already passed.
+Historical documentation-closeout snapshot, before delivery: `R/closeout-before.json` pins 68 project files. Independent re-hash before/after closeout: 65 unchanged + exactly 3 allowlisted doc changes (`DECISIONS.md`, `README.md`, `briefs/README.md`) + 1 new walkthrough (`walkthroughs/M7-first-ui.md`) = 69 files total. All 29 Core/CLI source and test files unchanged; closeout changes only the 3 approved docs and adds one walkthrough. The changed index (`briefs/README.md`) is **not** included in the preserved count. `git diff --check` clean; local links inspected. No extra tests run. No prior evidence or worker reports edited. `R/closeout-review-before.json` confirms 0 mismatches during the R1 review. These counts and receipts describe that closeout snapshot, not the subsequent delivery-note update or M8 planning. They do not assert results for later review rounds.
 
 ## Limits (preserved, not overstated)
 
@@ -206,8 +206,10 @@ Uses `R/final-technical-acceptance-matrix.md` test names and receipts; not the f
 - `T3 Code (Nightly)` `Info.plist` freshly read 2026-10-16: `CFBundleShortVersionString = CFBundleVersion = 0.1.1-nightly.20261016.3218`, recorded as observed at documentation closeout; not retroactively asserted to have run earlier acceptance gates.
 - Ordinary default-Darwin `TMPDIR` portability not proven; no environment/global config fix.
 - Do not hardcode user-installed tools as stable global truth. User launch example: `open /absolute/path/to/scratch/AgentLensApp-debug.app`.
-- No source expansion; no publication authorization.
+- The documentation closeout did not expand source scope. Git delivery was authorized afterward; signed app distribution remains outside M7.
 
 ## Publication status
 
-No publication authorized. Git tree uncommitted/unpublished; no GitHub delivery claimed. M7 complete as a technical acceptance with user visual approval; closeout review pending parent review of these docs. UI/UX changes deferred; no M8 started or changed. Parent owns final docs acceptance after fresh DeepSeek R2 review.
+M7 source and closeout documentation were committed as `36a3f1cd4ce3c926deadb2565d8e2a6938161c9f` (`feat(ui): complete M7 native macOS app`) and delivered to GitHub `main`. The former implementation branch is merged and removed. On 2026-10-17, a read-only delivery check found local `main`, `origin/main`, and `git ls-remote origin refs/heads/main` at that same commit, with a clean worktree before this documentation update. This verifies Git delivery; it does not claim a signed/notarized app artifact or public release.
+
+The acceptance transcripts, counts, and UI evidence above remain historical M7 evidence; no acceptance tests were rerun for this delivery-note update. M8 planning is now recorded separately in [the path-actions brief](../briefs/M8-path-actions.md). No M8 implementation has started.
