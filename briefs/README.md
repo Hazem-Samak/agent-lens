@@ -53,11 +53,11 @@ Per §29.6: **ambiguity → strongest reasoning model. Volume → fastest model.
 | `M5-duplicate-path-diagnostics.md` | Duplicate / PATH diagnostics | passed |
 | `M6-version-update-probing.md` | Version / update probing | passed |
 | `M7-first-ui.md` | First UI | passed — technical acceptance + user visual approval 2026-10-16; delivered to `main` as `36a3f1c` |
-| [`M8-path-actions.md`](M8-path-actions.md) | Copy Path and Reveal in Finder | draft — planning authorized 2026-10-17; implementation not started |
+| [`M8-path-actions.md`](M8-path-actions.md) | Copy Path and Reveal in Finder | user-approved for delivery 2026-10-18; automated gates and final reviews passed; keyboard-only activation unverified |
 
 M0–M7 complete. M7 passed technical acceptance and user approved the initial UI 2026-10-16; source and closeout documentation were committed and pushed as `36a3f1c`. Local `main`, `origin/main`, and GitHub `main` were independently checked at that commit on 2026-10-17. M7 (`M7-first-ui.md`) implemented the first native SwiftUI macOS app; see [`../walkthroughs/M7-first-ui.md`](../walkthroughs/M7-first-ui.md) for the measured implementation/acceptance walkthrough. The frozen M7 brief remains untouched as the historical plan.
 
-M8 is the next bounded proposal, covering path actions in tool details. Read [`M8-path-actions.md`](M8-path-actions.md) before planning or implementing those actions. The user authorized drafting the brief, not implementation; no M8 implementation branch or worker has been started. Model assignments must be confirmed against the live catalog before dispatch; the M0–M7 table above does not assign M8 workers.
+M8 implements native path actions in tool details. The user subsequently authorized implementation, selected DeepSeek V4.1 Flash free via WorkBuddy/Pi as sole implementer and Gemini 3.8 Flash High/Antigravity plus MiMo v2.6 Flash Free/OpenCode as independent reviewers, then approved the UI and Git delivery on 2026-10-18. Parent independent gates passed 246 Swift tests and 9 packaging tests; both final reviews passed. Keyboard-only activation remains unverified and is not represented as a passed gate. See the [M8 walkthrough](../walkthroughs/M8-path-actions.md). The frozen brief retains its historical planning-only header; it is not the current status record. No later milestone is authorized here.
 
 ---
 

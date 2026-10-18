@@ -178,13 +178,13 @@ public struct ToolDetailView: View {
                 GridRow(alignment: .top) {
                     Text("Selected Entry")
                         .foregroundColor(.secondary)
-                    selectablePathText(entry.diagnostic.detectedTool.entryPath)
+                    pathActionRow(entry, .selectedEntry, rowLabel: "Selected Entry")
                 }
 
                 GridRow(alignment: .top) {
                     Text("Resolved Target")
                         .foregroundColor(.secondary)
-                    selectablePathText(entry.diagnostic.detectedTool.resolvedPath)
+                    pathActionRow(entry, .resolvedTarget, rowLabel: "Resolved Target")
                 }
             }
             .font(.subheadline)
@@ -207,11 +207,43 @@ public struct ToolDetailView: View {
         }
     }
 
-    private func selectablePathText(_ path: String?) -> some View {
-        Text(path ?? "—")
-            .fontDesign(.monospaced)
-            .textSelection(.enabled)
-            .fixedSize(horizontal: false, vertical: true)
+    /// Identity key for a path-action row. Distinguishes registry ID, field,
+    /// both path values (nil-preserving) and their eligibility, so transient
+    /// feedback resets when the tool or its paths change without flattening
+    /// path contents into an ambiguous concatenation.
+    private struct PathActionRowIdentity: Hashable {
+        let registryID: String
+        let field: PathActionTarget.Field
+        let entryPath: String?
+        let targetPath: String?
+        let entryEligibility: PathActionTarget.Ineligibility?
+        let targetEligibility: PathActionTarget.Ineligibility?
+    }
+
+    private func pathActionRow(
+        _ entry: InventoryEntry,
+        _ field: PathActionTarget.Field,
+        rowLabel: String
+    ) -> some View {
+        let targets = PathActionTarget.targets(for: entry)
+        let selected = targets.first { $0.field == .selectedEntry }
+        let resolved = targets.first { $0.field == .resolvedTarget }
+        let target = (field == .selectedEntry ? selected : resolved)
+            ?? PathActionTarget(field: field, path: nil, ineligibility: .missingValue)
+        let identity = PathActionRowIdentity(
+            registryID: entry.registryID,
+            field: field,
+            entryPath: selected?.path,
+            targetPath: resolved?.path,
+            entryEligibility: selected?.ineligibility,
+            targetEligibility: resolved?.ineligibility
+        )
+        return PathActionRow(
+            target: target,
+            toolName: entry.definition.displayName,
+            rowLabel: rowLabel
+        )
+        .id(identity)
     }
 
     // MARK: Update Status

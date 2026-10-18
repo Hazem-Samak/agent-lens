@@ -23,7 +23,7 @@ open "$m7_root/dev-app/AgentLensApp-debug.app"
 
 M7 source and acceptance documentation are delivered on `main` in commit `36a3f1c`. The app remains local development only: unsigned, with no signed/notarized app distribution or public release. See [walkthrough](walkthroughs/M7-first-ui.md) for the measured implementation/acceptance walkthrough, including debug/release builder command shapes and the packaging trust boundary.
 
-The next milestone is drafted in [M8 — Copy Path and Reveal in Finder](briefs/M8-path-actions.md). It is a plan for native path actions in tool details; implementation has not started. See the [milestone index](briefs/README.md) for status.
+M8 adds **Copy Path** and **Reveal in Finder** for the selected executable entry and its recorded resolved target in tool details. Independent automated gates and two final reviews passed; the user approved the UI and Git delivery on 2026-10-18. Native keyboard-only activation remains unverified. See the [M8 walkthrough](walkthroughs/M8-path-actions.md) for evidence and limits, and the [milestone index](briefs/README.md) for status.
 
 ## Usage
 
