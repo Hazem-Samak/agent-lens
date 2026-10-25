@@ -46,7 +46,7 @@ private func fixtureRoot(_ label: String) throws -> URL {
     return root.resolvingSymlinksInPath()
 }
 
-private func agentLensCoreProductsDirectory() throws -> URL {
+func agentLensCoreProductsDirectory() throws -> URL {
     let fileManager = FileManager.default
     let override = ProcessInfo.processInfo.environment["AGENT_LENS_TEST_PRODUCTS"]
     func hasCoreArtifacts(_ directory: URL) -> Bool {
@@ -73,11 +73,32 @@ private func agentLensCoreProductsDirectory() throws -> URL {
         if hasCoreArtifacts(directory) { return directory }
     }
 
+    // The SwiftPM testing helper names the active .xctest with --test-bundle-path.
+    // Prefer that over any stale shared .build product left in the package root.
+    var bundleStarts: [URL] = []
+    if let index = CommandLine.arguments.firstIndex(of: "--test-bundle-path"),
+       index + 1 < CommandLine.arguments.count {
+        bundleStarts.append(URL(fileURLWithPath: CommandLine.arguments[index + 1],
+                                isDirectory: true).standardizedFileURL)
+    }
+    if let last = CommandLine.arguments.last, last.contains(".xctest") {
+        bundleStarts.append(URL(fileURLWithPath: last, isDirectory: true).standardizedFileURL)
+    }
+
     let executableDirectories = [
         Bundle.main.executableURL?.deletingLastPathComponent().path,
         CommandLine.arguments.first.map { URL(fileURLWithPath: $0).standardizedFileURL.deletingLastPathComponent().path }
     ].compactMap { $0 }.map { URL(fileURLWithPath: $0, isDirectory: true).standardizedFileURL }
     var directCandidates: [URL] = []
+    for bundleStart in bundleStarts {
+        var candidate = bundleStart
+        for _ in 0..<8 {
+            directCandidates.append(candidate)
+            let parent = candidate.deletingLastPathComponent()
+            if parent == candidate { break }
+            candidate = parent
+        }
+    }
     for executableDirectory in executableDirectories {
         var candidate = executableDirectory
         for _ in 0..<8 {
@@ -141,7 +162,8 @@ private func agentLensCoreProductsDirectory() throws -> URL {
     let detector = ToolDetector(
         displayName: "FakeCLI",
         executableName: "fakecli",
-        versionQuery: { _, _, _ in nil }
+        versionQuerySpecification: .standard,
+        versionQuery: { _, _, _, _ in nil }
     )
     let tool = detector.detect(in: fixtureEnvironment(pathEntries: [dir.path]))
 
@@ -165,7 +187,8 @@ private func agentLensCoreProductsDirectory() throws -> URL {
         displayName: "FakeCLI",
         executableName: "fakecli",
         extraSearchRoots: [offPathDir.path],
-        versionQuery: { _, _, _ in nil }
+        versionQuerySpecification: .standard,
+        versionQuery: { _, _, _, _ in nil }
     )
     let tool = detector.detect(in: fixtureEnvironment(pathEntries: [onPathDir.path]))
 
@@ -177,7 +200,8 @@ private func agentLensCoreProductsDirectory() throws -> URL {
     let detector = ToolDetector(
         displayName: "FakeCLI",
         executableName: "nothing-named-this",
-        versionQuery: { _, _, _ in nil }
+        versionQuerySpecification: .standard,
+        versionQuery: { _, _, _, _ in nil }
     )
     let tool = detector.detect(in: fixtureEnvironment(pathEntries: ["/nonexistent-root"]))
 
@@ -202,7 +226,8 @@ private func agentLensCoreProductsDirectory() throws -> URL {
     let detector = ToolDetector(
         displayName: "FakeCLI",
         executableName: "fakecli",
-        versionQuery: { _, _, _ in nil }
+        versionQuerySpecification: .standard,
+        versionQuery: { _, _, _, _ in nil }
     )
     let tool = detector.detect(in: fixtureEnvironment(pathEntries: [toolBin.path]))
 
@@ -223,7 +248,8 @@ private func agentLensCoreProductsDirectory() throws -> URL {
     let detector = ToolDetector(
         displayName: "FakeCLI",
         executableName: "fakecli",
-        versionQuery: { _, _, _ in nil }
+        versionQuerySpecification: .standard,
+        versionQuery: { _, _, _, _ in nil }
     )
     let tool = detector.detect(in: fixtureEnvironment(pathEntries: [cellarBin.path]))
 
@@ -247,7 +273,8 @@ private func agentLensCoreProductsDirectory() throws -> URL {
 
     let started = DispatchTime.now().uptimeNanoseconds
     let version = ToolDetector.queryVersion(
-        executablePath: hangingBinary, environment: environment, timeout: 0.2
+        executablePath: hangingBinary, environment: environment, timeout: 0.2,
+        specification: .standard
     )
     let elapsed = Double(DispatchTime.now().uptimeNanoseconds - started) / 1_000_000_000
 
@@ -263,7 +290,8 @@ private func agentLensCoreProductsDirectory() throws -> URL {
     )
 
     let detector = ToolDetector(
-        displayName: "FakeCLI", executableName: "fakecli", versionQuery: { _, _, _ in nil }
+        displayName: "FakeCLI", executableName: "fakecli",
+        versionQuerySpecification: .standard, versionQuery: { _, _, _, _ in nil }
     )
     let tool = detector.detect(in: fixtureEnvironment(pathEntries: [root.path]))
 
@@ -308,7 +336,8 @@ private func agentLensCoreProductsDirectory() throws -> URL {
     _ = try makeExecutable(script: "exit 0", in: laterRoot, named: "fakecli")
 
     let detector = ToolDetector(
-        displayName: "FakeCLI", executableName: "fakecli", versionQuery: { _, _, _ in nil }
+        displayName: "FakeCLI", executableName: "fakecli",
+        versionQuerySpecification: .standard, versionQuery: { _, _, _, _ in nil }
     )
     let tool = detector.detect(in: fixtureEnvironment(
         pathEntries: [directoryRoot.path, brokenRoot.path, nonExecutableRoot.path,
@@ -336,7 +365,8 @@ private func agentLensCoreProductsDirectory() throws -> URL {
         outcome: ShellEnvironmentResolver.CaptureOutcome(dump: ["PATH": path], timedOut: false)
     )
     let detector = ToolDetector(
-        displayName: "FakeCLI", executableName: "fakecli", versionQuery: { _, _, _ in nil }
+        displayName: "FakeCLI", executableName: "fakecli",
+        versionQuerySpecification: .standard, versionQuery: { _, _, _, _ in nil }
     )
 
     let tool = detector.detect(in: environment)
@@ -362,7 +392,10 @@ private func agentLensCoreProductsDirectory() throws -> URL {
     import Foundation
     import AgentLensCore
 
-    let detector = ToolDetector(displayName: "FakeCLI", executableName: "fakecli")
+    let detector = ToolDetector(
+        displayName: "FakeCLI", executableName: "fakecli",
+        versionQuerySpecification: .standard
+    )
     let emptyEnvironment = ShellEnvironment(
         shellPath: "/bin/sh", pathEntries: ["", "relative-bin"],
         pathJoined: ":relative-bin", raw: ["PATH": ":relative-bin"], isDegraded: false
@@ -448,7 +481,8 @@ private func agentLensCoreProductsDirectory() throws -> URL {
 
     let started = DispatchTime.now().uptimeNanoseconds
     let version = ToolDetector.queryVersion(
-        executablePath: binary, environment: environment, timeout: 2
+        executablePath: binary, environment: environment, timeout: 2,
+        specification: .standard
     )
     let elapsed = Double(DispatchTime.now().uptimeNanoseconds - started) / 1_000_000_000
     let pidText = try String(contentsOf: pidFile, encoding: .utf8)
@@ -471,7 +505,8 @@ private func agentLensCoreProductsDirectory() throws -> URL {
     let environment = fixtureEnvironment(pathEntries: [root.path])
 
     let version = ToolDetector.queryVersion(
-        executablePath: binary, environment: environment, timeout: 1
+        executablePath: binary, environment: environment, timeout: 1,
+        specification: .standard
     )
 
     #expect(version == nil)
@@ -489,7 +524,8 @@ private func agentLensCoreProductsDirectory() throws -> URL {
     let version = ToolDetector.queryVersion(
         executablePath: binary,
         environment: fixtureEnvironment(pathEntries: [root.path]),
-        timeout: 4
+        timeout: 4,
+        specification: .standard
     )
 
     #expect(version == nil)

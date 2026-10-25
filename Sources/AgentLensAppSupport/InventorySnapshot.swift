@@ -34,14 +34,23 @@ public struct InventoryEntry: Equatable, Sendable {
     /// "up to date".
     public let update: ToolUpdateResult?
 
+    /// The explicit M9-B read-only ownership observation for this entry, or nil when no
+    /// verification has been performed. It is cleared by every fresh local scan, including a
+    /// failed rescan that retains older local facts, and preserved only when update outcomes are
+    /// applied to the same unchanged snapshot. Verification is an observation, not an
+    /// authorization to modify an installation.
+    public let ownership: InstallationOwnershipResult?
+
     public init(
         definition: DetectorDefinition,
         diagnostic: ToolPathDiagnostic,
-        update: ToolUpdateResult?
+        update: ToolUpdateResult?,
+        ownership: InstallationOwnershipResult?
     ) {
         self.definition = definition
         self.diagnostic = diagnostic
         self.update = update
+        self.ownership = ownership
     }
 
     /// The typed M6 status of the retained result, or nil when no probe has been performed.

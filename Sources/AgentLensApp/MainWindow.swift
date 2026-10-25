@@ -85,7 +85,13 @@ public struct MainWindow: View {
 
     private func cancelCurrentAction() {
         guard model.isBusy || activeActionTask != nil else { return }
-        if let task = activeActionTask {
+        if model.phase == .verifyingOwnership {
+            // Verification reports `Cancelling` immediately through the model, then lets the
+            // owned cleanup finish; do not bypass that state by only cancelling the action task.
+            Task { @MainActor in
+                await model.cancel()
+            }
+        } else if let task = activeActionTask {
             task.cancel()
             Task { @MainActor in
                 await task.value
@@ -157,7 +163,18 @@ public struct MainWindow: View {
                 entry: model.selectedEntry,
                 isDegradedEnvironment: model.isDegradedEnvironment,
                 freshnessFailure: model.freshnessFailure,
-                updateFailure: model.updateFailure
+                updateFailure: model.updateFailure,
+                isVerifyingOwnership: model.phase == .verifyingOwnership,
+                isCancellingOwnership: model.isCancelling,
+                isBusy: model.isBusy,
+                onVerifyOwnership: {
+                    runAction {
+                        await model.verifySelectedInstallation()
+                    }
+                },
+                onCancelOwnership: {
+                    cancelCurrentAction()
+                }
             )
         case .diagnostics:
             DiagnosticsView(
@@ -169,6 +186,17 @@ public struct MainWindow: View {
     }
 
     // MARK: - Toolbar
+
+    private var busyLabel: String {
+        switch model.phase {
+        case .verifyingOwnership:
+            model.isCancelling ? "Cancelling…" : "Verifying…"
+        case .loadingLocal:
+            "Scanning…"
+        case .idle, .localReady, .checkingUpdates, .ready, .failed:
+            "Checking…"
+        }
+    }
 
     @ToolbarContentBuilder
     private var toolbarItems: some ToolbarContent {
@@ -190,7 +218,7 @@ public struct MainWindow: View {
                 HStack(spacing: 6) {
                     ProgressView()
                         .controlSize(.small)
-                    Text(model.phase == .loadingLocal ? "Scanning…" : "Checking…")
+                    Text(busyLabel)
                         .font(.caption)
                         .foregroundColor(.secondary)
                     Button("Cancel") {
@@ -198,6 +226,7 @@ public struct MainWindow: View {
                     }
                     .buttonStyle(.borderless)
                     .font(.caption)
+                    .disabled(model.isCancelling)
                 }
             }
 

@@ -416,7 +416,8 @@ private func toolDetection(
         repeatedPathSlotCount: 0,
         sameTargetAliasCount: 0,
         selection: .winner(candidate),
-        shadowedInstallationCount: 0
+        shadowedInstallationCount: 0,
+        installationVersions: []
     )
 }
 
@@ -624,7 +625,8 @@ private func probeSubject(_ diagnostic: ToolPathDiagnostic, id: String, displayN
 private func npmDiagnostic(_ tool: DetectedTool) -> ToolPathDiagnostic {
     ToolPathDiagnostic(
         detectedTool: tool, pathCandidates: [], firstLiveCandidate: nil, targetGroups: [],
-        repeatedPathSlotCount: 0, sameTargetAliasCount: 0, selection: .notInstalled, shadowedInstallationCount: 0
+        repeatedPathSlotCount: 0, sameTargetAliasCount: 0, selection: .notInstalled, shadowedInstallationCount: 0,
+        installationVersions: []
     )
 }
 
@@ -643,7 +645,8 @@ private func winnerDiagnostic(_ tool: DetectedTool) -> ToolPathDiagnostic {
         detectedTool: tool, pathCandidates: [candidate], firstLiveCandidate: candidate,
         targetGroups: [PathTargetGroup(canonicalTarget: entry, entryPaths: [entry], firstSlotIndex: 0)],
         repeatedPathSlotCount: 0, sameTargetAliasCount: 0, selection: .winner(candidate),
-        shadowedInstallationCount: 0
+        shadowedInstallationCount: 0,
+        installationVersions: []
     )
 }
 
@@ -655,7 +658,8 @@ private func winnerDiagnostic(_ tool: DetectedTool) -> ToolPathDiagnostic {
         detectedTool: base.detectedTool, pathCandidates: base.pathCandidates,
         firstLiveCandidate: base.firstLiveCandidate, targetGroups: base.targetGroups,
         repeatedPathSlotCount: 0, sameTargetAliasCount: 0,
-        selection: .inconsistent("disagreement"), shadowedInstallationCount: nil
+        selection: .inconsistent("disagreement"), shadowedInstallationCount: nil,
+        installationVersions: []
     )
     let results = await UpdateProbeCoordinator.run(
         subjects: [probeSubject(inconsistent, id: "codex")], environment: m6Environment(pathEntries: [s.fixture.binDirectory]),
@@ -1081,7 +1085,8 @@ private func offPathDiagnostic(_ s: Scenario, entryPath: String, target: String)
         detectedTool: tool, pathCandidates: [], firstLiveCandidate: nil, targetGroups: [],
         repeatedPathSlotCount: 0, sameTargetAliasCount: 0,
         selection: .offPath(candidate: candidate, root: URL(fileURLWithPath: entryPath).deletingLastPathComponent().path),
-        shadowedInstallationCount: 0
+        shadowedInstallationCount: 0,
+        installationVersions: []
     )
 }
 
@@ -1345,7 +1350,8 @@ private func replacingEnvironmentValue(_ environment: ShellEnvironment, key: Str
             )
             let detector = ToolDetector(
                 displayName: "Codex", executableName: "codex",
-                versionQuery: { _, _, _ in "0.162.1" }
+                versionQuerySpecification: .standard,
+                versionQuery: { _, _, _, _ in "0.162.1" }
             )
             let diagnostic = PathDiagnosticsScanner.scan(detector: detector, environment: environment)
             let subject = UpdateProbeSubject(registryID: "codex", displayName: "Codex", diagnostic: diagnostic)
@@ -1502,7 +1508,8 @@ private func replacingEnvironmentValue(_ environment: ShellEnvironment, key: Str
     let missingDiagnostic = ToolPathDiagnostic(
         detectedTool: missingTool, pathCandidates: [], firstLiveCandidate: nil,
         targetGroups: [], repeatedPathSlotCount: 0, sameTargetAliasCount: 0,
-        selection: .notInstalled, shadowedInstallationCount: 0
+        selection: .notInstalled, shadowedInstallationCount: 0,
+        installationVersions: []
     )
     let inconsistentDiagnostic = ToolPathDiagnostic(
         detectedTool: diagnostic.detectedTool, pathCandidates: diagnostic.pathCandidates,
@@ -1510,7 +1517,8 @@ private func replacingEnvironmentValue(_ environment: ShellEnvironment, key: Str
         repeatedPathSlotCount: diagnostic.repeatedPathSlotCount,
         sameTargetAliasCount: diagnostic.sameTargetAliasCount,
         selection: .inconsistent("synthetic inconsistent selection"),
-        shadowedInstallationCount: nil
+        shadowedInstallationCount: nil,
+        installationVersions: []
     )
     func result(
         id: String,

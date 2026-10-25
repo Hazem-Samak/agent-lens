@@ -36,6 +36,7 @@ public final class InventoryViewModel {
         case loadingLocal
         case localReady
         case checkingUpdates
+        case verifyingOwnership
         case ready
         case failed
     }
@@ -73,6 +74,10 @@ public final class InventoryViewModel {
     // MARK: Published state
 
     public private(set) var phase: Phase = .idle
+
+    /// True while a requested cancellation is being awaited. The UI says Cancelling rather than
+    /// Verifying, and the action still owns the pipeline until its bounded cleanup returns.
+    public private(set) var isCancelling: Bool = false
 
     /// The published local facts, with update outcomes when a probe has been performed. nil before
     /// the first successful local scan.
@@ -137,10 +142,20 @@ public final class InventoryViewModel {
     /// an entry that is not published.
     public func select(registryID: String?) {
         guard let registryID else {
+            if selectedRegistryID != nil, phase == .verifyingOwnership {
+                isCancelling = true
+                activePipeline?.cancel()
+            }
             selectedRegistryID = nil
             return
         }
         guard entries.contains(where: { $0.registryID == registryID }) else { return }
+        // A proof belongs to one selected tool. Switching selection cancels the running
+        // verification instead of letting its result attach to the new tool.
+        if registryID != selectedRegistryID, phase == .verifyingOwnership {
+            isCancelling = true
+            activePipeline?.cancel()
+        }
         selectedRegistryID = registryID
     }
 
@@ -171,6 +186,66 @@ public final class InventoryViewModel {
         await run(isInitialLaunch: false, isRescan: false, updateMode: .refresh)
     }
 
+    /// The only app entry point for explicit read-only ownership verification. It owns the same
+    /// single pipeline slot as scan/update actions, so a conflicting action coalesces rather than
+    /// interleaving, and it never clears update badges. Verification starts from the currently
+    /// published selected entry and publishes only into that same entry while the selection and
+    /// its observed target identity are unchanged.
+    public func verifySelectedInstallation() async {
+        guard activePipeline == nil else { return }
+        guard let entry = selectedEntry,
+              Self.observedSelection(entry.diagnostic) != nil
+        else { return }
+
+        generation &+= 1
+        let generation = generation
+        let registryID = entry.registryID
+        let observedSelection = Self.observedSelection(entry.diagnostic)
+        isCancelling = false
+        phase = .verifyingOwnership
+
+        let service = self.service
+        let pipeline = Task { @MainActor [weak self] in
+            guard let self else { return }
+            let result = await service.verifyingOwnership(of: entry)
+            guard generation == self.generation,
+                  !Task.isCancelled,
+                  self.phase == .verifyingOwnership,
+                  result.registryID == registryID,
+                  self.selectedRegistryID == registryID,
+                  let current = self.selectedEntry,
+                  current.registryID == registryID,
+                  Self.observedSelection(current.diagnostic) == observedSelection
+            else { return }
+            self.publishOwnership(result, for: registryID)
+            self.phase = .ready
+            self.isCancelling = false
+        }
+        activePipeline = pipeline
+        await withTaskCancellationHandler {
+            await pipeline.value
+        } onCancel: {
+            pipeline.cancel()
+        }
+
+        let cancelled = pipeline.isCancelled || Task.isCancelled
+        if generation == self.generation { activePipeline = nil }
+        guard cancelled else {
+            // A non-cancelled verification that could not publish (for example, its selected
+            // target changed) still settles the phase; it must never leave the window busy.
+            if generation == self.generation, phase == .verifyingOwnership {
+                phase = snapshot == nil ? .idle : .ready
+                isCancelling = false
+            }
+            return
+        }
+        invalidate(generation: generation)
+        if phase == .verifyingOwnership {
+            phase = snapshot == nil ? .idle : .ready
+        }
+        isCancelling = false
+    }
+
     // MARK: The pipeline
 
     /// Opens one action and awaits its single pipeline. A call that arrives while a pipeline owns
@@ -192,6 +267,7 @@ public final class InventoryViewModel {
         publishClearedUpdates()
         freshnessFailure = nil
         updateFailure = nil
+        isCancelling = false
         phase = isInitialLaunch ? .loadingLocal : .checkingUpdates
 
         let service = self.service
@@ -240,7 +316,7 @@ public final class InventoryViewModel {
             // the initial state; one cancelled after they were published keeps them, because those
             // facts are still true and were already on screen.
             switch phase {
-            case .loadingLocal, .checkingUpdates:
+            case .loadingLocal, .checkingUpdates, .verifyingOwnership:
                 phase = snapshot == nil ? .idle : .localReady
             case .idle, .localReady, .ready, .failed:
                 break
@@ -254,6 +330,7 @@ public final class InventoryViewModel {
     /// Cancelling an idle view-model does nothing; it never starts a pipeline.
     public func cancel() async {
         guard let pipeline = activePipeline else { return }
+        if phase == .verifyingOwnership { isCancelling = true }
         pipeline.cancel()
         await pipeline.value
     }
@@ -330,8 +407,36 @@ public final class InventoryViewModel {
         guard let snapshot else { return }
         self.snapshot = InventorySnapshot(
             entries: snapshot.entries.map {
-                InventoryEntry(definition: $0.definition, diagnostic: $0.diagnostic, update: nil)
+                InventoryEntry(
+                    definition: $0.definition,
+                    diagnostic: $0.diagnostic,
+                    update: nil,
+                    ownership: nil
+                )
             },
+            isDegradedEnvironment: snapshot.isDegradedEnvironment
+        )
+        reconcileSelection()
+    }
+
+    /// Publishes one verification result into exactly its own registry entry. Update results and
+    /// every other entry are retained unchanged; a verification never rewrites local facts.
+    private func publishOwnership(
+        _ result: InstallationOwnershipResult,
+        for registryID: String
+    ) {
+        guard let snapshot else { return }
+        let entries = snapshot.entries.map { entry in
+            guard entry.registryID == registryID else { return entry }
+            return InventoryEntry(
+                definition: entry.definition,
+                diagnostic: entry.diagnostic,
+                update: entry.update,
+                ownership: result
+            )
+        }
+        self.snapshot = InventorySnapshot(
+            entries: entries,
             isDegradedEnvironment: snapshot.isDegradedEnvironment
         )
         reconcileSelection()
@@ -348,6 +453,25 @@ public final class InventoryViewModel {
             return
         }
         selectedRegistryID = entries.first?.registryID
+    }
+
+    /// The selected entry and canonical target, compared across the verification boundary so a
+    /// late result can never attach to a retargeted or different installation.
+    private struct ObservedSelection: Equatable {
+        let entryPath: String
+        let canonicalTarget: String?
+    }
+
+    private static func observedSelection(_ diagnostic: ToolPathDiagnostic) -> ObservedSelection? {
+        switch diagnostic.selection {
+        case .winner(let candidate), .offPath(let candidate, _):
+            return ObservedSelection(
+                entryPath: candidate.entryPath,
+                canonicalTarget: candidate.canonicalTarget
+            )
+        case .notInstalled, .inconsistent:
+            return nil
+        }
     }
 
     /// Search matches the identity a user reads and the paths the diagnostics observed. Selection

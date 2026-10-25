@@ -1,12 +1,20 @@
 import Darwin
 import Foundation
 
-/// Synchronously captures stdout while enforcing a wall-clock deadline for the
-/// launched process group. No background reader can remain blocked after return.
+/// Synchronously captures one selected output stream while enforcing a wall-clock
+/// deadline for the launched process group. No background reader can remain
+/// blocked after return. The default stream is stdout, preserving every existing
+/// caller; M9-A adds stderr capture for declared version-query specifications.
 enum BoundedProcessRunner {
+    enum CaptureStream {
+        case standardOutput
+        case standardError
+    }
+
     static let maximumStandardOutputBytes = 1_048_576
 
     struct Result {
+        /// The captured stream (stdout by default, or stderr when requested).
         let standardOutput: Data
         let exitStatus: Int32?
         let timedOut: Bool
@@ -17,7 +25,8 @@ enum BoundedProcessRunner {
         executablePath: String,
         arguments: [String],
         environment: [String: String]? = nil,
-        timeout: TimeInterval
+        timeout: TimeInterval,
+        captureStream: CaptureStream = .standardOutput
     ) -> Result? {
         var pipeDescriptors = [Int32](repeating: -1, count: 2)
         guard pipeDescriptors.withUnsafeMutableBufferPointer({ pipe($0.baseAddress!) }) == 0 else {
@@ -53,10 +62,16 @@ enum BoundedProcessRunner {
         guard posix_spawn_file_actions_init(&fileActions) == 0 else { return nil }
         defer { posix_spawn_file_actions_destroy(&fileActions) }
 
+        let capturedFileDescriptor = captureStream == .standardOutput
+            ? STDOUT_FILENO
+            : STDERR_FILENO
+        let discardedFileDescriptor = captureStream == .standardOutput
+            ? STDERR_FILENO
+            : STDOUT_FILENO
         let fileActionStatuses = [
-            posix_spawn_file_actions_adddup2(&fileActions, writeDescriptor, STDOUT_FILENO),
+            posix_spawn_file_actions_adddup2(&fileActions, writeDescriptor, capturedFileDescriptor),
             posix_spawn_file_actions_adddup2(&fileActions, nullDescriptor, STDIN_FILENO),
-            posix_spawn_file_actions_adddup2(&fileActions, nullDescriptor, STDERR_FILENO),
+            posix_spawn_file_actions_adddup2(&fileActions, nullDescriptor, discardedFileDescriptor),
             posix_spawn_file_actions_addclose(&fileActions, readDescriptor),
             posix_spawn_file_actions_addclose(&fileActions, writeDescriptor),
             posix_spawn_file_actions_addclose(&fileActions, nullDescriptor)

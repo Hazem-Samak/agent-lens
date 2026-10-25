@@ -1,4 +1,5 @@
 import Darwin
+import Dispatch
 import Foundation
 
 public enum PathCandidateKind: Equatable, Sendable {
@@ -90,6 +91,10 @@ public struct ToolPathDiagnostic: Equatable, Sendable {
     public let sameTargetAliasCount: Int
     public let selection: PathSelection
     public let shadowedInstallationCount: Int?
+    /// One local version observation per observed canonical target, plus the selected off-PATH
+    /// target when that is the existing selection. Empty in manually constructed fixtures means
+    /// "no measurement", never a fabricated known version.
+    public let installationVersions: [InstallationVersionObservation]
 
     public init(
         detectedTool: DetectedTool,
@@ -99,7 +104,8 @@ public struct ToolPathDiagnostic: Equatable, Sendable {
         repeatedPathSlotCount: Int,
         sameTargetAliasCount: Int,
         selection: PathSelection,
-        shadowedInstallationCount: Int?
+        shadowedInstallationCount: Int?,
+        installationVersions: [InstallationVersionObservation]
     ) {
         self.detectedTool = detectedTool
         self.pathCandidates = pathCandidates
@@ -109,6 +115,7 @@ public struct ToolPathDiagnostic: Equatable, Sendable {
         self.sameTargetAliasCount = sameTargetAliasCount
         self.selection = selection
         self.shadowedInstallationCount = shadowedInstallationCount
+        self.installationVersions = installationVersions
     }
 
     public var liveCandidates: [PathCandidateObservation] {
@@ -134,7 +141,24 @@ public enum PathDiagnosticsScanner {
         environment: ShellEnvironment,
         currentDirectory: String = FileManager.default.currentDirectoryPath
     ) -> ToolPathDiagnostic {
-        let detected = detector.detect(in: environment)
+        scan(
+            detector: detector,
+            environment: environment,
+            currentDirectory: currentDirectory,
+            monotonicNow: { DispatchTime.now().uptimeNanoseconds }
+        )
+    }
+
+    /// Internal monotonic-clock seam for deterministic aggregate-budget tests. Production uses
+    /// the public `scan`, which passes the process's uptime clock; there is no fixture flag or
+    /// mutable global clock.
+    static func scan(
+        detector: ToolDetector,
+        environment: ShellEnvironment,
+        currentDirectory: String,
+        monotonicNow: @Sendable () -> UInt64
+    ) -> ToolPathDiagnostic {
+        let location = detector.locate(in: environment)
         let workingDirectory = URL(
             fileURLWithPath: currentDirectory,
             isDirectory: true
@@ -156,11 +180,11 @@ public enum PathDiagnosticsScanner {
         let repeatedPathSlotCount = pathCandidates.count - Set(pathCandidates.map(\.entryPath)).count
         let sameTargetAliasCount = targetGroups.reduce(0) { $0 + max(0, $1.entryPaths.count - 1) }
 
-        let selection: PathSelection
+        var selection: PathSelection
         if let firstLiveCandidate {
             selection = verifyPathWinner(
                 firstLiveCandidate,
-                detected: detected,
+                location: location,
                 workingDirectory: workingDirectory
             )
         } else {
@@ -169,10 +193,10 @@ public enum PathDiagnosticsScanner {
                 selection = verifyOffPathCandidate(
                     extraCandidate.candidate,
                     root: extraCandidate.root,
-                    detected: detected,
+                    location: location,
                     workingDirectory: workingDirectory
                 )
-            } else if detected.state == .notInstalled {
+            } else if location.state == .notInstalled {
                 selection = .notInstalled
             } else {
                 selection = .inconsistent(
@@ -180,6 +204,41 @@ public enum PathDiagnosticsScanner {
                 )
             }
         }
+
+        let selectedCandidate = selectionCandidate(in: selection)
+        let probeTargets = installationProbeTargets(
+            selection: selection,
+            groups: targetGroups,
+            pathEntries: environment.pathEntries
+        )
+        let collection = InstallationVersionCollector.collect(
+            targets: probeTargets,
+            selectedEntryPath: selectedCandidate?.entryPath,
+            selectedCanonicalTarget: selectedCandidate?.canonicalTarget,
+            detector: detector,
+            environment: environment,
+            monotonicNow: monotonicNow
+        )
+        if let failure = collection.selectedIdentityFailure {
+            selection = .inconsistent(failure)
+        }
+
+        // The summary version belongs to the selection published by this scan. A detected selected
+        // identity failure makes that selection inconsistent, so no earlier captured candidate may
+        // contribute a known version.
+        let publishedSelectedCandidate = selectionCandidate(in: selection)
+        let selectedVersion: String?
+        if let publishedSelectedCandidate,
+           let selectedTarget = publishedSelectedCandidate.canonicalTarget {
+            selectedVersion = collection.observations.first {
+                $0.canonicalTarget == selectedTarget
+                    && $0.entryPath == publishedSelectedCandidate.entryPath
+            }?.version
+        } else {
+            selectedVersion = nil
+        }
+        let detected = detector.detectedTool(from: location, version: selectedVersion)
+
         let shadowedInstallationCount: Int?
         switch selection {
         case .winner:
@@ -199,8 +258,85 @@ public enum PathDiagnosticsScanner {
             repeatedPathSlotCount: repeatedPathSlotCount,
             sameTargetAliasCount: sameTargetAliasCount,
             selection: selection,
-            shadowedInstallationCount: shadowedInstallationCount
+            shadowedInstallationCount: shadowedInstallationCount,
+            installationVersions: collection.observations
         )
+    }
+
+    /// Selected canonical target first, then remaining live PATH groups in deterministic
+    /// first-seen order. The selected declared extra-root target is included only when the
+    /// existing selection is off-PATH; discovery is never expanded beyond it.
+    private static func installationProbeTargets(
+        selection: PathSelection,
+        groups: [PathTargetGroup],
+        pathEntries: [String]
+    ) -> [InstallationVersionProbeTarget] {
+        var targets: [InstallationVersionProbeTarget] = []
+        var seenTargets = Set<String>()
+
+        if case .offPath(let candidate, _) = selection,
+           let target = candidate.canonicalTarget,
+           seenTargets.insert(target).inserted {
+            targets.append(InstallationVersionProbeTarget(
+                canonicalTarget: target,
+                entryPath: candidate.entryPath,
+                origin: candidate.origin,
+                isSelected: true
+            ))
+        }
+
+        let selectedTarget: String?
+        if case .winner(let candidate) = selection {
+            selectedTarget = candidate.canonicalTarget
+        } else {
+            selectedTarget = nil
+        }
+        if let selectedTarget,
+           let selectedGroup = groups.first(where: { $0.canonicalTarget == selectedTarget }),
+           let entryPath = selectedGroup.entryPaths.first,
+           seenTargets.insert(selectedTarget).inserted {
+            targets.append(InstallationVersionProbeTarget(
+                canonicalTarget: selectedTarget,
+                entryPath: entryPath,
+                origin: discoveryOrigin(for: selectedGroup, pathEntries: pathEntries),
+                isSelected: true
+            ))
+        }
+
+        for group in groups {
+            guard seenTargets.insert(group.canonicalTarget).inserted,
+                  let entryPath = group.entryPaths.first
+            else { continue }
+            targets.append(InstallationVersionProbeTarget(
+                canonicalTarget: group.canonicalTarget,
+                entryPath: entryPath,
+                origin: discoveryOrigin(for: group, pathEntries: pathEntries),
+                isSelected: false
+            ))
+        }
+        return targets
+    }
+
+    /// The exact discovery slot and raw text recorded when this group was first seen, read from
+    /// the same immutable PATH entries the scan grouped. This is provenance, not a filesystem
+    /// rescan or an inferred canonical-parent directory.
+    private static func discoveryOrigin(
+        for group: PathTargetGroup,
+        pathEntries: [String]
+    ) -> PathCandidateOrigin {
+        .path(slotIndex: group.firstSlotIndex, directoryText: pathEntries[group.firstSlotIndex])
+    }
+
+    /// The candidate published by a valid selection. An inconsistent selection never names one.
+    private static func selectionCandidate(
+        in selection: PathSelection
+    ) -> PathCandidateObservation? {
+        switch selection {
+        case .winner(let candidate), .offPath(let candidate, _):
+            candidate
+        case .notInstalled, .inconsistent:
+            nil
+        }
     }
 
     private static func candidatePath(
@@ -311,16 +447,16 @@ public enum PathDiagnosticsScanner {
     private static func verifyOffPathCandidate(
         _ candidate: PathCandidateObservation,
         root: String,
-        detected: DetectedTool,
+        location: ToolLocation,
         workingDirectory: URL
     ) -> PathSelection {
-        guard detected.state == .installedNotOnPath else {
+        guard location.state == .installedNotOnPath else {
             return .inconsistent(
-                "the diagnostic found a declared extra-root executable, but the detector reported \(detected.state.rawValue)"
+                "the diagnostic found a declared extra-root executable, but the detector reported \(location.state.rawValue)"
             )
         }
-        guard let detectedEntry = detected.entryPath,
-              let detectedTarget = detected.resolvedPath,
+        guard let detectedEntry = location.entryPath,
+              let detectedTarget = location.resolvedPath,
               let diagnosticTarget = candidate.canonicalTarget
         else {
             return .inconsistent("the detector did not return both an off-PATH entry and resolved target")
@@ -379,16 +515,16 @@ public enum PathDiagnosticsScanner {
 
     private static func verifyPathWinner(
         _ candidate: PathCandidateObservation,
-        detected: DetectedTool,
+        location: ToolLocation,
         workingDirectory: URL
     ) -> PathSelection {
-        guard detected.state == .installedAndOnPath else {
+        guard location.state == .installedAndOnPath else {
             return .inconsistent(
-                "the diagnostic found a live PATH entry, but the detector reported \(detected.state.rawValue)"
+                "the diagnostic found a live PATH entry, but the detector reported \(location.state.rawValue)"
             )
         }
-        guard let detectedEntry = detected.entryPath,
-              let detectedTarget = detected.resolvedPath,
+        guard let detectedEntry = location.entryPath,
+              let detectedTarget = location.resolvedPath,
               let diagnosticTarget = candidate.canonicalTarget
         else {
             return .inconsistent("the detector did not return both a selected entry and resolved target")

@@ -85,6 +85,9 @@ case "scan":
         }
         // The local inventory is published first and flushed, before any manager query.
         print(DiagnosticsScanRenderer.render(reports: reports, isDegraded: environment.isDegraded), terminator: "")
+        // Declared metadata comes from the same validated definitions, in the same
+        // order, and is appended before VERSION / UPDATE STATUS in every scan mode.
+        print(DetectorMetadataRenderer.render(definitions: definitions), terminator: "")
         fflush(stdout)
 
         // Update status is appended after the M5 report; probe outcomes are values, not errors.
@@ -106,6 +109,52 @@ case "scan":
     } catch {
         // Fail loud: a broken registry is an operator-visible error, never a
         // silently reduced scan (M4 brief req. 3).
+        FileHandle.standardError.write(Data("\(error)\n".utf8))
+        exit(1)
+    }
+case "verify-installation":
+    // Explicit, read-only ownership verification for exactly one registry entry.
+    // Invalid syntax is rejected before any environment capture, scan or manager query.
+    guard args.count == 3 else { usageError() }
+    let registryID = args[2]
+    let environment = ShellEnvironmentResolver.resolve()
+    do {
+        let definitions = try DetectorRegistry.loadDefault()
+        guard let definition = definitions.first(where: { $0.id == registryID }) else {
+            FileHandle.standardError.write(
+                Data("agent-lens: unknown registry id '\(registryID)'\n".utf8)
+            )
+            exit(1)
+        }
+        let report = PathDiagnosticsScanner.scan(
+            detector: definition.makeDetector(),
+            environment: environment
+        )
+        // Local, path and declared facts come from the same validated definition as the
+        // ownership result. No update coordinator, cache, manager batch or version lookup runs.
+        print(
+            DiagnosticsScanRenderer.render(reports: [report], isDegraded: environment.isDegraded),
+            terminator: ""
+        )
+        print(DetectorMetadataRenderer.render(definitions: [definition]), terminator: "")
+        fflush(stdout)
+
+        Task {
+            let result = await InstallationOwnershipVerifier.verify(
+                definition: definition,
+                diagnostic: report,
+                environment: environment,
+                runner: ProcessUpdateCommandRunner(),
+                currentDirectory: FileManager.default.currentDirectoryPath,
+                now: { Date() }
+            )
+            print(InstallationOwnershipRenderer.render(result), terminator: "")
+            fflush(stdout)
+            // Unknown is a diagnostic result, not a command failure.
+            exit(0)
+        }
+        dispatchMain()
+    } catch {
         FileHandle.standardError.write(Data("\(error)\n".utf8))
         exit(1)
     }

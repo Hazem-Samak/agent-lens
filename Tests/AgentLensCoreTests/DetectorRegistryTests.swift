@@ -4,6 +4,7 @@ import Foundation
 
 // M4 tests — D-010's promise, enforced: the registry is data-driven, every
 // detector has a fixture test, and schema violations are rejected loudly.
+// M9-A migrates the schema to 2 with required category/packages/versionQuery.
 
 @discardableResult
 private func makeExecutable(script: String, at fileURL: URL) throws -> String {
@@ -40,6 +41,39 @@ private func environment(pathEntries: [URL]) -> ShellEnvironment {
     )
 }
 
+private let standardQueryJSON = #""versionQuery":{"arguments":["--version"],"stream":"stdout","line":"first"}"#
+
+/// A complete schema-2 detector object. Callers can replace individual fields
+/// to build malformed variants while keeping the rest valid.
+private func detectorJSON(
+    id: String? = "x",
+    displayName: String? = "X",
+    executableName: String? = "x",
+    extraFields: String = "",
+    categoryField: String = #""category":"aiAgent""#,
+    packagesField: String = #""packages":[]"#,
+    queryField: String = standardQueryJSON
+) -> String {
+    var fields: [String] = []
+    if let id { fields.append(#""id":\#(quoted(id))"#) }
+    if let displayName { fields.append(#""displayName":\#(quoted(displayName))"#) }
+    if let executableName { fields.append(#""executableName":\#(quoted(executableName))"#) }
+    fields.append(categoryField)
+    fields.append(packagesField)
+    fields.append(queryField)
+    if !extraFields.isEmpty { fields.append(extraFields) }
+    return "{" + fields.joined(separator: ",") + "}"
+}
+
+private func quoted(_ value: String) -> String {
+    let data = try! JSONEncoder().encode(value)
+    return String(decoding: data, as: UTF8.self)
+}
+
+private func registryJSON(_ detectors: [String], schemaVersion: Int = 2) -> String {
+    #"{"schemaVersion":\#(schemaVersion),"detectors":[\#(detectors.joined(separator: ","))]}"#
+}
+
 // MARK: Bundled registry validity
 
 @Test func bundledDefaultDetectorsIsValidWithThreeTools() throws {
@@ -50,6 +84,21 @@ private func environment(pathEntries: [URL]) -> ShellEnvironment {
     #expect(definitions[0].fixture == DetectorDefinition.Fixture(layout: "npmGlobal", expectedSource: "npm"))
     #expect(definitions[1].fixture == DetectorDefinition.Fixture(layout: "singleDirectory", expectedSource: "standalone"))
     #expect(definitions[2].fixture == DetectorDefinition.Fixture(layout: "singleDirectory", expectedSource: "standalone"))
+
+    #expect(definitions.map(\.category) == [.aiAgent, .aiAgent, .aiAgent])
+    #expect(definitions.allSatisfy { $0.versionQuery == .standard })
+    #expect(definitions[0].packages == [
+        try DeclaredPackage(manager: .npm, name: "@openai/codex"),
+        try DeclaredPackage(manager: .homebrewCask, name: "codex"),
+    ])
+    #expect(definitions[0].informationURL?.absoluteString == "https://developers.openai.com/codex/cli")
+    #expect(definitions[0].uninstallInstructionsURL == nil)
+    #expect(definitions[1].packages.count == 4)
+    #expect(definitions[1].informationURL?.absoluteString == "https://opencode.ai/v2/docs/")
+    #expect(definitions[1].uninstallInstructionsURL?.absoluteString == "https://opencode.ai/v2/docs/cli/#uninstall")
+    #expect(definitions[2].packages.isEmpty)
+    #expect(definitions[2].informationURL?.absoluteString == "https://docs.x.ai/build/overview")
+    #expect(definitions[2].uninstallInstructionsURL == nil)
 }
 
 // MARK: Schema violations are rejected with named errors
@@ -72,33 +121,42 @@ private func environment(pathEntries: [URL]) -> ShellEnvironment {
         .missingSchemaVersion,
         when: #"{"detectors": []}"#
     )
+    // Schema 1 is rejected outright; there is no compatibility shim.
     try expectError(
-        .unsupportedSchemaVersion(2),
-        when: #"{"schemaVersion": 2, "detectors": [{"id": "x", "displayName": "X", "executableName": "x"}]}"#
+        .unsupportedSchemaVersion(1),
+        when: registryJSON([detectorJSON()], schemaVersion: 1)
+    )
+    try expectError(
+        .unsupportedSchemaVersion(3),
+        when: registryJSON([detectorJSON()], schemaVersion: 3)
     )
     try expectError(
         .missingField(field: "id", id: "(detector #0)"),
-        when: #"{"schemaVersion": 1, "detectors": [{"displayName": "X", "executableName": "x"}]}"#
+        when: registryJSON([detectorJSON(id: nil)])
     )
     try expectError(
         .emptyField(field: "executableName", id: "x"),
-        when: #"{"schemaVersion": 1, "detectors": [{"id": "x", "displayName": "X", "executableName": ""}]}"#
+        when: registryJSON([detectorJSON(executableName: "")])
     )
     try expectError(
         .duplicateId("x"),
-        when: #"{"schemaVersion": 1, "detectors": [{"id": "x", "displayName": "X", "executableName": "x"}, {"id": "x", "displayName": "Y", "executableName": "y"}]}"#
+        when: registryJSON([detectorJSON(), detectorJSON(displayName: "Y", executableName: "y")])
     )
     try expectError(
         .unknownLayout("npmoobal", id: "x"),
-        when: #"{"schemaVersion": 1, "detectors": [{"id": "x", "displayName": "X", "executableName": "x", "fixture": {"layout": "npmoobal", "expectedSource": "npm"}}]}"#
+        when: registryJSON([
+            detectorJSON(extraFields: #""fixture":{"layout":"npmoobal","expectedSource":"npm"}"#)
+        ])
     )
     try expectError(
         .unknownExpectedSource("npmx", id: "x"),
-        when: #"{"schemaVersion": 1, "detectors": [{"id": "x", "displayName": "X", "executableName": "x", "fixture": {"layout": "npmGlobal", "expectedSource": "npmx"}}]}"#
+        when: registryJSON([
+            detectorJSON(extraFields: #""fixture":{"layout":"npmGlobal","expectedSource":"npmx"}"#)
+        ])
     )
     try expectError(
         .noDetectors,
-        when: #"{"schemaVersion": 1, "detectors": []}"#
+        when: registryJSON([])
     )
     try expectError(
         .badJSON(underlying: "root is not a JSON object"),
@@ -148,7 +206,9 @@ private func environment(pathEntries: [URL]) -> ShellEnvironment {
             return
         }
 
-        let detector = definition.makeDetector(versionQuery: { _, _, _ in nil })
+        let detector = definition.makeDetector(
+            versionQuery: { _, _, _, _ in nil }
+        )
         let tool = detector.detect(in: environment(pathEntries: [searchRoot]))
 
         #expect(tool.state == .installedAndOnPath, "fixture test for \(definition.id) failed")
@@ -163,14 +223,19 @@ private func environment(pathEntries: [URL]) -> ShellEnvironment {
     defer { try? FileManager.default.removeItem(at: root) }
     try makeExecutable(script: "exit 0", at: root.appendingPathComponent("newtool"))
 
-    let definition = DetectorDefinition(
+    let definition = try DetectorDefinition(
         id: "newtool",
         displayName: "New Tool",
         executableName: "newtool",
         extraSearchRoots: [],
-        fixture: DetectorDefinition.Fixture(layout: "singleDirectory", expectedSource: "standalone")
+        fixture: DetectorDefinition.Fixture(layout: "singleDirectory", expectedSource: "standalone"),
+        category: .aiAgent,
+        packages: [],
+        informationURL: nil,
+        uninstallInstructionsURL: nil,
+        versionQuery: .standard
     )
-    let tool = definition.makeDetector(versionQuery: { _, _, _ in nil })
+    let tool = definition.makeDetector(versionQuery: { _, _, _, _ in nil })
         .detect(in: environment(pathEntries: [root]))
 
     #expect(tool.state == .installedAndOnPath)

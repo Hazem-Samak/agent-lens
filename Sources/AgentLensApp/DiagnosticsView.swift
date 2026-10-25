@@ -57,6 +57,10 @@ public struct DiagnosticsView: View {
 
                 Divider()
 
+                installationVersionsSection(diagnostic)
+
+                Divider()
+
                 candidatesSection(diagnostic)
             }
             .padding(24)
@@ -280,6 +284,103 @@ public struct DiagnosticsView: View {
     private func shadowedText(_ count: Int?) -> String {
         guard let count else { return "— (unavailable due to consistency failure)" }
         return "\(count)"
+    }
+
+    // MARK: Canonical Installation Versions
+
+    private func installationVersionsSection(_ diagnostic: ToolPathDiagnostic) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Canonical Installation Versions")
+                .font(.headline)
+
+            if diagnostic.installationVersions.isEmpty {
+                Text("No live canonical installation was observed.")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+            } else {
+                ForEach(
+                    diagnostic.installationVersions,
+                    id: \.canonicalTarget
+                ) { observation in
+                    installationVersionRow(observation)
+                }
+            }
+        }
+    }
+
+    private func installationVersionRow(
+        _ observation: InstallationVersionObservation
+    ) -> some View {
+        let extraRootText: String?
+        if case .extraRoot(_, let directoryText) = observation.origin {
+            extraRootText = directoryText
+        } else {
+            extraRootText = nil
+        }
+        return VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 6) {
+                Text("Canonical Target")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                Spacer()
+                if extraRootText != nil {
+                    Text("Observed discovery origin · off PATH")
+                        .font(.caption2)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Color.orange.opacity(0.15), in: Capsule())
+                        .foregroundColor(.orange)
+                }
+            }
+
+            selectablePath(observation.canonicalTarget)
+
+            Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 6) {
+                GridRow(alignment: .top) {
+                    Text("Representative Entry")
+                        .foregroundColor(.secondary)
+                    selectablePath(observation.entryPath)
+                }
+
+                GridRow(alignment: .top) {
+                    Text("Local Version")
+                        .foregroundColor(.secondary)
+                    versionOutcomeText(observation.outcome)
+                }
+
+                if let extraRootText {
+                    GridRow(alignment: .top) {
+                        Text("Observed Discovery Origin")
+                            .foregroundColor(.secondary)
+                        Text(
+                            "declared extra root \(extraRootText); not a current shell winner or verified ownership"
+                        )
+                        .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+            }
+            .font(.subheadline)
+        }
+        .padding(10)
+        .background(Color.secondary.opacity(0.06), in: RoundedRectangle(cornerRadius: 6))
+    }
+
+    @ViewBuilder
+    private func versionOutcomeText(_ outcome: InstallationVersionOutcome) -> some View {
+        switch outcome {
+        case .measured(let version):
+            Text(version)
+                .fontDesign(.monospaced)
+                .textSelection(.enabled)
+        case .unknown(let reason):
+            HStack(alignment: .top, spacing: 4) {
+                Image(systemName: "questionmark.circle")
+                    .foregroundColor(.secondary)
+                Text("Unknown — \(reason.message)")
+                    .foregroundColor(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
     }
 
     // MARK: Observed Candidates

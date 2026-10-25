@@ -129,7 +129,8 @@ private func runCaptured(
     arguments: [String],
     environment: [String: String],
     captureDirectory: URL,
-    label: String
+    label: String,
+    budget: TimeInterval = cliRunBudget
 ) throws -> CLIResult {
     let stdoutURL = captureDirectory.appendingPathComponent("stdout-\(label)-\(UUID().uuidString).txt")
     let stderrURL = captureDirectory.appendingPathComponent("stderr-\(label)-\(UUID().uuidString).txt")
@@ -151,14 +152,14 @@ private func runCaptured(
     }
 
     try process.run()
-    if !waitForTermination(process, budget: cliRunBudget) {
+    if !waitForTermination(process, budget: budget) {
         process.terminate()
         if !waitForTermination(process, budget: 5) {
             kill(process.processIdentifier, SIGKILL)
             _ = waitForTermination(process, budget: 5)
         }
         throw NSError(domain: "AgentLensCLI", code: 12, userInfo: [
-            NSLocalizedDescriptionKey: "\(executable) exceeded its \(cliRunBudget)s watchdog budget",
+            NSLocalizedDescriptionKey: "\(executable) exceeded its \(budget)s watchdog budget",
         ])
     }
     process.waitUntilExit()
@@ -172,7 +173,12 @@ private func runCaptured(
 
 /// Runs the built executable under the cache-denial sandbox with an isolated HOME and ZDOTDIR.
 /// This is the ONLY launch seam for the CLI, so every CLI test inherits the isolation.
-private func runCLI(_ arguments: [String], home: URL, zdotdir: URL) throws -> CLIResult {
+private func runCLI(
+    _ arguments: [String],
+    home: URL,
+    zdotdir: URL,
+    budget: TimeInterval = cliRunBudget
+) throws -> CLIResult {
     let cli = try builtAgentLensExecutable()
     guard FileManager.default.isExecutableFile(atPath: sandboxExec) else { throw isolationBlocker() }
     let profile = denialProfile(subpath: try realAgentLensCacheDirectory().path)
@@ -187,7 +193,8 @@ private func runCLI(_ arguments: [String], home: URL, zdotdir: URL) throws -> CL
         arguments: ["-p", profile, cli] + arguments,
         environment: environment,
         captureDirectory: home,
-        label: "cli"
+        label: "cli",
+        budget: budget
     )
 }
 
@@ -344,6 +351,7 @@ private func builtAgentLensExecutable() throws -> String {
     #expect(none.status == 0)
     #expect(none.stdout.hasPrefix("usage: agent-lens <scan"))
     #expect(none.stdout.contains("debug-env"))
+    #expect(none.stdout.contains("verify-installation"))
 
     let unknown = try runCLI(["unknown-command"], home: home, zdotdir: zdot)
     #expect(unknown.status == 1)
@@ -359,6 +367,7 @@ private func builtAgentLensExecutable() throws -> String {
     #expect(usage.contains("--refresh-updates"))
     #expect(usage.contains("--offline"))
     #expect(usage.contains("debug-env"))
+    #expect(usage.contains("verify-installation <registry-id>"))
 }
 
 @Test func validDebugEnvironmentCommandUsesTheFixturePathWithoutManagerProbes() throws {
@@ -544,6 +553,121 @@ private func makeBrewCLIScenario(_ label: String, info: String, outdated: String
     return BrewCLIScenario(root: root, home: home, zdotdir: zdotdir, binDirectory: binDirectory, logURL: logURL)
 }
 
+// MARK: Explicit ownership verification scenarios
+
+private struct NpmOwnershipCLIScenario {
+    let root: URL
+    let home: URL
+    let zdotdir: URL
+    let prefix: URL
+    let packageRoot: URL
+    let logURL: URL
+}
+
+private func writeFakeNpm(in directory: URL, prefix: URL, globalRoot: URL, logURL: URL) throws {
+    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+    let script = """
+    #!/bin/sh
+    printf '%s\\n' "$*" >> \(shellQuote(logURL.path))
+    case "$*" in
+      "prefix --global") printf '%s\\n' \(shellQuote(prefix.path)) ;;
+      "root --global") printf '%s\\n' \(shellQuote(globalRoot.path)) ;;
+      *) exit 2 ;;
+    esac
+    """
+    let url = directory.appendingPathComponent("npm")
+    try Data(script.utf8).write(to: url)
+    try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: url.path)
+}
+
+private func makeNpmOwnershipCLIScenario(_ label: String) throws -> NpmOwnershipCLIScenario {
+    let root = try cliScratch(label)
+    let home = root.appendingPathComponent("home", isDirectory: true)
+    let zdotdir = root.appendingPathComponent("zdot", isDirectory: true)
+    let prefix = root.appendingPathComponent("prefix", isDirectory: true)
+    let globalRoot = prefix.appendingPathComponent("lib/node_modules", isDirectory: true)
+    let packageRoot = globalRoot.appendingPathComponent("@openai/codex", isDirectory: true)
+    let npmBin = root.appendingPathComponent("npm-bin", isDirectory: true)
+    let extraBin = root.appendingPathComponent("extra-bin", isDirectory: true)
+    let logURL = root.appendingPathComponent("npm.log")
+    try FileManager.default.createDirectory(at: home, withIntermediateDirectories: true)
+    try FileManager.default.createDirectory(
+        at: packageRoot.appendingPathComponent("bin", isDirectory: true),
+        withIntermediateDirectories: true
+    )
+    try writeFakeTool(
+        in: packageRoot.appendingPathComponent("bin", isDirectory: true),
+        named: "codex.js", version: "0.1.0"
+    )
+    let manifest = #"{"name":"@openai/codex","version":"0.1.0","bin":{"codex":"bin/codex.js"}}"#
+    try Data(manifest.utf8).write(to: packageRoot.appendingPathComponent("package.json"))
+
+    let prefixBin = prefix.appendingPathComponent("bin", isDirectory: true)
+    try FileManager.default.createDirectory(at: prefixBin, withIntermediateDirectories: true)
+    try FileManager.default.createSymbolicLink(
+        atPath: prefixBin.appendingPathComponent("codex").path,
+        withDestinationPath: packageRoot.appendingPathComponent("bin/codex.js").path
+    )
+    try writeFakeNpm(in: npmBin, prefix: prefix, globalRoot: globalRoot, logURL: logURL)
+    // Fake standalone tools keep the closed fixture PATH from falling through to real extra roots.
+    try writeFakeTool(in: extraBin, named: "opencode", version: "2.0.28")
+    try writeFakeTool(in: extraBin, named: "grok", version: "1.0.52")
+    try writeRC(zdotdir: zdotdir, pathEntries: [prefixBin.path, npmBin.path, extraBin.path])
+    return NpmOwnershipCLIScenario(
+        root: root, home: home, zdotdir: zdotdir, prefix: prefix,
+        packageRoot: packageRoot, logURL: logURL
+    )
+}
+
+private struct FormulaOwnershipCLIScenario {
+    let root: URL
+    let home: URL
+    let zdotdir: URL
+    let prefix: URL
+    let cellar: URL
+    let kegDirectory: URL
+    let kegTarget: URL
+    let logURL: URL
+}
+
+private func makeFormulaOwnershipCLIScenario(_ label: String) throws -> FormulaOwnershipCLIScenario {
+    let root = try cliScratch(label)
+    let home = root.appendingPathComponent("home", isDirectory: true)
+    let zdotdir = root.appendingPathComponent("zdot", isDirectory: true)
+    let prefix = root.appendingPathComponent("prefix", isDirectory: true)
+    let cellar = prefix.appendingPathComponent("Cellar", isDirectory: true)
+    let kegDirectory = cellar.appendingPathComponent("opencode-v2/1.0.0", isDirectory: true)
+    let kegTarget = kegDirectory.appendingPathComponent("bin/opencode")
+    let logURL = root.appendingPathComponent("brew.log")
+    try FileManager.default.createDirectory(at: home, withIntermediateDirectories: true)
+    try writeFakeTool(in: kegTarget.deletingLastPathComponent(), named: "opencode", version: "1.2.3")
+    let binDirectory = prefix.appendingPathComponent("bin", isDirectory: true)
+    try FileManager.default.createDirectory(at: binDirectory, withIntermediateDirectories: true)
+    try FileManager.default.createSymbolicLink(
+        atPath: binDirectory.appendingPathComponent("opencode").path,
+        withDestinationPath: kegTarget.path
+    )
+    let info = #"{"formulae":[{"name":"opencode-v2","full_name":"anomalyco/tap/opencode-v2","tap":"anomalyco/tap","revision":1,"versions":{"stable":"9.9.9","head":null,"bottle":true},"installed":[{"version":"1.0.0","installed_on_request":true}]}],"casks":[]}"#
+    let brewScript = """
+    #!/bin/sh
+    printf '%s\\n' "$*" >> \(shellQuote(logURL.path))
+    case "$*" in
+      "--cellar") printf '%s\\n' \(shellQuote(cellar.path)) ;;
+      "info --json=v2 --formula anomalyco/tap/opencode-v2") printf '%s' \(shellQuote(info)) ;;
+      "list --verbose --formula anomalyco/tap/opencode-v2") printf '%s\\n' \(shellQuote(kegTarget.path)) ;;
+      *) exit 2 ;;
+    esac
+    """
+    let brewURL = binDirectory.appendingPathComponent("brew")
+    try Data(brewScript.utf8).write(to: brewURL)
+    try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: brewURL.path)
+    try writeRC(zdotdir: zdotdir, pathEntries: [binDirectory.path])
+    return FormulaOwnershipCLIScenario(
+        root: root, home: home, zdotdir: zdotdir, prefix: prefix, cellar: cellar,
+        kegDirectory: kegDirectory, kegTarget: kegTarget, logURL: logURL
+    )
+}
+
 private let currentInfo = #"{"formulae":[{"name":"codex","full_name":"codex","tap":"homebrew/core","revision":1,"versions":{"stable":"0.162.1","head":null,"bottle":true},"installed":[{"version":"0.162.1_1","installed_on_request":true}]}],"casks":[]}"#
 private let emptyOutdated = #"{"formulae":[],"casks":[]}"#
 
@@ -555,8 +679,10 @@ private let emptyOutdated = #"{"formulae":[],"casks":[]}"#
     #expect(result.status == 0)
     // The M5 report is the unchanged prefix and the update section is appended after it.
     #expect(result.stdout.contains("PATH DIAGNOSTICS"))
+    #expect(result.stdout.contains("DETECTOR METADATA"))
     #expect(result.stdout.contains("VERSION / UPDATE STATUS"))
-    #expect(result.stdout.range(of: "PATH DIAGNOSTICS")!.lowerBound < result.stdout.range(of: "VERSION / UPDATE STATUS")!.lowerBound)
+    #expect(result.stdout.range(of: "PATH DIAGNOSTICS")!.lowerBound < result.stdout.range(of: "DETECTOR METADATA")!.lowerBound)
+    #expect(result.stdout.range(of: "DETECTOR METADATA")!.lowerBound < result.stdout.range(of: "VERSION / UPDATE STATUS")!.lowerBound)
     #expect(Array(result.stdout.utf8.prefix(expectedPrefix.utf8.count)) == Array(expectedPrefix.utf8))
     #expect(expectedPrefix.contains("0.162.1"), "the unchanged local report must retain its useful version")
     #expect(result.stdout.contains("Codex  installed 0.162.1  latest known 0.162.1_1  up to date"))
@@ -627,8 +753,8 @@ private let emptyOutdated = #"{"formulae":[],"casks":[]}"#
     #expect(expectedPrefix.contains("shadowed because it appears later in PATH"))
     #expect(expectedPrefix.contains("invalid observed PATH entries:"))
     #expect(expectedPrefix.contains("0.162.1"))
-    #expect(FileManager.default.fileExists(atPath: shadowedLog.path) == false,
-            "shadowed executables must remain unqueried")
+    #expect(readLog(shadowedLog).count == 1,
+            "a shadowed canonical installation is queried exactly once for its own version")
     #expect(readLog(scenario.logURL).count == 3)
     let detectorCalls = readLog(detectorLog)
     #expect(detectorCalls.count == 3)
@@ -701,11 +827,17 @@ private let emptyOutdated = #"{"formulae":[],"casks":[]}"#
 
     let output = String(decoding: try Data(contentsOf: running.stdoutURL), as: UTF8.self)
     let errorOutput = String(decoding: try Data(contentsOf: running.stderrURL), as: UTF8.self)
+    let expectedMetadata = DetectorMetadataRenderer.render(
+        definitions: try DetectorRegistry.loadDefault()
+    )
+    let expectedPrefixWithMetadata = expectedPrefix + expectedMetadata
     #expect(running.process.terminationStatus == 0)
     #expect(errorOutput.isEmpty)
     #expect(Array(output.utf8.prefix(expectedPrefix.utf8.count)) == Array(expectedPrefix.utf8))
+    #expect(Array(output.utf8.prefix(expectedPrefixWithMetadata.utf8.count))
+            == Array(expectedPrefixWithMetadata.utf8))
     #expect(output.components(separatedBy: "VERSION / UPDATE STATUS").count - 1 == 1)
-    #expect(output.dropFirst(expectedPrefix.count).hasPrefix("\nVERSION / UPDATE STATUS\n"))
+    #expect(output.dropFirst(expectedPrefixWithMetadata.count).hasPrefix("\nVERSION / UPDATE STATUS\n"))
     #expect(output.contains("0 updates available\n"))
     #expect(readLog(scenario.logURL).count == 3)
 }
@@ -741,6 +873,44 @@ private let emptyOutdated = #"{"formulae":[],"casks":[]}"#
     #expect(result.status == 0)
     #expect(readLog(s.logURL).isEmpty)
     #expect(result.stdout.contains("unknown — update check not requested"))
+}
+
+@Test func detectorMetadataIsAppendedAfterUnchangedPathReportInEveryScanMode() throws {
+    let scenario = try makeBrewCLIScenario("metadata-modes", info: currentInfo, outdated: emptyOutdated)
+    let expectedPathPrefix = try expectedM5Prefix(pathEntries: [scenario.binDirectory.path])
+    let expectedMetadata = DetectorMetadataRenderer.render(
+        definitions: try DetectorRegistry.loadDefault()
+    )
+    let expectedPrefixWithMetadata = expectedPathPrefix + expectedMetadata
+    let modes: [[String]] = [
+        ["scan"],
+        ["scan", "--offline"],
+        ["scan", "--check-updates"],
+        ["scan", "--refresh-updates"],
+    ]
+
+    for arguments in modes {
+        let result = try runCLI(arguments, home: scenario.home, zdotdir: scenario.zdotdir)
+        #expect(result.status == 0, "\(arguments)")
+        #expect(result.stderr.isEmpty, "\(arguments)")
+        #expect(Array(result.stdout.utf8.prefix(expectedPathPrefix.utf8.count))
+                == Array(expectedPathPrefix.utf8), "\(arguments)")
+        #expect(Array(result.stdout.utf8.prefix(expectedPrefixWithMetadata.utf8.count))
+                == Array(expectedPrefixWithMetadata.utf8), "\(arguments)")
+        let metadataRange = try #require(result.stdout.range(of: "DETECTOR METADATA"))
+        let versionRange = try #require(result.stdout.range(of: "VERSION / UPDATE STATUS"))
+        #expect(metadataRange.lowerBound < versionRange.lowerBound, "\(arguments)")
+        #expect(result.stdout.contains("Codex  category: AI Agent"), "\(arguments)")
+        #expect(result.stdout.contains("declared package: npm @openai/codex (declaration only)"), "\(arguments)")
+        #expect(result.stdout.contains("declared package: Homebrew cask codex (declaration only)"), "\(arguments)")
+        #expect(result.stdout.contains("Grok CLI  category: AI Agent"), "\(arguments)")
+        #expect(result.stdout.contains("declared packages: none"), "\(arguments)")
+        #expect(result.stdout.contains("official information: https://docs.x.ai/build/overview"), "\(arguments)")
+        #expect(result.stdout.contains("uninstall instructions: https://opencode.ai/v2/docs/cli/#uninstall"), "\(arguments)")
+    }
+
+    // Plain and offline make zero manager calls; check and refresh each make one batch.
+    #expect(readLog(scenario.logURL).count == 6)
 }
 
 @Test func syntheticOffPathDegradedM5ReportRemainsTheExactBytePrefix() throws {
@@ -782,7 +952,8 @@ private let emptyOutdated = #"{"formulae":[],"casks":[]}"#
             PathTargetGroup(canonicalTarget: shadowedTarget, entryPaths: [shadowedPath], firstSlotIndex: 2),
         ],
         repeatedPathSlotCount: 0, sameTargetAliasCount: 1,
-        selection: .winner(winnerCandidate), shadowedInstallationCount: 1
+        selection: .winner(winnerCandidate), shadowedInstallationCount: 1,
+        installationVersions: []
     )
     let offPathTool = DetectedTool(
         displayName: "OpenCode", executableName: "opencode", state: .installedNotOnPath,
@@ -795,7 +966,8 @@ private let emptyOutdated = #"{"formulae":[],"casks":[]}"#
     let offPathReport = ToolPathDiagnostic(
         detectedTool: offPathTool, pathCandidates: [], firstLiveCandidate: nil, targetGroups: [],
         repeatedPathSlotCount: 0, sameTargetAliasCount: 0,
-        selection: .offPath(candidate: offPathCandidate, root: offPathRoot), shadowedInstallationCount: 0
+        selection: .offPath(candidate: offPathCandidate, root: offPathRoot), shadowedInstallationCount: 0,
+        installationVersions: []
     )
     let prefix = DiagnosticsScanRenderer.render(reports: [winnerReport, offPathReport], isDegraded: true)
     let observedAt = Date(timeIntervalSince1970: 0)
@@ -828,6 +1000,168 @@ private let emptyOutdated = #"{"formulae":[],"casks":[]}"#
     #expect(prefix.contains("known extra root (off PATH; not a shell winner)"))
     #expect(prefix.contains("0.162.1"))
     #expect(complete.dropFirst(prefix.count).hasPrefix("\nVERSION / UPDATE STATUS\n"))
+}
+
+// MARK: verify-installation through the real CLI
+
+@Test func verifyInstallationNpmPrintsLocalDeclaredFactsThenExactReadOnlyProof() throws {
+    let scenario = try makeNpmOwnershipCLIScenario("npm-verify")
+    let result = try runCLI(
+        ["verify-installation", "codex"], home: scenario.home, zdotdir: scenario.zdotdir
+    )
+
+    #expect(result.status == 0)
+    #expect(result.stderr.isEmpty)
+    // Exactly the two documented read-only npm queries, in order, with no update or cache step.
+    #expect(readLog(scenario.logURL) == ["prefix --global", "root --global"])
+
+    // The named definition's local and declared facts precede the ownership section; the other
+    // registry entries are not scanned merely because verification was requested.
+    let pathRange = try #require(result.stdout.range(of: "PATH DIAGNOSTICS"))
+    let metadataRange = try #require(result.stdout.range(of: "DETECTOR METADATA"))
+    let ownershipRange = try #require(result.stdout.range(of: "OWNERSHIP VERIFICATION"))
+    #expect(pathRange.lowerBound < metadataRange.lowerBound)
+    #expect(metadataRange.lowerBound < ownershipRange.lowerBound)
+    #expect(result.stdout.contains("Codex          0.1.0    npm"))
+    #expect(result.stdout.contains("declared package: npm @openai/codex (declaration only)"))
+    #expect(!result.stdout.contains("OpenCode"))
+    #expect(!result.stdout.contains("Grok CLI"))
+    #expect(!result.stdout.contains("VERSION / UPDATE STATUS"))
+
+    // Verified identity is carried from manager output and manifest inspection, not the label.
+    #expect(result.stdout.contains("  result: verified"))
+    #expect(result.stdout.contains("  manager: npm"))
+    #expect(result.stdout.contains("  package: @openai/codex"))
+    #expect(result.stdout.contains("  manager executable: \(scenario.root.appendingPathComponent("npm-bin/npm").path)"))
+    #expect(result.stdout.contains("  manager root: \(scenario.prefix.path)"))
+    #expect(result.stdout.contains("  installation root: \(scenario.packageRoot.path)"))
+    #expect(result.stdout.contains("  selected entry: \(scenario.prefix.appendingPathComponent("bin/codex").path)"))
+    #expect(result.stdout.contains(
+        "  selected target: \(scenario.packageRoot.appendingPathComponent("bin/codex.js").path)"
+    ))
+
+    // The timestamp is the observation time, and every result states its read-only character.
+    let timestampLine = try #require(
+        result.stdout.split(separator: "\n").first { $0.hasPrefix("  observed at: ") }
+    )
+    let timestampText = String(timestampLine.dropFirst("  observed at: ".count))
+    #expect(ISO8601DateFormatter().date(from: timestampText) != nil)
+    #expect(result.stdout.contains(
+        "  note: read-only verification from this invocation; no installation changes were made"
+    ))
+}
+
+@Test func verifyInstallationFIFOManifestSettlesWithinTheSubprocessWatchdog() throws {
+    let scenario = try makeNpmOwnershipCLIScenario("npm-fifo-verify")
+    let manifest = scenario.packageRoot.appendingPathComponent("package.json")
+    try FileManager.default.removeItem(at: manifest)
+    let created = manifest.path.withCString { mkfifo($0, 0o600) }
+    #expect(created == 0)
+    guard created == 0 else { return }
+
+    // A blocking descriptor open on this FIFO has no writer and never returns. The subprocess
+    // watchdog turns that regression into a bounded test failure instead of wedging the suite.
+    let result = try runCLI(
+        ["verify-installation", "codex"],
+        home: scenario.home,
+        zdotdir: scenario.zdotdir,
+        budget: 20
+    )
+
+    #expect(result.status == 0)
+    #expect(result.stderr.isEmpty)
+    #expect(result.stdout.contains("  result: unknown"))
+    #expect(result.stdout.contains("  reason: The package manifest could not be read"))
+    #expect(readLog(scenario.logURL) == ["prefix --global", "root --global"])
+}
+
+@Test func verifyInstallationHomebrewFormulaUsesCellarInfoListAndIgnoresStableVersion() throws {
+    let scenario = try makeFormulaOwnershipCLIScenario("brew-formula-verify")
+    let result = try runCLI(
+        ["verify-installation", "opencode"], home: scenario.home, zdotdir: scenario.zdotdir
+    )
+
+    #expect(result.status == 0)
+    #expect(result.stderr.isEmpty)
+    // Exactly `--cellar`, named `info --json=v2 --formula`, and named `list --verbose --formula`.
+    // `--installed` is deliberately absent, and no update check or cache path is exercised.
+    #expect(readLog(scenario.logURL) == [
+        "--cellar",
+        "info --json=v2 --formula anomalyco/tap/opencode-v2",
+        "list --verbose --formula anomalyco/tap/opencode-v2",
+    ])
+    #expect(result.stdout.contains("  result: verified"))
+    #expect(result.stdout.contains("  manager: Homebrew formula"))
+    #expect(result.stdout.contains("  package: anomalyco/tap/opencode-v2"))
+    #expect(result.stdout.contains("  manager root: \(scenario.cellar.path)"))
+    #expect(result.stdout.contains("  installation root: \(scenario.kegDirectory.path)"))
+    #expect(result.stdout.contains(
+        "  selected entry: \(scenario.prefix.appendingPathComponent("bin/opencode").path)"
+    ))
+    #expect(result.stdout.contains("  selected target: \(scenario.kegTarget.path)"))
+    #expect(!result.stdout.contains("VERSION / UPDATE STATUS"))
+    // The fixture's upstream `stable` is 9.9.9 while the selected keg is 1.0.0. Ownership must
+    // never borrow that version or compare against it.
+    #expect(!result.stdout.contains("9.9.9"))
+}
+
+@Test func verifyInstallationCaskIsNeutralWithZeroManagerQueries() throws {
+    let scenario = try makeBrewCLIScenario(
+        "brew-cask-verify", info: currentInfo, outdated: emptyOutdated
+    )
+    let result = try runCLI(
+        ["verify-installation", "codex"], home: scenario.home, zdotdir: scenario.zdotdir
+    )
+
+    #expect(result.status == 0)
+    #expect(result.stderr.isEmpty)
+    #expect(result.stdout.contains("  result: unknown"))
+    #expect(result.stdout.contains("  reason: Homebrew cask ownership is not supported"))
+    #expect(result.stdout.contains("  selected entry: \(scenario.binDirectory.appendingPathComponent("codex").path)"))
+    #expect(result.stdout.contains("no installation changes were made"))
+    #expect(readLog(scenario.logURL).isEmpty, "cask verification must not query Homebrew")
+}
+
+@Test func verifyInstallationStandaloneIsNeutralWithZeroManagerQueries() throws {
+    let scenario = try makeNpmOwnershipCLIScenario("npm-standalone-verify")
+    let result = try runCLI(
+        ["verify-installation", "grok"], home: scenario.home, zdotdir: scenario.zdotdir
+    )
+
+    #expect(result.status == 0)
+    #expect(result.stderr.isEmpty)
+    #expect(result.stdout.contains("  registry id: grok"))
+    #expect(result.stdout.contains("  result: unknown"))
+    #expect(result.stdout.contains(
+        "  reason: The detected installation source is not supported for ownership verification"
+    ))
+    #expect(!result.stdout.contains("  manager:"))
+    #expect(!result.stdout.contains("VERSION / UPDATE STATUS"))
+    #expect(readLog(scenario.logURL).isEmpty, "standalone verification must not query npm")
+}
+
+@Test func verifyInstallationInvalidAndUnknownFormsExitOneWithoutManagerEffects() throws {
+    let scenario = try makeNpmOwnershipCLIScenario("npm-invalid-verify")
+    let cases: [[String]] = [
+        ["verify-installation"],
+        ["verify-installation", "codex", "extra"],
+        ["verify-installation", "codex", "--check-updates"],
+    ]
+    for arguments in cases {
+        let result = try runCLI(arguments, home: scenario.home, zdotdir: scenario.zdotdir)
+        #expect(result.status == 1, "expected exit 1 for \(arguments)")
+        #expect(result.stdout.isEmpty, "no partial report for \(arguments)")
+        #expect(result.stderr.contains("usage: agent-lens"), "expected usage for \(arguments)")
+    }
+
+    let unknown = try runCLI(
+        ["verify-installation", "not-a-registry-id"], home: scenario.home, zdotdir: scenario.zdotdir
+    )
+    #expect(unknown.status == 1)
+    #expect(unknown.stdout.isEmpty)
+    #expect(unknown.stderr.contains("unknown registry id 'not-a-registry-id'"))
+    #expect(!unknown.stderr.contains("usage: agent-lens"))
+    #expect(readLog(scenario.logURL).isEmpty, "invalid forms must not contact npm")
 }
 
 @Test func probeFailureIsAResultValueAndScanStillExitsZero() throws {

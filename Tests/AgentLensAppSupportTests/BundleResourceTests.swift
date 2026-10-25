@@ -1,5 +1,6 @@
 // BundleResourceTests — M7 stage 5: resource bundle preflight and registry schema validation tests.
 // Proves real bundled loader yields valid ordered definitions and schema/JSON errors remain typed.
+// M9-A migrates the fixtures to schema 2: category, packages and versionQuery are required.
 
 import AgentLensCore
 import Foundation
@@ -7,6 +8,26 @@ import Testing
 
 @Suite("Bundle Resource and Registry Validation Tests")
 struct BundleResourceTests {
+
+    private func detectorObject(
+        id: String,
+        displayName: String,
+        executableName: String,
+        extraSearchRoots: String? = nil
+    ) -> String {
+        var fields = [
+            #""id":"\#(id)""#,
+            #""displayName":"\#(displayName)""#,
+            #""executableName":"\#(executableName)""#,
+            #""category":"aiAgent""#,
+            #""packages":[]"#,
+            #""versionQuery":{"arguments":["--version"],"stream":"stdout","line":"first"}"#,
+        ]
+        if let extraSearchRoots {
+            fields.append(#""extraSearchRoots":\#(extraSearchRoots)"#)
+        }
+        return "{" + fields.joined(separator: ",") + "}"
+    }
 
     @Test("Real bundled loader loads valid definitions in expected registry order")
     func realBundledLoaderLoadsValidDefinitions() throws {
@@ -16,6 +37,7 @@ struct BundleResourceTests {
         #expect(definitions.map(\.id) == ["codex", "opencode", "grok"])
         #expect(definitions.map(\.displayName) == ["Codex", "OpenCode", "Grok CLI"])
         #expect(definitions.map(\.executableName) == ["codex", "opencode", "grok"])
+        #expect(definitions.map(\.category) == [.aiAgent, .aiAgent, .aiAgent])
 
         for definition in definitions {
             let detector = definition.makeDetector()
@@ -47,13 +69,28 @@ struct BundleResourceTests {
         }
     }
 
+    @Test("Schema 1 is rejected outright")
+    func validateSchemaOneIsRejected() {
+        let json = Data("""
+        {
+          "schemaVersion": 1,
+          "detectors": [
+            \(detectorObject(id: "t1", displayName: "T1", executableName: "t1"))
+          ]
+        }
+        """.utf8)
+        #expect(throws: DetectorRegistryError.unsupportedSchemaVersion(1)) {
+            try DetectorRegistry.validate(data: json)
+        }
+    }
+
     @Test("Unsupported schemaVersion throws typed error naming found version")
     func validateUnsupportedSchemaVersionThrows() {
         let json = Data("""
         {
           "schemaVersion": 99,
           "detectors": [
-            { "id": "t1", "displayName": "T1", "executableName": "t1" }
+            \(detectorObject(id: "t1", displayName: "T1", executableName: "t1"))
           ]
         }
         """.utf8)
@@ -66,7 +103,7 @@ struct BundleResourceTests {
     func validateEmptyDetectorsThrows() {
         let json = Data("""
         {
-          "schemaVersion": 1,
+          "schemaVersion": 2,
           "detectors": []
         }
         """.utf8)
@@ -79,9 +116,15 @@ struct BundleResourceTests {
     func validateMissingFieldThrows() {
         let json = Data("""
         {
-          "schemaVersion": 1,
+          "schemaVersion": 2,
           "detectors": [
-            { "id": "tool1", "displayName": "Tool 1" }
+            {
+              "id": "tool1",
+              "displayName": "Tool 1",
+              "category": "aiAgent",
+              "packages": [],
+              "versionQuery": { "arguments": ["--version"], "stream": "stdout", "line": "first" }
+            }
           ]
         }
         """.utf8)
@@ -94,9 +137,16 @@ struct BundleResourceTests {
     func validateEmptyFieldThrows() {
         let json = Data("""
         {
-          "schemaVersion": 1,
+          "schemaVersion": 2,
           "detectors": [
-            { "id": "tool1", "displayName": "", "executableName": "tool1" }
+            {
+              "id": "tool1",
+              "displayName": "",
+              "executableName": "tool1",
+              "category": "aiAgent",
+              "packages": [],
+              "versionQuery": { "arguments": ["--version"], "stream": "stdout", "line": "first" }
+            }
           ]
         }
         """.utf8)
@@ -109,10 +159,10 @@ struct BundleResourceTests {
     func validateDuplicateIDThrows() {
         let json = Data("""
         {
-          "schemaVersion": 1,
+          "schemaVersion": 2,
           "detectors": [
-            { "id": "dup", "displayName": "D1", "executableName": "d1" },
-            { "id": "dup", "displayName": "D2", "executableName": "d2" }
+            \(detectorObject(id: "dup", displayName: "D1", executableName: "d1")),
+            \(detectorObject(id: "dup", displayName: "D2", executableName: "d2"))
           ]
         }
         """.utf8)
@@ -125,10 +175,10 @@ struct BundleResourceTests {
     func validateSyntheticRegistryPreservesOrder() throws {
         let json = Data("""
         {
-          "schemaVersion": 1,
+          "schemaVersion": 2,
           "detectors": [
-            { "id": "second", "displayName": "Second Tool", "executableName": "second", "extraSearchRoots": ["~/.second"] },
-            { "id": "first", "displayName": "First Tool", "executableName": "first" }
+            \(detectorObject(id: "second", displayName: "Second Tool", executableName: "second", extraSearchRoots: "[\"~/.second\"]")),
+            \(detectorObject(id: "first", displayName: "First Tool", executableName: "first"))
           ]
         }
         """.utf8)
@@ -137,5 +187,7 @@ struct BundleResourceTests {
         #expect(definitions.map(\.id) == ["second", "first"])
         #expect(definitions[0].extraSearchRoots == ["~/.second"])
         #expect(definitions[1].extraSearchRoots.isEmpty)
+        #expect(definitions.allSatisfy { $0.category == .aiAgent })
+        #expect(definitions.allSatisfy { $0.versionQuery == .standard })
     }
 }

@@ -67,7 +67,7 @@ public struct ToolListView: View {
                 .buttonStyle(.borderedProminent)
                 .disabled(model.isBusy)
             }
-        case .idle, .localReady, .checkingUpdates, .ready:
+        case .idle, .localReady, .checkingUpdates, .verifyingOwnership, .ready:
             ContentUnavailableView(
                 "No Tools Defined",
                 systemImage: "wrench.and.screwdriver",

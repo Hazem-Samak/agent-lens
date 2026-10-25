@@ -34,6 +34,16 @@ public struct DetectedTool: Sendable, Equatable {
     public let version: String?
 }
 
+/// The location-only result of detection. The diagnostic scanner uses this internal seam so a
+/// scan observes each canonical installation once instead of executing the public `detect` query
+/// and then collecting versions again.
+struct ToolLocation: Sendable, Equatable {
+    let state: InstallState
+    let entryPath: String?
+    let resolvedPath: String?
+    let source: String
+}
+
 /// Detects one tool against a `ShellEnvironment` (M3: one fixture tool).
 public struct ToolDetector: Sendable {
 
@@ -41,19 +51,29 @@ public struct ToolDetector: Sendable {
     public let executableName: String
     /// Directories to search when the tool is NOT on PATH — makes `installedNotOnPath` reachable (D-006).
     public let extraSearchRoots: [String]
-    /// Injectable for unit tests; production default queries the real binary.
-    public let versionQuery: @Sendable (String, ShellEnvironment, TimeInterval) -> String?
+    /// The registry-declared bounded version query. Required: there is no hidden
+    /// hardcoded-query production convention. Existing consumers pass
+    /// `VersionQuerySpecification.standard` explicitly.
+    public let versionQuerySpecification: VersionQuerySpecification
+    /// Injectable for unit tests; the production default executes the declared
+    /// specification through the bounded runner.
+    public let versionQuery: @Sendable (
+        String, ShellEnvironment, TimeInterval, VersionQuerySpecification
+    ) -> String?
 
     public init(
         displayName: String,
         executableName: String,
         extraSearchRoots: [String] = [],
-        versionQuery: @escaping @Sendable (String, ShellEnvironment, TimeInterval) -> String? =
-            ToolDetector.queryVersion
+        versionQuerySpecification: VersionQuerySpecification,
+        versionQuery: @escaping @Sendable (
+            String, ShellEnvironment, TimeInterval, VersionQuerySpecification
+        ) -> String? = ToolDetector.queryVersion
     ) {
         self.displayName = displayName
         self.executableName = executableName
         self.extraSearchRoots = extraSearchRoots
+        self.versionQuerySpecification = versionQuerySpecification
         self.versionQuery = versionQuery
     }
 
@@ -63,40 +83,60 @@ public struct ToolDetector: Sendable {
     // MARK: Detection
 
     public func detect(in environment: ShellEnvironment) -> DetectedTool {
+        let location = locate(in: environment)
+        let version: String?
+        if let entryPath = location.entryPath {
+            version = versionQuery(
+                entryPath,
+                environment,
+                Self.versionTimeout,
+                versionQuerySpecification
+            )
+        } else {
+            version = nil
+        }
+        return detectedTool(from: location, version: version)
+    }
+
+    /// Locates the selected executable without running its version query. Internal so
+    /// `PathDiagnosticsScanner` can collect one observation per canonical installation.
+    func locate(in environment: ShellEnvironment) -> ToolLocation {
         if let entry = findExecutable(roots: environment.pathEntries) {
-            return finish(entryPath: entry, state: .installedAndOnPath, environment: environment)
+            return location(entryPath: entry, state: .installedAndOnPath)
         }
         if let entry = findExecutable(roots: extraSearchRoots.map(Self.expandTilde)) {
-            return finish(entryPath: entry, state: .installedNotOnPath, environment: environment)
+            return location(entryPath: entry, state: .installedNotOnPath)
         }
-        return DetectedTool(
-            displayName: displayName,
-            executableName: executableName,
+        return ToolLocation(
             state: .notInstalled,
             entryPath: nil,
             resolvedPath: nil,
-            source: "–",
-            version: nil
+            source: "–"
         )
     }
 
-    private func finish(
-        entryPath: String,
-        state: InstallState,
-        environment: ShellEnvironment
-    ) -> DetectedTool {
+    func detectedTool(from location: ToolLocation, version: String?) -> DetectedTool {
+        DetectedTool(
+            displayName: displayName,
+            executableName: executableName,
+            state: location.state,
+            entryPath: location.entryPath,
+            resolvedPath: location.resolvedPath,
+            source: location.source,
+            version: version
+        )
+    }
+
+    private func location(entryPath: String, state: InstallState) -> ToolLocation {
         let resolved = URL(fileURLWithPath: entryPath)
             .resolvingSymlinksInPath()
             .standardizedFileURL
             .path
-        return DetectedTool(
-            displayName: displayName,
-            executableName: executableName,
+        return ToolLocation(
             state: state,
             entryPath: entryPath,
             resolvedPath: resolved,
-            source: Self.classifySource(resolvedPath: resolved),
-            version: versionQuery(entryPath, environment, Self.versionTimeout)
+            source: Self.classifySource(resolvedPath: resolved)
         )
     }
 
@@ -152,19 +192,23 @@ public struct ToolDetector: Sendable {
 
     // MARK: Local version query (brief req. 5, D-007)
 
-    /// Runs `<executable> --version` locally with a timeout, returning the first
-    /// version token found (leading "v" stripped). nil on failure or timeout.
+    /// Runs the declared executable/arguments locally with the fixed 3-second
+    /// deadline and existing output limits, then extracts a version token from
+    /// the selected stream and line. nil on failure, timeout, output limit,
+    /// invalid UTF-8, or no version token — never a fabricated version.
     /// The environment comes from ShellEnvironment.raw — never the inherited env.
     public static func queryVersion(
         executablePath: String,
         environment: ShellEnvironment,
-        timeout: TimeInterval
+        timeout: TimeInterval,
+        specification: VersionQuerySpecification
     ) -> String? {
         guard let result = BoundedProcessRunner.run(
             executablePath: executablePath,
-            arguments: ["--version"],
+            arguments: specification.arguments,
             environment: environment.raw,
-            timeout: timeout
+            timeout: timeout,
+            captureStream: specification.stream.captureStream
         ),
         !result.timedOut,
         !result.outputLimitExceeded,
@@ -173,8 +217,36 @@ public struct ToolDetector: Sendable {
             return nil
         }
         guard let output = String(data: result.standardOutput, encoding: .utf8) else { return nil }
-        let firstLine = output.split(separator: "\n", omittingEmptySubsequences: true).first
-        return Self.extractVersionToken(from: firstLine.map(String.init) ?? "")
+        guard let line = selectedLine(from: output, selection: specification.line) else {
+            return nil
+        }
+        return Self.extractVersionToken(from: String(line))
+    }
+
+    private static func selectedLine(
+        from output: String,
+        selection: VersionQuerySpecification.LineSelection
+    ) -> Substring? {
+        guard !output.isEmpty else { return nil }
+        switch selection {
+        case .first:
+            return output[..<(output.firstIndex(of: "\n") ?? output.endIndex)]
+        case .firstNonempty:
+            var start = output.startIndex
+            while start < output.endIndex {
+                let end = output[start...].firstIndex(of: "\n") ?? output.endIndex
+                let line = output[start..<end]
+                let isBlank = !line.unicodeScalars.contains {
+                    !CharacterSet.whitespacesAndNewlines.contains($0)
+                }
+                if !isBlank {
+                    return line
+                }
+                guard end < output.endIndex else { return nil }
+                start = output.index(after: end)
+            }
+            return nil
+        }
     }
 
     /// First `\d.\d...` token in the line, including prerelease suffixes:
@@ -186,4 +258,13 @@ public struct ToolDetector: Sendable {
         return String(line[match])
     }
 
+}
+
+private extension VersionQuerySpecification.Stream {
+    var captureStream: BoundedProcessRunner.CaptureStream {
+        switch self {
+        case .stdout: .standardOutput
+        case .stderr: .standardError
+        }
+    }
 }

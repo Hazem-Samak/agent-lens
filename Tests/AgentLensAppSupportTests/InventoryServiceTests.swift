@@ -63,15 +63,15 @@ struct RegistryRow {
     var extraSearchRoots: [String] = []
 }
 
-/// Schema-1 registry JSON for the given rows, in the given order.
+/// Schema-2 registry JSON for the given rows, in the given order.
 func registryJSON(_ rows: [RegistryRow]) -> Data {
     let detectors = rows.map { row -> String in
         let roots = row.extraSearchRoots.isEmpty
             ? ""
             : ",\"extraSearchRoots\":[\(row.extraSearchRoots.map { "\"\($0)\"" }.joined(separator: ","))]"
-        return "{\"id\":\"\(row.id)\",\"displayName\":\"\(row.displayName)\",\"executableName\":\"\(row.executableName)\"\(roots)}"
+        return "{\"id\":\"\(row.id)\",\"displayName\":\"\(row.displayName)\",\"executableName\":\"\(row.executableName)\"\(roots),\"category\":\"aiAgent\",\"packages\":[],\"versionQuery\":{\"arguments\":[\"--version\"],\"stream\":\"stdout\",\"line\":\"first\"}}"
     }.joined(separator: ",")
-    return Data("{\"schemaVersion\":1,\"detectors\":[\(detectors)]}".utf8)
+    return Data("{\"schemaVersion\":2,\"detectors\":[\(detectors)]}".utf8)
 }
 
 /// A schema-violating registry: two detectors sharing one ID.
@@ -377,7 +377,7 @@ func definitions(from data: Data) throws -> [DetectorDefinition] {
     for (entry, definition) in zip(snapshot.entries, coreDefinitions) {
         #expect(entry.definition == definition)
         let expected = PathDiagnosticsScanner.scan(
-            detector: definition.makeDetector(versionQuery: { _, _, _ -> String? in nil }),
+            detector: definition.makeDetector(versionQuery: { _, _, _, _ -> String? in nil }),
             environment: environment,
             currentDirectory: root.path
         )

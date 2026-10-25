@@ -127,7 +127,7 @@ class DevAppBundlePackagingTests(unittest.TestCase):
         # Validate JSON content against expected registry schema
         with open(detector_file, "r", encoding="utf-8") as fp:
             data = json.load(fp)
-        self.assertEqual(data.get("schemaVersion"), 1)
+        self.assertEqual(data.get("schemaVersion"), 2)
         detectors = data.get("detectors", [])
         self.assertEqual(len(detectors), 3)
         self.assertEqual([d["id"] for d in detectors], ["codex", "opencode", "grok"])
@@ -212,7 +212,7 @@ class DevAppBundlePackagingTests(unittest.TestCase):
 
         # Write custom valid registry with different IDs and swapped order
         custom_registry = {
-            "schemaVersion": 1,
+            "schemaVersion": 2,
             "detectors": [
                 {
                     "id": "opencode",
@@ -222,6 +222,13 @@ class DevAppBundlePackagingTests(unittest.TestCase):
                     "fixture": {
                         "layout": "singleDirectory",
                         "expectedSource": "standalone"
+                    },
+                    "category": "aiAgent",
+                    "packages": [],
+                    "versionQuery": {
+                        "arguments": ["--version"],
+                        "stream": "stdout",
+                        "line": "first"
                     }
                 },
                 {
@@ -232,6 +239,13 @@ class DevAppBundlePackagingTests(unittest.TestCase):
                     "fixture": {
                         "layout": "npmGlobal",
                         "expectedSource": "npm"
+                    },
+                    "category": "aiAgent",
+                    "packages": [],
+                    "versionQuery": {
+                        "arguments": ["--version"],
+                        "stream": "stdout",
+                        "line": "first"
                     }
                 }
             ]
@@ -502,13 +516,20 @@ class DevAppBundlePackagingTests(unittest.TestCase):
         decoy_res = decoy_bundle / "Contents" / "Resources"
         decoy_res.mkdir(parents=True, exist_ok=True)
         valid_detector_data = {
-            "schemaVersion": 1,
+            "schemaVersion": 2,
             "detectors": [
                 {
                     "id": "codex",
                     "displayName": "Codex",
                     "executableName": "codex",
-                    "extraSearchRoots": []
+                    "extraSearchRoots": [],
+                    "category": "aiAgent",
+                    "packages": [],
+                    "versionQuery": {
+                        "arguments": ["--version"],
+                        "stream": "stdout",
+                        "line": "first"
+                    }
                 }
             ]
         }
@@ -589,13 +610,20 @@ class DevAppBundlePackagingTests(unittest.TestCase):
         mismatch_res = mismatch_bundle / "Contents" / "Resources"
         mismatch_res.mkdir(parents=True, exist_ok=True)
         mismatch_data = {
-            "schemaVersion": 1,
+            "schemaVersion": 2,
             "detectors": [
                 {
                     "id": "single-decoy",
                     "displayName": "Decoy",
                     "executableName": "decoy",
-                    "extraSearchRoots": []
+                    "extraSearchRoots": [],
+                    "category": "aiAgent",
+                    "packages": [],
+                    "versionQuery": {
+                        "arguments": ["--version"],
+                        "stream": "stdout",
+                        "line": "first"
+                    }
                 }
             ]
         }

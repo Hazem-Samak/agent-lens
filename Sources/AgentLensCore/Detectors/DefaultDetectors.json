@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "detectors": [
     {
       "id": "codex",
@@ -9,6 +9,17 @@
       "fixture": {
         "layout": "npmGlobal",
         "expectedSource": "npm"
+      },
+      "category": "aiAgent",
+      "packages": [
+        { "manager": "npm", "name": "@openai/codex" },
+        { "manager": "homebrewCask", "name": "codex" }
+      ],
+      "informationURL": "https://developers.openai.com/codex/cli",
+      "versionQuery": {
+        "arguments": ["--version"],
+        "stream": "stdout",
+        "line": "first"
       }
     },
     {
@@ -19,6 +30,20 @@
       "fixture": {
         "layout": "singleDirectory",
         "expectedSource": "standalone"
+      },
+      "category": "aiAgent",
+      "packages": [
+        { "manager": "npm", "name": "@opencode/cli" },
+        { "manager": "npm", "name": "opencode-ai" },
+        { "manager": "homebrewFormula", "name": "anomalyco/tap/opencode-v2" },
+        { "manager": "homebrewFormula", "name": "anomalyco/tap/opencode" }
+      ],
+      "informationURL": "https://opencode.ai/v2/docs/",
+      "uninstallInstructionsURL": "https://opencode.ai/v2/docs/cli/#uninstall",
+      "versionQuery": {
+        "arguments": ["--version"],
+        "stream": "stdout",
+        "line": "first"
       }
     },
     {
@@ -29,6 +54,14 @@
       "fixture": {
         "layout": "singleDirectory",
         "expectedSource": "standalone"
+      },
+      "category": "aiAgent",
+      "packages": [],
+      "informationURL": "https://docs.x.ai/build/overview",
+      "versionQuery": {
+        "arguments": ["--version"],
+        "stream": "stdout",
+        "line": "first"
       }
     }
   ]

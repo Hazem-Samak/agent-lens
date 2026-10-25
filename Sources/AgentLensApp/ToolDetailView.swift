@@ -7,17 +7,32 @@ public struct ToolDetailView: View {
     public let isDegradedEnvironment: Bool
     public let freshnessFailure: InventoryViewModel.Failure?
     public let updateFailure: InventoryViewModel.Failure?
+    public let isVerifyingOwnership: Bool
+    public let isCancellingOwnership: Bool
+    public let isBusy: Bool
+    public let onVerifyOwnership: @MainActor () -> Void
+    public let onCancelOwnership: @MainActor () -> Void
 
     public init(
         entry: InventoryEntry?,
         isDegradedEnvironment: Bool,
         freshnessFailure: InventoryViewModel.Failure?,
-        updateFailure: InventoryViewModel.Failure?
+        updateFailure: InventoryViewModel.Failure?,
+        isVerifyingOwnership: Bool = false,
+        isCancellingOwnership: Bool = false,
+        isBusy: Bool = false,
+        onVerifyOwnership: @escaping @MainActor () -> Void = {},
+        onCancelOwnership: @escaping @MainActor () -> Void = {}
     ) {
         self.entry = entry
         self.isDegradedEnvironment = isDegradedEnvironment
         self.freshnessFailure = freshnessFailure
         self.updateFailure = updateFailure
+        self.isVerifyingOwnership = isVerifyingOwnership
+        self.isCancellingOwnership = isCancellingOwnership
+        self.isBusy = isBusy
+        self.onVerifyOwnership = onVerifyOwnership
+        self.onCancelOwnership = onCancelOwnership
     }
 
     public var body: some View {
@@ -55,6 +70,14 @@ public struct ToolDetailView: View {
                 Divider()
 
                 installationSection(entry)
+
+                Divider()
+
+                ownershipSection(entry)
+
+                Divider()
+
+                metadataSection(entry)
 
                 Divider()
 
@@ -189,6 +212,101 @@ public struct ToolDetailView: View {
             }
             .font(.subheadline)
         }
+    }
+
+    // MARK: Ownership Verification
+
+    /// Explicit, read-only installation ownership. The action is only offered for a
+    /// selected winner or off-PATH candidate; absent and inconsistent diagnostics never
+    /// expose a trigger that could run manager queries.
+    private func ownershipSection(_ entry: InventoryEntry) -> some View {
+        OwnershipVerificationView(
+            entry: entry,
+            isVerifying: isVerifyingOwnership,
+            isCancelling: isCancellingOwnership,
+            canVerify: Self.canVerifyOwnership(entry),
+            isBusy: isBusy,
+            onVerify: onVerifyOwnership,
+            onCancel: onCancelOwnership
+        )
+    }
+
+    private static func canVerifyOwnership(_ entry: InventoryEntry) -> Bool {
+        switch entry.diagnostic.selection {
+        case .winner, .offPath:
+            true
+        case .notInstalled, .inconsistent:
+            false
+        }
+    }
+
+    // MARK: Metadata
+
+    /// Registry-declared facts for the selected entry. Nothing here is cached in
+    /// local view state, so switching tools replaces every value and deselecting
+    /// the tool clears the whole detail view.
+    private func metadataSection(_ entry: InventoryEntry) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Tool Metadata")
+                .font(.headline)
+
+            Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 10) {
+                GridRow {
+                    Text("Category")
+                        .foregroundColor(.secondary)
+                    Text(entry.definition.category.label)
+                }
+
+                GridRow(alignment: .top) {
+                    Text("Declared Packages")
+                        .foregroundColor(.secondary)
+                    declaredPackagesView(entry.definition.packages)
+                }
+
+                if let informationURL = entry.definition.informationURL {
+                    GridRow(alignment: .top) {
+                        Text("Official Information")
+                            .foregroundColor(.secondary)
+                        metadataLink(informationURL)
+                    }
+                }
+
+                if let uninstallURL = entry.definition.uninstallInstructionsURL {
+                    GridRow(alignment: .top) {
+                        Text("Uninstall Instructions")
+                            .foregroundColor(.secondary)
+                        metadataLink(uninstallURL)
+                    }
+                }
+            }
+            .font(.subheadline)
+        }
+    }
+
+    @ViewBuilder
+    private func declaredPackagesView(_ packages: [DeclaredPackage]) -> some View {
+        if packages.isEmpty {
+            Text("No declared package")
+                .foregroundColor(.secondary)
+        } else {
+            VStack(alignment: .leading, spacing: 4) {
+                ForEach(packages.indices, id: \.self) { index in
+                    Text("\(packages[index].manager.label): \(packages[index].name)")
+                        .lineLimit(nil)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    private func metadataLink(_ url: URL) -> some View {
+        Link(destination: url) {
+            Text(url.absoluteString)
+                .lineLimit(nil)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     @ViewBuilder

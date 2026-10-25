@@ -78,7 +78,8 @@ private func relativePath(from base: URL, to target: URL) -> String {
     let detector = ToolDetector(
         displayName: "Fixture Tool",
         executableName: "fixture-tool",
-        versionQuery: { _, _, _ in "4.5.6" }
+        versionQuerySpecification: .standard,
+        versionQuery: { _, _, _, _ in "4.5.6" }
     )
 
     let report = PathDiagnosticsScanner.scan(
@@ -95,6 +96,10 @@ private func relativePath(from base: URL, to target: URL) -> String {
         canonicalTarget: nil
     )))
     #expect(report.shadowedInstallationCount == 1)
+    #expect(report.detectedTool.version == "4.5.6")
+    #expect(report.installationVersions.count == 2)
+    #expect(report.installationVersions.first?.version == "4.5.6")
+    #expect(report.installationVersions.allSatisfy { $0.fingerprint != nil })
 }
 
 @Test func pathDiagnosticsSeparateRepeatedSlotsAliasesAndShadowedTargets() throws {
@@ -112,13 +117,14 @@ private func relativePath(from base: URL, to target: URL) -> String {
             withDestinationPath: target
         )
     }
-    _ = try makeDiagnosticsExecutable(in: laterRoot, named: "fixture-tool")
+    let laterEntry = try makeDiagnosticsExecutable(in: laterRoot, named: "fixture-tool")
     let firstEntry = firstRoot.appendingPathComponent("fixture-tool").path
     let calls = DiagnosticsCallRecorder()
     let detector = ToolDetector(
         displayName: "Fixture Tool",
         executableName: "fixture-tool",
-        versionQuery: { path, _, _ in
+        versionQuerySpecification: .standard,
+        versionQuery: { path, _, _, _ in
             calls.record(path)
             return nil
         }
@@ -136,7 +142,14 @@ private func relativePath(from base: URL, to target: URL) -> String {
     #expect(report.sameTargetAliasCount == 1)
     #expect(report.targetGroups.first?.entryPaths == [firstEntry, aliasRoot.appendingPathComponent("fixture-tool").path])
     #expect(report.shadowedInstallationCount == 1)
-    #expect(calls.paths == [firstEntry])
+    #expect(calls.paths == [firstEntry, laterEntry])
+    #expect(report.installationVersions.map(\.canonicalTarget) == [
+        report.targetGroups[0].canonicalTarget,
+        report.targetGroups[1].canonicalTarget,
+    ])
+    #expect(report.installationVersions.allSatisfy {
+        $0.outcome == .unknown(.queryFailed)
+    })
     let rendered = DiagnosticsScanRenderer.render(reports: [report], isDegraded: false)
     #expect(rendered.contains("live entry paths: 3"))
     #expect(rendered.contains("canonical targets: 2"))
@@ -201,7 +214,8 @@ private func relativePath(from base: URL, to target: URL) -> String {
     let detector = ToolDetector(
         displayName: "Fixture Tool",
         executableName: "fixture-tool",
-        versionQuery: { _, _, _ in nil }
+        versionQuerySpecification: .standard,
+        versionQuery: { _, _, _, _ in nil }
     )
 
     let report = PathDiagnosticsScanner.scan(
@@ -252,7 +266,8 @@ private func relativePath(from base: URL, to target: URL) -> String {
     let detector = ToolDetector(
         displayName: "Fixture Tool",
         executableName: "fixture-tool",
-        versionQuery: { _, _, _ in nil }
+        versionQuerySpecification: .standard,
+        versionQuery: { _, _, _, _ in nil }
     )
 
     let report = PathDiagnosticsScanner.scan(
@@ -286,7 +301,8 @@ private func relativePath(from base: URL, to target: URL) -> String {
         displayName: "Fixture Tool",
         executableName: "fixture-tool",
         extraSearchRoots: [missingExtraRoot.path, invalidExtraRoot.path, tildeRoot],
-        versionQuery: { _, _, _ in nil }
+        versionQuerySpecification: .standard,
+        versionQuery: { _, _, _, _ in nil }
     )
 
     let report = PathDiagnosticsScanner.scan(
@@ -307,9 +323,15 @@ private func relativePath(from base: URL, to target: URL) -> String {
         root: tildeRoot
     ))
     #expect(report.shadowedInstallationCount == 0)
+    #expect(report.installationVersions.count == 1)
+    #expect(report.installationVersions.first?.canonicalTarget == extraEntry)
+    #expect(report.installationVersions.first?.entryPath == extraEntry)
+    #expect(report.installationVersions.first?.outcome == .unknown(.queryFailed))
     let rendered = DiagnosticsScanRenderer.render(reports: [report], isDegraded: false)
     #expect(rendered.contains("known extra root (off PATH; not a shell winner): \(tildeRoot)"))
     #expect(rendered.contains("! Fixture Tool          –    standalone (not on PATH)"))
+    #expect(rendered.contains("canonical installation versions:"))
+    #expect(rendered.contains("off PATH, declared extra root"))
     #expect(!rendered.contains("verified winner:"))
 }
 
@@ -325,7 +347,7 @@ private func relativePath(from base: URL, to target: URL) -> String {
     let secondEmptyEntry = try makeDiagnosticsExecutable(in: secondWorkingDirectory, named: name)
     _ = try makeDiagnosticsExecutable(in: firstRelativeRoot, named: name)
     _ = try makeDiagnosticsExecutable(in: secondRelativeRoot, named: name)
-    let detector = ToolDetector(displayName: "Fixture Tool", executableName: name)
+    let detector = ToolDetector(displayName: "Fixture Tool", executableName: name, versionQuerySpecification: .standard)
     let environment = diagnosticsEnvironment(["", "relative-bin"])
 
     let firstReport = PathDiagnosticsScanner.scan(
@@ -369,7 +391,8 @@ private func relativePath(from base: URL, to target: URL) -> String {
     let detector = ToolDetector(
         displayName: "Fixture Tool",
         executableName: executableName,
-        versionQuery: { path, _, _ in
+        versionQuerySpecification: .standard,
+        versionQuery: { path, _, _, _ in
             calls.record(path)
             return nil
         }
@@ -392,7 +415,9 @@ private func relativePath(from base: URL, to target: URL) -> String {
     #expect(report.repeatedPathSlotCount == 1)
     #expect(report.sameTargetAliasCount == 0)
     #expect(report.shadowedInstallationCount == 0)
-    #expect(calls.paths == [detectorEntry])
+    #expect(calls.paths == [liveEntry])
+    #expect(report.installationVersions.count == 1)
+    #expect(report.installationVersions.first?.entryPath == liveEntry)
 }
 
 @Test func pathDiagnosticsDoesNotDoubleCountAnExtraRootOverlappingLivePath() throws {
@@ -404,7 +429,8 @@ private func relativePath(from base: URL, to target: URL) -> String {
         displayName: "Fixture Tool",
         executableName: "fixture-tool",
         extraSearchRoots: [pathRoot.path],
-        versionQuery: { _, _, _ in nil }
+        versionQuerySpecification: .standard,
+        versionQuery: { _, _, _, _ in nil }
     )
 
     let report = PathDiagnosticsScanner.scan(
@@ -437,7 +463,8 @@ private func relativePath(from base: URL, to target: URL) -> String {
     let detector = ToolDetector(
         displayName: "Fixture Tool",
         executableName: "fixture-tool",
-        versionQuery: { _, _, _ in
+        versionQuerySpecification: .standard,
+        versionQuery: { _, _, _, _ in
             try? FileManager.default.removeItem(at: entry)
             try? FileManager.default.createSymbolicLink(atPath: entry.path, withDestinationPath: changedTarget)
             return nil
@@ -450,13 +477,16 @@ private func relativePath(from base: URL, to target: URL) -> String {
     )
 
     #expect(report.detectedTool.resolvedPath == firstTarget)
-    #expect(report.firstLiveCandidate?.canonicalTarget == changedTarget)
+    #expect(report.firstLiveCandidate?.canonicalTarget == firstTarget)
     if case .inconsistent(let reason) = report.selection {
         #expect(reason.contains("target"))
     } else {
         #expect(Bool(false), "a changed target must not be shown as the winner")
     }
     #expect(report.shadowedInstallationCount == nil)
+    #expect(report.detectedTool.version == nil)
+    #expect(report.installationVersions.first?.canonicalTarget == firstTarget)
+    #expect(report.installationVersions.first?.outcome == .unknown(.identityChanged))
 }
 
 @Test func pathDiagnosticsRejectsAReplacedCapturedTargetForPathWinner() throws {
@@ -473,7 +503,8 @@ private func relativePath(from base: URL, to target: URL) -> String {
     let detector = ToolDetector(
         displayName: "Fixture Tool",
         executableName: "fixture-tool",
-        versionQuery: { _, _, _ in
+        versionQuerySpecification: .standard,
+        versionQuery: { _, _, _, _ in
             try? FileManager.default.removeItem(atPath: originalTarget)
             try? FileManager.default.createSymbolicLink(
                 atPath: originalTarget,
@@ -490,13 +521,16 @@ private func relativePath(from base: URL, to target: URL) -> String {
 
     #expect(originalTarget != changedTarget)
     #expect(report.detectedTool.resolvedPath == originalTarget)
-    #expect(report.firstLiveCandidate?.canonicalTarget == changedTarget)
+    #expect(report.firstLiveCandidate?.canonicalTarget == originalTarget)
     if case .inconsistent(let reason) = report.selection {
         #expect(reason.contains("target"))
     } else {
         #expect(Bool(false), "replacing the captured target must not produce a verified PATH winner")
     }
     #expect(report.shadowedInstallationCount == nil)
+    #expect(report.detectedTool.version == nil)
+    #expect(report.installationVersions.first?.canonicalTarget == originalTarget)
+    #expect(report.installationVersions.first?.outcome == .unknown(.identityChanged))
     let rendered = DiagnosticsScanRenderer.render(reports: [report], isDegraded: false)
     #expect(!rendered.contains("verified winner:"))
     #expect(rendered.contains("winner unavailable: consistency failure"))
@@ -520,7 +554,8 @@ private func relativePath(from base: URL, to target: URL) -> String {
         displayName: "Fixture Tool",
         executableName: "fixture-tool",
         extraSearchRoots: [extraRoot.path],
-        versionQuery: { _, _, _ in
+        versionQuerySpecification: .standard,
+        versionQuery: { _, _, _, _ in
             try? FileManager.default.removeItem(atPath: originalTarget)
             try? FileManager.default.createSymbolicLink(
                 atPath: originalTarget,
@@ -550,6 +585,9 @@ private func relativePath(from base: URL, to target: URL) -> String {
         #expect(Bool(false), "replacing the captured target must produce an off-PATH consistency failure")
     }
     #expect(report.shadowedInstallationCount == nil)
+    #expect(report.detectedTool.version == nil)
+    #expect(report.installationVersions.first?.canonicalTarget == originalTarget)
+    #expect(report.installationVersions.first?.outcome == .unknown(.identityChanged))
     let rendered = DiagnosticsScanRenderer.render(reports: [report], isDegraded: false)
     #expect(!rendered.contains("verified winner:"))
     #expect(rendered.contains("winner unavailable: consistency failure"))
@@ -567,7 +605,8 @@ private func relativePath(from base: URL, to target: URL) -> String {
                 displayName: definition.displayName,
                 executableName: definition.executableName,
                 extraSearchRoots: [],
-                versionQuery: { _, _, _ in nil }
+                versionQuerySpecification: .standard,
+                versionQuery: { _, _, _, _ in nil }
             ),
             environment: environment
         )

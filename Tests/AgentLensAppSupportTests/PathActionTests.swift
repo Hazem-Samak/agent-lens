@@ -55,7 +55,8 @@ private func makeDiagnostic(
         repeatedPathSlotCount: 0,
         sameTargetAliasCount: 0,
         selection: selection,
-        shadowedInstallationCount: 0
+        shadowedInstallationCount: 0,
+        installationVersions: []
     )
 }
 
@@ -64,12 +65,17 @@ private func makeEntry(
     candidates: [PathCandidateObservation] = [],
     detectedTool: DetectedTool = makeDetectedTool()
 ) -> InventoryEntry {
-    let definition = DetectorDefinition(
+    let definition = try! DetectorDefinition(
         id: "codex",
         displayName: "Codex",
         executableName: "codex",
         extraSearchRoots: [],
-        fixture: nil
+        fixture: nil,
+        category: .aiAgent,
+        packages: [],
+        informationURL: nil,
+        uninstallInstructionsURL: nil,
+        versionQuery: .standard
     )
     return InventoryEntry(
         definition: definition,
@@ -78,7 +84,8 @@ private func makeEntry(
             selection: selection,
             candidates: candidates
         ),
-        update: nil
+        update: nil,
+        ownership: nil
     )
 }
 

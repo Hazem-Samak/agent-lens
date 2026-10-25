@@ -41,6 +41,7 @@ public enum DiagnosticsScanRenderer {
                 lines.append("  winner unavailable: consistency failure — \(reason)")
             }
 
+            appendInstallationVersions(for: report, to: &lines)
             appendLiveEntries(for: report, to: &lines)
             if !report.invalidCandidates.isEmpty {
                 lines.append("  invalid observed PATH entries:")
@@ -59,6 +60,36 @@ public enum DiagnosticsScanRenderer {
             "Count definitions: repeated PATH slots are extra occurrences of an observed normalized entry path; same-target aliases are distinct live entry paths beyond the first for one canonical target; shadowed installations are distinct live canonical targets outside the verified winner's target group."
         )
         return lines.joined(separator: "\n") + "\n"
+    }
+
+    private static func appendInstallationVersions(
+        for report: ToolPathDiagnostic,
+        to lines: inout [String]
+    ) {
+        lines.append("  canonical installation versions:")
+        guard !report.installationVersions.isEmpty else {
+            lines.append("    none observed")
+            return
+        }
+        for observation in report.installationVersions {
+            let originNote: String
+            switch observation.origin {
+            case .path(_, _):
+                originNote = ""
+            case .extraRoot(_, let directoryText):
+                originNote = "; observed discovery origin: off PATH, declared extra root \"\(directoryText)\"; not a current shell winner or verified ownership"
+            }
+            let outcomeText: String
+            switch observation.outcome {
+            case .measured(let version):
+                outcomeText = "version \(version)"
+            case .unknown(let reason):
+                outcomeText = "unknown — \(reason.message)"
+            }
+            lines.append(
+                "    \(observation.canonicalTarget) -> \(outcomeText) (entry: \(observation.entryPath)\(originNote))"
+            )
+        }
     }
 
     private static func appendLiveEntries(for report: ToolPathDiagnostic, to lines: inout [String]) {

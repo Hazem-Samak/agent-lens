@@ -6,8 +6,8 @@ Each file in this folder is a **milestone brief**, in the format defined in `AGE
 
 ## How to use them
 
-1. Work on **one milestone at a time, in order.** Do not start the next one until the current one has passed.
-2. Give the brief to the **orchestrator** — not directly to the implementer. The orchestrator owns the brief and may narrow it before delegating.
+1. Work on **one milestone at a time, in order.** Large milestones use sequential, separately accepted phase briefs on the same milestone branch; the milestone passes only after its combined acceptance gate.
+2. The **orchestrator** owns the master plan, prepares each bounded phase brief, and dispatches it to a separate implementer using the user-selected different model, provider and CLI. The orchestrator does not implement product code or quietly fix worker defects; revisions return to the implementer. Bounding a phase does not remove requirements from the milestone.
 3. When the milestone is done, **the orchestrator re-runs the acceptance command itself** and observes it pass. An implementer reporting success is not sufficient (D-014).
 4. Record the result in the **Milestone log** at the bottom of `DECISIONS.md`, including the T3 Code build string.
 5. Only then start the next milestone.
@@ -54,10 +54,17 @@ Per §29.6: **ambiguity → strongest reasoning model. Volume → fastest model.
 | `M6-version-update-probing.md` | Version / update probing | passed |
 | `M7-first-ui.md` | First UI | passed — technical acceptance + user visual approval 2026-10-16; delivered to `main` as `36a3f1c` |
 | [`M8-path-actions.md`](M8-path-actions.md) | Copy Path and Reveal in Finder | user-approved for delivery 2026-10-18; automated gates and final reviews passed; keyboard-only activation unverified |
+| [`M9-verified-installations.md`](M9-verified-installations.md) | Metadata, explicit ownership, per-installation versions | technically accepted and user-UI-approved — A/B/C plus combined gate; 329 Swift + 9 packaging passed; Git delivery pending |
 
 M0–M7 complete. M7 passed technical acceptance and user approved the initial UI 2026-10-16; source and closeout documentation were committed and pushed as `36a3f1c`. Local `main`, `origin/main`, and GitHub `main` were independently checked at that commit on 2026-10-17. M7 (`M7-first-ui.md`) implemented the first native SwiftUI macOS app; see [`../walkthroughs/M7-first-ui.md`](../walkthroughs/M7-first-ui.md) for the measured implementation/acceptance walkthrough. The frozen M7 brief remains untouched as the historical plan.
 
-M8 implements native path actions in tool details. The user subsequently authorized implementation, selected DeepSeek V4.1 Flash free via WorkBuddy/Pi as sole implementer and Gemini 3.8 Flash High/Antigravity plus MiMo v2.6 Flash Free/OpenCode as independent reviewers, then approved the UI and Git delivery on 2026-10-18. Parent independent gates passed 246 Swift tests and 9 packaging tests; both final reviews passed. Keyboard-only activation remains unverified and is not represented as a passed gate. See the [M8 walkthrough](../walkthroughs/M8-path-actions.md). The frozen brief retains its historical planning-only header; it is not the current status record. No later milestone is authorized here.
+M8 implements native path actions in tool details. The user subsequently authorized implementation, selected DeepSeek V4.1 Flash free via WorkBuddy/Pi as sole implementer and Gemini 3.8 Flash High/Antigravity plus MiMo v2.6 Flash Free/OpenCode as independent reviewers, then approved the UI and Git delivery on 2026-10-18. Parent independent gates passed 246 Swift tests and 9 packaging tests; both final reviews passed. Keyboard-only activation remains unverified and is not represented as a passed gate. See the [M8 walkthrough](../walkthroughs/M8-path-actions.md). The frozen brief retains its historical planning-only header; it is not the current status record.
+
+M9 was separately authorized with DeepSeek V4.1 Flash Free through OpenCode at maximum effort. Its bounded [A](M9-A-detector-metadata.md), [B](M9-B-installation-ownership.md), and [C](M9-C-installation-versions.md) phases and corrected candidates passed parent acceptance, followed by the combined final gate. The user then explicitly confirmed “M9 UI approved”. The [M9 walkthrough](../walkthroughs/M9-verified-installations.md) records findings, revisions, hashes, actual versus fixture-host observations and limits. Source remains uncommitted on `milestone/m9-verified-inventory`; Git delivery still requires separate authorization. No M10 implementation is authorized by this approval.
+
+## Remaining application roadmap
+
+[ROADMAP.md](../ROADMAP.md) extends delivery through M19. M9's verified installation details and per-installation versions are technically accepted; M10–M19 remain planned: npm/Homebrew/Python/Cargo management, the original tool catalogue, complete native workflows, menu-bar refresh, bundled CLI, and signed public distribution. [The orchestration contract](../ROADMAP.md#6-orchestration-phase-briefs-and-acceptance) defines phase sizing, required brief contents, external-worker preflight, pinned candidate handoff, independent review, revision loops and acceptance/delivery states. Prepare M10-A's clean-CI/default-TMPDIR brief next; do not treat a roadmap entry as implementation authorization. Preserve historical briefs.
 
 ---
 

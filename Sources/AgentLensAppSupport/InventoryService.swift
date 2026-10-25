@@ -142,7 +142,12 @@ public struct InventoryService: Sendable {
             throw CancellationError()
         }
         let entries = zip(definitions, scanned).map { definition, diagnostic in
-            InventoryEntry(definition: definition, diagnostic: diagnostic, update: nil)
+            InventoryEntry(
+                definition: definition,
+                diagnostic: diagnostic,
+                update: nil,
+                ownership: nil
+            )
         }
         return InventorySnapshot(
             entries: entries,
@@ -191,13 +196,49 @@ public struct InventoryService: Sendable {
             InventoryEntry(
                 definition: entry.definition,
                 diagnostic: entry.diagnostic,
-                update: resultByRegistryID[entry.registryID]
+                update: resultByRegistryID[entry.registryID],
+                ownership: entry.ownership
             )
         }
         return InventorySnapshot(
             entries: entries,
             isDegradedEnvironment: snapshot.isDegradedEnvironment
         )
+    }
+
+    // MARK: Ownership
+
+    /// Explicit, read-only ownership verification for one published entry. The verification uses
+    /// the session environment, the existing injected runner, the fixed session working directory
+    /// and the service clock, exactly as the rest of the app boundary does. It never scans tools,
+    /// consults the update cache, or runs an update batch.
+    ///
+    /// The Core verifier runs in a detached utility task so its filesystem stats and bounded
+    /// manager processes never occupy the main actor. Cancelling the caller cancels that task and
+    /// then awaits it, so bounded in-flight cleanup finishes before this call returns. Core maps
+    /// cancellation to a neutral `.cancelled` result; it never publishes a late verified value.
+    public func verifyingOwnership(of entry: InventoryEntry) async -> InstallationOwnershipResult {
+        let definition = entry.definition
+        let diagnostic = entry.diagnostic
+        let environment = await environment.sessionEnvironment()
+        let runner = updateRunner
+        let currentDirectory = currentDirectory
+        let clock = clock
+        let task = Task.detached(priority: .utility) {
+            await InstallationOwnershipVerifier.verify(
+                definition: definition,
+                diagnostic: diagnostic,
+                environment: environment,
+                runner: runner,
+                currentDirectory: currentDirectory,
+                now: clock
+            )
+        }
+        return await withTaskCancellationHandler {
+            await task.value
+        } onCancel: {
+            task.cancel()
+        }
     }
 
     // MARK: Offload
