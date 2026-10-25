@@ -1,6 +1,6 @@
 # M9 — independent acceptance record
 
-Status: **M9 technically accepted, user-UI-approved and branch-delivered**. Corrected A/B/C candidates and the combined final gate passed parent acceptance; the user confirmed “M9 UI approved”, then separately authorized commit/push. Approved feature commit `eb4f586` is pushed to `origin/milestone/m9-verified-inventory`. Sole product implementer remained DeepSeek/OpenCode; the parent did not patch product code/tests. No merge into `main` or public app release was performed.
+Status: **M9 technically accepted, user-UI-approved and delivered to `main`**. Corrected A/B/C candidates and the combined final gate passed parent acceptance; the user confirmed “M9 UI approved”, then separately authorized branch delivery and main integration. Approved feature commit `eb4f586` reached `origin/main` through the fast-forward of milestone tip `1ac22c4`. Sole product implementer remained DeepSeek/OpenCode; the parent did not patch product code/tests. No public app release was performed.
 
 ## Authority and implementer
 
@@ -129,7 +129,7 @@ open "$R/parent-final-r2/dev-app/AgentLensApp-debug.app"
 "$R/parent-final-r2/full-suite-explicit/out/Products/Debug/agent-lens" verify-installation codex
 ```
 
-Technical acceptance and user visual approval are complete. The user separately authorized commit/push; approved feature commit `eb4f586` is pushed to the milestone branch. No merge into `main`, signing, notarization or public app release was performed. Update/Uninstall are still unavailable. Next planned phase is **M10-A: clean CI and default-TMPDIR fixture portability**, not an automatically authorized dispatch.
+Technical acceptance and user visual approval are complete. The user separately authorized branch delivery and then main integration; approved feature commit `eb4f586` reached `origin/main` through the fast-forward of milestone tip `1ac22c4`. No signing, notarization or public app release was performed. Update/Uninstall are still unavailable. Next planned phase is **M10-A: clean CI and default-TMPDIR fixture portability**, not an automatically authorized dispatch.
 
 ### User visual approval
 
@@ -139,13 +139,23 @@ No additional technical or keyboard-only measurement is inferred from UI approva
 
 ### Git branch delivery
 
-The user separately authorized **“if all good comm and push b”**. The orchestrator committed the approved M9 snapshot and pushed the current milestone branch to `origin`; no force push, main-branch merge or pull request creation was performed.
+The user separately authorized **“if all good comm and push b”**. The orchestrator committed the approved M9 snapshot and pushed the current milestone branch to `origin`. That initial branch-delivery step did not force-push, merge into `main` or create a pull request; subsequent main integration is recorded below.
 
 Feature commit: [`eb4f586fdfc575526122ec0241417620e897c967`](https://github.com/Hazem-Samak/agent-lens/commit/eb4f586fdfc575526122ec0241417620e897c967), `feat(inventory): complete M9 verified installations`. All 101 UI-approved input files matched their accepted hashes before staging and in the committed tree, with zero mismatches; all 57 changed paths were within the approved snapshot. The accepted 43-file product digest remains `2ce17e4b840c7410e0f4aaaf3bb1fa5eed348add964f66259ec9c0890950ca25`.
 
 The first push was independently confirmed with `git ls-remote`: `refs/heads/milestone/m9-verified-inventory` matched that feature commit, its upstream was `origin/milestone/m9-verified-inventory`, and remote `main` remained at the M8 baseline. Evidence: `R/evidence/m9-git-delivery-preflight.json`, `m9-feature-commit.json`, `m9-feature-push-receipt.json` and `m9-git-delivery-authorization.json`. A documentation-only closeout follows the feature commit; Git refs/history are authoritative for the final branch tip.
 
 No application test rerun was needed for committing byte-identical approved content or this status-only closeout. The recorded 329 Swift tests, 9 packaging checks, runtime/native observations and user visual approval apply to the unchanged product. No app binary or machine-local evidence directory was committed.
+
+### Main integration
+
+The user separately authorized **“if good merge to main no problem”**. Preflight found a clean worktree, local and remote `main` at the M8 baseline `a405b56183ad0233f286f4d93b027ba7d21c2a01`, and local/remote milestone tips at `1ac22c45d83645c66b0432c7ff53a9c23349dcce`. `origin/main` was an ancestor of the approved milestone, and all 43 accepted product files still matched their recorded hashes.
+
+The orchestrator switched to `main`, performed a fast-forward-only merge of `milestone/m9-verified-inventory`, and pushed `main` normally to `origin`. Independent `git ls-remote` confirmation showed remote `main` at `1ac22c45d83645c66b0432c7ff53a9c23349dcce`. No merge conflict, product edit, history rewrite or force push was involved. The milestone branch was preserved.
+
+Evidence: `R/evidence/m9-main-integration-authorization.json` and `m9-main-fast-forward-receipt.json`. This status-only documentation closeout follows the confirmed integration; Git refs/history are authoritative for the final `main` tip. Existing technical acceptance and user visual approval apply to the unchanged product; no application tests were rerun for this fast-forward or documentation-only update.
+
+Main integration does not publish a signed/notarized app release, enable tool Update/Uninstall or authorize M10 implementation.
 
 
 
@@ -154,4 +164,4 @@ No application test rerun was needed for committing byte-identical approved cont
 - M8 keyboard-only activation remains unverified: controls were observed, but background Tab delivery did not prove keyboard traversal/activation. No global keyboard preference or permission bypass was used.
 - Existing temporary-directory portability and compiler/linker warnings remain outside M9; all parent gates used authorized invocation-local scratch.
 - No installed tool, package, configuration or actual Agent Lens update cache was modified by M9-A acceptance. The OpenCode version change was observed host state, not an Agent Lens operation.
-- Final C identity/contract review and combined M9 gates passed, the user approved the M9 UI, and the approved feature was committed/pushed to the milestone branch. The current app still cannot update or uninstall tools; main-branch integration and signed public app distribution remain separate.
+- Final C identity/contract review and combined M9 gates passed, the user approved the M9 UI, and the approved feature was committed/pushed and integrated into `main` with separate user authorization. The current app still cannot update or uninstall tools; signed public app distribution remains separate.
