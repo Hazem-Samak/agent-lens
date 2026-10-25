@@ -2,7 +2,7 @@
 
 Planning date: 2026-10-22.
 
-Status: user-endorsed product direction; **M9 is technically accepted locally and user-UI-approved** after user-authorized implementation by DeepSeek V4.1 Flash Free through OpenCode at maximum effort. [Acceptance evidence](walkthroughs/M9-verified-installations.md). M10–M19 remain planned, not implemented or accepted. The assistant remains orchestrator/reviewer, not product implementer. M9 source is uncommitted on its milestone branch; Git delivery and public distribution remain separate. Visual approval does not authorize later implementation, modifying tool operations, expenses or publication.
+Status: user-endorsed product direction; **M9 is technically accepted, user-UI-approved and branch-delivered** after implementation by DeepSeek V4.1 Flash Free through OpenCode at maximum effort. Approved feature commit `eb4f586` is pushed to `origin/milestone/m9-verified-inventory`. [Acceptance and delivery evidence](walkthroughs/M9-verified-installations.md). M10–M19 remain planned, not implemented or accepted. The assistant remains orchestrator/reviewer, not product implementer. This branch delivery does not merge into `main`, publish an app release, authorize later implementation or permit operations on personal installations.
 
 Authority: [product scope](AGENT_LENS_SCOPE.md), [settled decisions](DECISIONS.md), and [delivered milestone status](briefs/README.md). This roadmap extends the sequence beyond M8; it does not rewrite historical briefs or acceptance evidence.
 
@@ -72,7 +72,7 @@ Before the first worker dispatch, the orchestrator also verifies the configured 
 
 ### M9 — verified installation details and detector contract
 
-**Status:** A/B/C and corrected candidates technically accepted; final independent gate passed 329 Swift tests and 9 packaging checks plus actual CLI/native and isolated failure scenarios. The user explicitly approved the M9 UI. [Whole-milestone contract](briefs/M9-verified-installations.md) and [acceptance record](walkthroughs/M9-verified-installations.md). No Update/Uninstall or Git delivery is implied.
+**Status:** A/B/C and corrected candidates technically accepted; final independent gate passed 329 Swift tests and 9 packaging checks plus actual CLI/native and isolated failure scenarios. The user approved the M9 UI, then separately authorized commit/push. Feature commit `eb4f586` is delivered to `origin/milestone/m9-verified-inventory`. [Whole-milestone contract](briefs/M9-verified-installations.md) and [acceptance/delivery record](walkthroughs/M9-verified-installations.md). No Update/Uninstall, main-branch integration or app release is implied.
 
 **User result:** details distinguish observed source hints from verified installation ownership and show category/package identity when known.
 

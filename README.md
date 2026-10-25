@@ -4,7 +4,7 @@ A macOS-native utility that tells you **which AI CLI tools are actually installe
 
 This repository surfaces the diagnostic that no existing tool answers: when multiple copies of an AI CLI exist on your machine, which one wins — and why. See `AGENT_LENS_SCOPE.md` for the full scope and `DECISIONS.md` for settled design decisions.
 
-The [complete application roadmap](ROADMAP.md) maps the remaining work through manager-backed Update/Uninstall, broader tool support, the finished native interface, and signed distribution. **M9 is technically accepted and user-UI-approved on `milestone/m9-verified-inventory`; it has not been committed/pushed.** M10–M19 remain planned, not delivered features.
+The [complete application roadmap](ROADMAP.md) maps the remaining work through manager-backed Update/Uninstall, broader tool support, the finished native interface, and signed distribution. **M9 is technically accepted, user-UI-approved, and pushed to `origin/milestone/m9-verified-inventory` in feature commit `eb4f586`.** This delivery does not merge into `main` or publish an app release. M10–M19 remain planned, not delivered features.
 
 ## Build and open the development app
 
