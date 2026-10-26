@@ -39,11 +39,19 @@ struct FileIdentity: Equatable, Sendable {
 
 /// A live directory identity. Timestamps are deliberately omitted: a busy package prefix or
 /// Cellar can change while the proof is still valid; replacement is caught by device/inode.
+///
+/// `physicalPath` is the POSIX `realpath(3)` spelling captured at observation and is used ONLY for
+/// descriptor-relative opening. `canonicalPath` keeps its existing consumers: containment checks,
+/// presentation (selected entry / canonical target / manager root) and cache keys. The two
+/// spellings differ under ordinary temp aliases (`/var/...` vs `/private/var/...`), so they are
+/// never mixed: comparing physical components against canonical ones is a bug, not a check.
 struct DirectoryIdentity: Equatable, Sendable {
     let canonicalPath: String
     let device: UInt64
     let inode: UInt64
     let mode: UInt32
+    /// Internal only: never public, never serialized, never a cache key, never production-logged.
+    let physicalPath: String
 }
 
 enum FileIdentityObserver {
@@ -97,12 +105,33 @@ enum FileIdentityObserver {
               let info = statInfo(canonical),
               isDirectory(info.st_mode)
         else { return nil }
+        // The descriptor walk needs the PHYSICAL spelling: Foundation rewrites `/private/var`
+        // back to `/var`, and the `/var` alias is a symlink that `O_NOFOLLOW` refuses. Resolve
+        // with POSIX `realpath(3)` and require it to name the SAME vnode we just observed, so a
+        // failure or a divergent resolution yields no observation at all.
+        guard let physical = physicalPath(canonical),
+              physical.hasPrefix("/"),
+              let physicalInfo = statInfo(physical),
+              isDirectory(physicalInfo.st_mode),
+              physicalInfo.st_dev == info.st_dev,
+              physicalInfo.st_ino == info.st_ino
+        else { return nil }
         return DirectoryIdentity(
             canonicalPath: canonical,
             device: UInt64(bitPattern: Int64(info.st_dev)),
             inode: info.st_ino,
-            mode: UInt32(info.st_mode)
+            mode: UInt32(info.st_mode),
+            physicalPath: physical
         )
+    }
+
+    /// The POSIX physical pathname of an existing path, or nil. Uses `realpath(3)` directly:
+    /// `URL.resolvingSymlinksInPath()` demonstrably returns the un-resolved alias spelling.
+    static func physicalPath(_ path: String) -> String? {
+        guard let resolved = path.withCString({ realpath($0, nil) }) else { return nil }
+        defer { free(resolved) }
+        guard let string = String(validatingCString: resolved) else { return nil }
+        return string.hasPrefix("/") ? string : nil
     }
 
     static func fingerprint(_ info: stat) -> ExecutableFingerprint {
@@ -151,21 +180,45 @@ enum FileIdentityObserver {
             && Array(pathComponents.suffix(exactTrailingComponents.count)) == exactTrailingComponents
     }
 
-    /// Opens an already-observed directory for descriptor-relative work by walking every path
-    /// component from `/` with `O_NOFOLLOW`, then verifies the opened descriptor still matches
+    /// Opens an already-observed directory for descriptor-relative work by walking every PHYSICAL
+    /// path component from `/` with `O_NOFOLLOW`, then verifies the opened descriptor still matches
     /// `expected`. An ancestor replaced by a symlink therefore fails instead of redirecting the
     /// open. The caller owns the returned descriptor.
+    ///
+    /// `path` must equal `expected.canonicalPath`: that is a consistency check tying the argument to
+    /// the observation it came from, not a lookup key. The walk itself uses only the physical
+    /// spelling recorded at observation, because Foundation-standardized components rewrite
+    /// `/private/var` to `/var` and the alias is a symlink that `O_NOFOLLOW` refuses.
     static func openVerifiedDirectory(
         path: String,
         expected: DirectoryIdentity
     ) -> Int32? {
-        guard path.hasPrefix("/") else { return nil }
+        guard path.hasPrefix("/"), path == expected.canonicalPath else { return nil }
+        // The recorded binding must be a well-formed ABSOLUTE path before any descriptor work.
+        // Two rejected shapes would otherwise reach the SAME valid inode and look acceptable:
+        //   * a relative prefix (`"ignored" + validPath`) — the old `dropFirst()` discarded it;
+        //   * an embedded NUL — `withCString` truncates at it, so a valid prefix plus a NUL suffix
+        //     silently became the valid path.
+        let binding = expected.physicalPath
+        guard binding.hasPrefix("/"), !binding.utf8.contains(0) else { return nil }
+        // Split the recorded physical string directly: no URL standardization, so no alias
+        // rewriting. Degenerate components are rejected rather than repaired.
+        let pieces = binding
+            .split(separator: "/", omittingEmptySubsequences: false)
+            .map(String.init)
+        guard pieces.first?.isEmpty == true else { return nil }
+        // A leading empty component is the leading `/` itself; everything else must be a real name.
+        let names = pieces.dropFirst()
+        guard !names.isEmpty else { return nil }
+        for name in names {
+            guard !name.isEmpty, name != ".", name != "..", !name.contains("\0") else { return nil }
+        }
+
         var descriptor = open("/", O_RDONLY | O_DIRECTORY | O_CLOEXEC)
         guard descriptor >= 0 else { return nil }
 
-        let components = URL(fileURLWithPath: path).standardizedFileURL.pathComponents
-        for component in components.dropFirst() where !component.isEmpty {
-            let next = component.withCString {
+        for name in names {
+            let next = name.withCString {
                 openat(descriptor, $0, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
             }
             guard next >= 0 else {

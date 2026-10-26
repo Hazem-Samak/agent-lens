@@ -1,0 +1,621 @@
+name: CI
+
+# M10-A clean check. A fresh GitHub-hosted macOS runner with no caches and no dependency install,
+# so a green run means the checked-out commit builds and tests from scratch.
+#
+# The `macos-15` label names a MUTABLE image: the underlying macOS build, Xcode patch and
+# preinstalled tools can change without a change here. The job records observed versions rather than
+# assuming them, and a missing selected toolchain fails the job instead of silently falling back.
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+# Read-only. Nothing here writes to the repository, publishes or deploys.
+permissions:
+  contents: read
+
+# Per-ref concurrency: a new run for the same ref cancels the superseded one.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  macos:
+    name: macOS build, tests and packaging
+    runs-on: macos-15
+    # Bounded initial budget, not a measured performance claim. A timeout is a failure needing
+    # diagnosis and a reviewed budget revision — never an automatic retry.
+    timeout-minutes: 30
+    env:
+      # Invocation/job-local only. No sudo and no global `xcode-select` switch.
+      DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
+    steps:
+      - name: Check out the exact commit
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
+
+      - name: Prepare receipt runner and count verifier
+        shell: bash
+        run: |
+          set -euo pipefail
+          RECEIPTS="$RUNNER_TEMP/receipts"
+          mkdir -p "$RECEIPTS"
+          cat > "$RUNNER_TEMP/run_gate.sh" <<'RUNNER'
+          #!/bin/bash
+          # Generated per run into runner temp; not a permanent repository script.
+          # Usage: run_gate.sh <gate-name> <argv...>
+          # Captures exact argv, separate raw stdout/stderr, elapsed time and the PRODUCER exit status,
+          # then runs the generated count verifier. Producer and verifier are invoked HERE, in one
+          # script, so a `set -e` step shell cannot interpose between them: the verifier always records
+          # its metrics receipt even when the producer fails.
+          #
+          # Effective exit = producer exit when nonzero (preserved verbatim), else the verifier's exit.
+          set -uo pipefail
+          gate="$1"; shift
+          rec="$RECEIPTS"
+          argv_json="$(python3 -c 'import json,sys; print(json.dumps(sys.argv[1:]))' "$@")"
+          {
+            echo "gate: $gate"
+            echo "argv: $argv_json"
+            echo "cwd: $(pwd)"
+            echo "started_epoch: $(date +%s)"
+          } > "$rec/$gate.command.txt"
+          start=$(python3 -c 'import time; print(time.monotonic())')
+          # stdout and stderr go to SEPARATE files so a verifier can parse the real streams, and are
+          # echoed afterwards for a readable job log.
+          "$@" > "$rec/$gate.stdout" 2> "$rec/$gate.stderr"
+          status=$?
+          end=$(python3 -c 'import time; print(time.monotonic())')
+          python3 -c 'import sys; print(f"elapsed_seconds: {float(sys.argv[2]) - float(sys.argv[1]):.3f}")' "$start" "$end" \
+            >> "$rec/$gate.command.txt"
+          echo "producer_exit: $status" >> "$rec/$gate.command.txt"
+          echo "===== $gate stdout ====="; cat "$rec/$gate.stdout"
+          echo "===== $gate stderr ====="; cat "$rec/$gate.stderr"
+          # Verification runs unconditionally: a producer failure must still leave a metrics receipt.
+          python3 "$RUNNER_TEMP/verify_counts.py" "$gate" "$rec" "$rec/$gate.command.txt"
+          verification=$?
+          if [ "$status" -ne 0 ]; then exit "$status"; fi
+          exit "$verification"
+          RUNNER
+          chmod +x "$RUNNER_TEMP/run_gate.sh"
+
+          # Generated per run into runner temp (NOT a repository script). Validates executed and
+          # skipped counts for count-bearing gates and writes a metrics JSON per gate.
+          # Exit 0 = verification passed; 1 = count/skip evidence failed; 2 = unusable input.
+          cat > "$RUNNER_TEMP/verify_counts.py" <<'VERIFIER'
+          #!/usr/bin/env python3
+          """Validate count-bearing gate receipts.
+
+          Producer exit is recorded separately from verification exit. A nonzero producer exit is the
+          producer's own failure and is preserved unchanged; verification still runs so the receipt
+          records what the streams actually contained.
+
+          Parsing notes (honest limitations):
+            * Swift Testing writes its run summary to STDOUT on this toolchain. Because stdout/stderr
+              are separately captured, both are searched and newline-joined, so a summary that a future
+              toolchain multiplexed onto stderr is still found. A summary split mid-line across the two
+              streams would not be rejoined and therefore FAILS closed.
+            * `swift test` XCTest targets print `Executed N tests`; `N == 0` is the XCTest wrapper for a
+              target with no XCTest cases and is NOT counted as Swift Testing cases. Only
+              `Test run with N tests` lines count.
+            * The two Swift Testing summaries emit in an order that is not guaranteed, so observed test
+              counts are matched to target floors as a MULTISET: every floor must be satisfied by some
+              distinct observed count. Target labels in the receipt are therefore reported as matched
+              counts, not as a positional claim about which target printed first.
+            * Registry/schema coverage is asserted by the PASSED test event names that actually appear in
+              the raw stream. Test FILE names (DetectorRegistryTests.swift etc.) never appear in a passing
+              run's output, so they must not be used as anchors.
+            * Skipped detection is marker-based: a Swift Testing `Test ... skipped` event, a `Skipped:`
+              list header, and unittest `OK (skipped=N)`. Names that merely contain "skip" are not skips.
+          """
+          import json
+          import re
+          import sys
+          import time
+          from pathlib import Path
+
+          SWIFT_SUMMARY = re.compile(
+              r"Test run with (?P<tests>\d+) tests? in (?P<suites>\d+) suites? "
+              r"(?P<verdict>passed|failed)"
+          )
+          # A real skip EVENT: Swift Testing prints "➜ Test name() skipped" (or "✔ ... skipped").
+          SWIFT_SKIP_EVENT = re.compile(r"^[^\n]*\bTest\b[^\n]*\bskipped\b", re.MULTILINE | re.IGNORECASE)
+          SWIFT_SKIPPED_LIST = re.compile(r"^\s*Skipped:\s*$", re.MULTILINE)
+          SWIFT_PASSED_EVENT = re.compile(r"^\s*[✔✓]\s+Test\s+(?P<name>[^\s(]+)\(\)\s+passed\b", re.MULTILINE)
+          UNITTEST_RAN = re.compile(r"^Ran (?P<tests>\d+) tests? in [\d.]+s$", re.MULTILINE)
+          UNITTEST_SKIP = re.compile(r"^OK \(skipped=(?P<skipped>\d+)\)", re.MULTILINE)
+          UNITTEST_VERDICT = re.compile(r"^(?P<verdict>OK|FAILED)\b", re.MULTILINE)
+          EXECUTED = re.compile(r"^Executed (?P<tests>\d+) tests?\b", re.MULTILINE)
+
+          # Floors are conservative and explicit, named against observed history:
+          #   Baseline (M9, historical):            329 = Core 258 + AppSupport 71
+          #   Pre-R5 M10-A candidate:               346 = Core 275 + AppSupport 71
+          #   R5 final candidate (parent observed): 353 = Core 282 + AppSupport 71 (R5 adds 7 Core cases)
+          # Floors sit at the final candidate, so a lost/zero/regressed target fails while an extra case
+          # never does.
+          SPECS = {
+              "guard": {"kind": "plain"},
+              "guard-fixtures": {"kind": "unittest", "floor": 21},
+              "swift-build": {"kind": "plain"},
+              "isolation-gate": {
+                  "kind": "swift",
+                  "summaries": 1,
+                  "targets": [{"label": "isolation", "floor": 1}],
+              },
+              "full-test-suite": {
+                  "kind": "swift",
+                  "summaries": 2,
+                  "targets": [
+                      {"label": "Core", "floor": 282},
+                      {"label": "AppSupport", "floor": 71},
+                  ],
+                  "total_floor": 353,
+                  # PASSED-event anchors, one per registry/schema/query test file. These are the real
+                  # test function names that appear on a passing run; file names never do.
+                  "required_passed_events": [
+                      "bundledDefaultDetectorsIsValidWithThreeTools",
+                      "unknownKeysAreRejectedAtRootDefinitionFixturePackageAndQueryLevels",
+                      "makeDetectorUsesRegistryArgumentsInTheProductionPath",
+                  ],
+              },
+              "build-dev-app": {"kind": "plain"},
+              "packaging": {"kind": "unittest", "floor": 9},
+          }
+
+          def read_streams(receipts: Path, gate: str) -> list[tuple[str, str]]:
+              out = []
+              for stream in ("stdout", "stderr"):
+                  path = receipts / f"{gate}.{stream}"
+                  out.append((stream, path.read_text(errors="replace") if path.exists() else ""))
+              return out
+
+          def combined(streams) -> str:
+              # Newline-joined so a summary at the end of one stream still terminates a line.
+              return "\n".join(text for _, text in streams)
+
+          def match_targets(found, targets):
+              """Multiset match: each floor must be met by a distinct observed summary.
+
+              Order-independent, because the two Swift Testing summaries are not emitted in a guaranteed
+              order. Returns (matches, problems) where matches names the observed count that satisfied
+              each floor, without claiming which target printed where.
+              """
+              # Largest floor first: a 275-case summary must not be credited to a 71-case target while
+              # a 282-case floor is still unsatisfied.
+              remaining = sorted((f["tests"] for f in found), reverse=True)
+              matches = []
+              problems = []
+              for target in sorted(targets, key=lambda item: item["floor"], reverse=True):
+                  hit = next((value for value in remaining if value >= target["floor"]), None)
+                  if hit is None:
+                      observed = ", ".join(str(v) for v in sorted(remaining)) or "none"
+                      problems.append(
+                          f"no observed Swift summary satisfies floor {target['floor']} "
+                          f"({target['label']}); observed counts: {observed}"
+                      )
+                      # Stop crediting: a smaller floor must not borrow a count that a larger,
+                      # unsatisfied floor already failed to claim.
+                      matches.append({"label": target["label"], "floor": target["floor"],
+                                      "matched_count": None, "satisfied": False})
+                      continue
+                  remaining.remove(hit)
+                  matches.append({"label": target["label"], "floor": target["floor"],
+                                  "matched_count": hit, "satisfied": True})
+              return matches, problems
+
+          def parse_swift(gate, spec, streams):
+              per_stream = {name: text for name, text in streams}
+              text = combined(streams)
+              found = [
+                  {
+                      "tests": int(m.group("tests")),
+                      "suites": int(m.group("suites")),
+                      "verdict": m.group("verdict"),
+                  }
+                  for m in SWIFT_SUMMARY.finditer(text)
+              ]
+              executed_zero = [int(m.group("tests")) for m in EXECUTED.finditer(text)]
+              skip_events = len(SWIFT_SKIP_EVENT.findall(text))
+              skipped_lists = len(SWIFT_SKIPPED_LIST.findall(text))
+              passed_events = set(m.group("name") for m in SWIFT_PASSED_EVENT.finditer(text))
+              problems = []
+              expected = spec.get("summaries", 1)
+              if len(found) != expected:
+                  problems.append(
+                      f"expected {expected} Swift Testing run summar{'y' if expected == 1 else 'ies'}, "
+                      f"found {len(found)}"
+                  )
+              matches, match_problems = match_targets(found, spec.get("targets", []))
+              problems.extend(match_problems)
+              totals = [f["tests"] for f in found]
+              if "total_floor" in spec:
+                  total = sum(totals)
+                  if total < spec["total_floor"]:
+                      problems.append(f"total executed {total}, below floor {spec['total_floor']}")
+              if any(f["verdict"] != "passed" for f in found):
+                  problems.append("a Swift Testing run summary reported failure")
+              if skip_events or skipped_lists:
+                  problems.append(
+                      f"Swift Testing skipped evidence present ({skip_events} event(s), "
+                      f"{skipped_lists} skipped-list header(s))"
+                  )
+              for name in spec.get("required_passed_events", []):
+                  if name not in passed_events:
+                      problems.append(f"required passed test event {name} did not run and pass")
+              return {
+                  "kind": "swift",
+                  "summaries": found,
+                  "totals": totals,
+                  "target_matches": matches,
+                  "passed_event_count": len(passed_events),
+                  "executed_zero_lines": executed_zero,
+                  "skipped": skip_events + skipped_lists,
+                  "stream_bytes": {name: len(body) for name, body in per_stream.items()},
+                  "problems": problems,
+              }
+
+          def parse_unittest(gate, spec, streams):
+              # unittest writes its report to stderr; stdout is checked too in case of redirection.
+              text = combined(streams)
+              ran = [int(m.group("tests")) for m in UNITTEST_RAN.finditer(text)]
+              skipped_n = [int(m.group("skipped")) for m in UNITTEST_SKIP.finditer(text)]
+              verdicts = [m.group("verdict") for m in UNITTEST_VERDICT.finditer(text)]
+              problems = []
+              if not ran:
+                  problems.append("no unittest 'Ran N tests' line (producer did not report counts)")
+              elif len(ran) > 1:
+                  # A normal run reports exactly one 'Ran N tests' line. More than one means several
+                  # suites were concatenated or the stream is ambiguous: fail closed rather than guess.
+                  problems.append(f"ambiguous unittest report: {len(ran)} 'Ran N tests' lines")
+              elif ran[0] < spec["floor"]:
+                  problems.append(f"unittest executed {ran[0]} tests, below floor {spec['floor']}")
+              if "FAILED" in verdicts:
+                  problems.append("unittest reported FAILED")
+              elif "OK" not in verdicts:
+                  problems.append("unittest did not report OK")
+              if len(verdicts) > 2:
+                  problems.append(f"ambiguous unittest verdicts: {verdicts}")
+              if any(n for n in skipped_n):
+                  problems.append(f"unittest reported skipped={max(skipped_n)}")
+              return {
+                  "kind": "unittest",
+                  "tests": ran[0] if ran else 0,
+                  "ran_lines": len(ran),
+                  "skipped": max(skipped_n) if skipped_n else 0,
+                  "verdicts": verdicts,
+                  "problems": problems,
+              }
+
+          def main(argv) -> int:
+              if len(argv) != 4:
+                  print("usage: verify_counts.py <gate> <receipts-dir> <command-receipt>", file=sys.stderr)
+                  return 2
+              gate, receipts_dir, command_receipt = argv[1], Path(argv[2]), Path(argv[3])
+              spec = SPECS.get(gate)
+              if spec is None:
+                  print(f"verify_counts: no spec for gate {gate!r}", file=sys.stderr)
+                  return 2
+              if not command_receipt.exists():
+                  print(f"verify_counts: missing command receipt {command_receipt}", file=sys.stderr)
+                  return 2
+              producer_exit = None
+              elapsed = None
+              for line in command_receipt.read_text().splitlines():
+                  if line.startswith("producer_exit: "):
+                      producer_exit = int(line.split(": ", 1)[1])
+                  elif line.startswith("elapsed_seconds: "):
+                      elapsed = float(line.split(": ", 1)[1])
+              if producer_exit is None or elapsed is None:
+                  print("verify_counts: command receipt lacks producer_exit/elapsed_seconds", file=sys.stderr)
+                  return 2
+              if not any(text for _, text in read_streams(receipts_dir, gate)) and producer_exit == 0:
+                  # No captured bytes at all with a successful producer is missing evidence, not a pass.
+                  parsed = {"kind": spec["kind"], "tests": 0, "summaries": [], "totals": [],
+                            "skipped": 0, "problems": ["no captured stdout/stderr evidence"]}
+                  problems = parsed.pop("problems")
+              else:
+                  streams = read_streams(receipts_dir, gate)
+                  parsed = (
+                      parse_swift(gate, spec, streams)
+                      if spec["kind"] == "swift"
+                      else parse_unittest(gate, spec, streams)
+                      if spec["kind"] == "unittest"
+                      else {"kind": "plain", "problems": []}
+                  )
+                  problems = parsed.pop("problems")
+              # A producer failure is authoritative for the effective exit; the verifier's job there is
+              # only to record what the streams contained.
+              verification_exit = 0 if not problems else 1
+              effective_exit = producer_exit if producer_exit != 0 else verification_exit
+              metrics = {
+                  "gate": gate,
+                  "kind": parsed.get("kind"),
+                  "expected_floor": spec.get("floor", spec.get("total_floor")),
+                  "target_floors": spec.get("targets", []),
+                  "parsed": parsed,
+                  "skipped": parsed.get("skipped", 0),
+                  "producer_exit": producer_exit,
+                  "verification_exit": verification_exit,
+                  "effective_exit": effective_exit,
+                  "elapsed_seconds": elapsed,
+                  "verification_problems": problems,
+                  "verified_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+              }
+              (receipts_dir / f"{gate}.metrics.json").write_text(json.dumps(metrics, indent=2) + "\n")
+              print(f"----- {gate} verification -----")
+              print(f"producer_exit={producer_exit} verification_exit={verification_exit} "
+                    f"effective_exit={effective_exit} elapsed={elapsed:.3f}s")
+              for problem in problems:
+                  print(f"verification: FAIL: {problem}")
+              if not problems:
+                  print("verification: OK (counts and skip evidence satisfy the declared floors)")
+              return effective_exit if effective_exit in (0, 1) else 1
+
+          if __name__ == "__main__":
+              sys.exit(main(sys.argv))
+          VERIFIER
+          chmod +x "$RUNNER_TEMP/verify_counts.py"
+
+          {
+            echo "github_repository: $GITHUB_REPOSITORY"
+            echo "github_ref: $GITHUB_REF"
+            echo "github_sha: $GITHUB_SHA"
+            echo "github_workflow_ref: $GITHUB_WORKFLOW_REF"
+            echo "github_event_name: $GITHUB_EVENT_NAME"
+            echo "runner_image: ${ImageOS:-unset}"
+            echo "runner_image_version: ${ImageVersion:-unset}"
+            echo "runner_arch: $(uname -m)"
+            echo "runner_os: $(uname -s)"
+            echo "sw_vers:"; sw_vers
+            echo "DEVELOPER_DIR: $DEVELOPER_DIR"
+            echo "xcodebuild -version:"; xcodebuild -version
+            echo "xcrun --find swift: $(xcrun --find swift)"
+            echo "xcrun swift --version:"; xcrun swift --version
+            echo "python3: $(python3 --version 2>&1)"
+          } > "$RECEIPTS/runner-and-toolchain.txt"
+          cat "$RECEIPTS/runner-and-toolchain.txt"
+
+          # Narrow pinned-action inventory: the exact SHAs used above, with their declared releases.
+          # No environment dump; only the repository/ref/SHA identity and these two pins.
+          python3 - "$RECEIPTS/action-pins.json" <<'PINS'
+          import json
+          import sys
+          pins = {
+              "checkout": {"uses": "actions/checkout", "ref": "v5.1.0",
+                           "sha": "fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09"},
+              "upload-artifact": {"uses": "actions/upload-artifact", "ref": "v4.6.2",
+                                  "sha": "ea165f8d65b6e75b540449e92b4886f43607fa02"},
+          }
+          with open(sys.argv[1], "w") as handle:
+              json.dump({"pinned_actions": pins}, handle, indent=2)
+              handle.write("\n")
+          PINS
+          cat "$RECEIPTS/action-pins.json"
+
+          # One fresh scratch tree for the package build plus every Swift test run.
+          SCRATCH=$(mktemp -d "$RUNNER_TEMP/agent-lens-m10a.XXXXXX")
+          echo "scratch_root=$SCRATCH" >> "$GITHUB_ENV"
+          echo "scratch_root: $SCRATCH" > "$RECEIPTS/scratch.txt"
+
+      - name: Core/UI import boundary guard
+        shell: bash
+        env:
+          RECEIPTS: ${{ runner.temp }}/receipts
+        run: |
+          set -uo pipefail
+          "$RUNNER_TEMP/run_gate.sh" guard python3 scripts/check-core-ui-imports.py
+
+      - name: Core/UI guard behavioral fixtures
+        shell: bash
+        env:
+          RECEIPTS: ${{ runner.temp }}/receipts
+        run: |
+          set -uo pipefail
+          "$RUNNER_TEMP/run_gate.sh" guard-fixtures python3 Tests/Packaging/test_core_ui_imports.py
+
+      - name: Build package
+        shell: bash
+        env:
+          RECEIPTS: ${{ runner.temp }}/receipts
+        run: |
+          set -uo pipefail
+          "$RUNNER_TEMP/run_gate.sh" swift-build \
+            swift build --scratch-path "$scratch_root"
+
+      - name: Early isolation capability gate (native macros)
+        shell: bash
+        env:
+          RECEIPTS: ${{ runner.temp }}/receipts
+        run: |
+          set -uo pipefail
+          # Compile/runtime capability gate before the full suite. Native toolchain macro discovery
+          # is required; the workstation plugin workaround must never appear here.
+          unset AGENT_LENS_TEST_SCRATCH AGENT_LENS_TEST_PRODUCTS
+          "$RUNNER_TEMP/run_gate.sh" isolation-gate \
+            swift test --scratch-path "$scratch_root" --no-parallel \
+            --filter sandboxDeniesAllAccessToTheRealAgentLensCache
+
+      - name: Full Swift test suite
+        shell: bash
+        env:
+          RECEIPTS: ${{ runner.temp }}/receipts
+        run: |
+          set -uo pipefail
+          # Inherits the runner's normal TMPDIR. Both Agent Lens test overrides are explicitly unset
+          # so nothing can substitute for the default-TMPDIR case.
+          unset AGENT_LENS_TEST_SCRATCH AGENT_LENS_TEST_PRODUCTS
+          "$RUNNER_TEMP/run_gate.sh" full-test-suite \
+            swift test --scratch-path "$scratch_root" --no-parallel
+
+      - name: Build debug development app
+        shell: bash
+        env:
+          RECEIPTS: ${{ runner.temp }}/receipts
+        run: |
+          set -uo pipefail
+          # The independent builder keeps its own scratch tree so packaging discovery is real.
+          "$RUNNER_TEMP/run_gate.sh" build-dev-app \
+            python3 scripts/build-dev-app.py \
+            --scratch-root "$RUNNER_TEMP/dev-app" --configuration debug
+
+      - name: Packaging checks (all nine)
+        shell: bash
+        env:
+          RECEIPTS: ${{ runner.temp }}/receipts
+        run: |
+          set -uo pipefail
+          "$RUNNER_TEMP/run_gate.sh" packaging \
+            python3 Tests/Packaging/test_dev_app_bundle.py \
+            --app "$RUNNER_TEMP/dev-app/AgentLensApp-debug.app"
+
+      - name: Summarize every gate
+        if: always()
+        shell: bash
+        env:
+          RECEIPTS: ${{ runner.temp }}/receipts
+        run: |
+          set -uo pipefail
+          python3 - "$RECEIPTS" <<'SUMMARY'
+          import json
+          import sys
+          from pathlib import Path
+
+          receipts = Path(sys.argv[1])
+          gates = ["guard", "guard-fixtures", "swift-build", "isolation-gate",
+                   "full-test-suite", "build-dev-app", "packaging"]
+          lines = ["gate summary (passed / failed / NOT RUN)", ""]
+          rows = []
+          total_elapsed = 0.0
+          any_failed = False
+          for gate in gates:
+              command = receipts / f"{gate}.command.txt"
+              metrics_path = receipts / f"{gate}.metrics.json"
+              if not command.exists():
+                  lines.append(f"- {gate}: NOT RUN (no receipt; the step did not execute)")
+                  rows.append({"gate": gate, "state": "NOT RUN"})
+                  any_failed = True
+                  continue
+              producer = verification = None
+              elapsed = None
+              for line in command.read_text().splitlines():
+                  if line.startswith("producer_exit: "):
+                      producer = int(line.split(": ", 1)[1])
+                  elif line.startswith("elapsed_seconds: "):
+                      elapsed = float(line.split(": ", 1)[1])
+              metrics = None
+              if metrics_path.exists():
+                  metrics = json.loads(metrics_path.read_text())
+                  verification = metrics.get("verification_exit")
+              count_text = ""
+              if metrics:
+                  parsed = metrics.get("parsed", {})
+                  if parsed.get("kind") == "swift":
+                      matches = parsed.get("target_matches") or []
+                      match_text = ",".join(
+                          (f"{m['label']}>={m['floor']}(saw {m['matched_count']})" if m["satisfied"]
+                           else f"{m['label']}>={m['floor']}(UNSATISFIED)") for m in matches
+                      )
+                      count_text = (
+                          f"cases={parsed.get('totals')} "
+                          f"skipped={metrics.get('skipped')} "
+                          f"summaries={len(parsed.get('summaries', []))} "
+                          f"matched=[{match_text}]"
+                      )
+                  elif parsed.get("kind") == "unittest":
+                      count_text = f"cases={parsed.get('tests')} skipped={metrics.get('skipped')}"
+              if elapsed is not None:
+                  total_elapsed += elapsed
+              if producer is None:
+                  state = "failed (producer exit unrecorded)"
+                  any_failed = True
+              elif producer != 0:
+                  state = f"failed (producer exit {producer})"
+                  any_failed = True
+              elif verification is None:
+                  state = "failed (verification receipt missing)"
+                  any_failed = True
+              elif verification != 0:
+                  state = "failed (count verification)"
+                  any_failed = True
+              else:
+                  state = "passed"
+              problems = (metrics or {}).get("verification_problems") or []
+              lines.append(
+                  f"- {gate}: {state}; producer_exit={producer} verification_exit={verification} "
+                  f"elapsed={elapsed if elapsed is not None else 'n/a'}s {count_text}".rstrip()
+              )
+              for problem in problems:
+                  lines.append(f"    verification problem: {problem}")
+              rows.append({
+                  "gate": gate,
+                  "state": state,
+                  "producer_exit": producer,
+                  "verification_exit": verification,
+                  "elapsed_seconds": elapsed,
+                  "counts": count_text or None,
+                  "verification_problems": problems,
+              })
+          lines += ["", f"aggregate_gate_elapsed_seconds: {total_elapsed:.3f}"]
+          lines.append(
+              "registry/schema/query coverage is asserted by PASSED test events that must appear in the "
+              "full-test-suite streams: bundledDefaultDetectorsIsValidWithThreeTools, "
+              "unknownKeysAreRejectedAtRootDefinitionFixturePackageAndQueryLevels, "
+              "makeDetectorUsesRegistryArgumentsInTheProductionPath."
+          )
+          summary = "\n".join(lines) + "\n"
+          (receipts / "summary.txt").write_text(summary)
+          (receipts / "summary.metrics.json").write_text(
+              json.dumps({"gates": rows, "aggregate_elapsed_seconds": round(total_elapsed, 3)},
+                         indent=2) + "\n"
+          )
+          print(summary, end="")
+          # A summary that cannot show a green count-bearing gate fails the job; the original producer
+          # failure, where present, is already recorded per gate and remains the authoritative cause.
+          sys.exit(1 if any_failed else 0)
+          SUMMARY
+
+      - name: Upload check receipts
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: check-receipts
+          if-no-files-found: warn
+          retention-days: 7
+          # Only these explicitly listed receipts: never the whole runner temp, shell environments,
+          # scratch trees or the built app.
+          path: |
+            ${{ runner.temp }}/receipts/runner-and-toolchain.txt
+            ${{ runner.temp }}/receipts/action-pins.json
+            ${{ runner.temp }}/receipts/scratch.txt
+            ${{ runner.temp }}/receipts/guard.command.txt
+            ${{ runner.temp }}/receipts/guard.stdout
+            ${{ runner.temp }}/receipts/guard.stderr
+            ${{ runner.temp }}/receipts/guard.metrics.json
+            ${{ runner.temp }}/receipts/guard-fixtures.command.txt
+            ${{ runner.temp }}/receipts/guard-fixtures.stdout
+            ${{ runner.temp }}/receipts/guard-fixtures.stderr
+            ${{ runner.temp }}/receipts/guard-fixtures.metrics.json
+            ${{ runner.temp }}/receipts/swift-build.command.txt
+            ${{ runner.temp }}/receipts/swift-build.stdout
+            ${{ runner.temp }}/receipts/swift-build.stderr
+            ${{ runner.temp }}/receipts/swift-build.metrics.json
+            ${{ runner.temp }}/receipts/isolation-gate.command.txt
+            ${{ runner.temp }}/receipts/isolation-gate.stdout
+            ${{ runner.temp }}/receipts/isolation-gate.stderr
+            ${{ runner.temp }}/receipts/isolation-gate.metrics.json
+            ${{ runner.temp }}/receipts/full-test-suite.command.txt
+            ${{ runner.temp }}/receipts/full-test-suite.stdout
+            ${{ runner.temp }}/receipts/full-test-suite.stderr
+            ${{ runner.temp }}/receipts/full-test-suite.metrics.json
+            ${{ runner.temp }}/receipts/build-dev-app.command.txt
+            ${{ runner.temp }}/receipts/build-dev-app.stdout
+            ${{ runner.temp }}/receipts/build-dev-app.stderr
+            ${{ runner.temp }}/receipts/build-dev-app.metrics.json
+            ${{ runner.temp }}/receipts/packaging.command.txt
+            ${{ runner.temp }}/receipts/packaging.stdout
+            ${{ runner.temp }}/receipts/packaging.stderr
+            ${{ runner.temp }}/receipts/packaging.metrics.json
+            ${{ runner.temp }}/receipts/summary.txt
+            ${{ runner.temp }}/receipts/summary.metrics.json

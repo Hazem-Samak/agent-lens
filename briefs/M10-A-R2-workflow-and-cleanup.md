@@ -1,0 +1,17 @@
+# M10-A R2 — workflow invocation and cleanup-mode corrections
+
+Date: 2026-10-26, Africa/Cairo. Same WorkBuddy/DeepSeek/OMP implementer, original authorized file set only. The protected-source amendment passed planning review but still awaits user approval; do not implement it. No Git mutations, subagents or provider substitution.
+
+Evidence root `E`: `/private/tmp/agent-lens-m10a-impl-20261026-4_wjuwpb`. Use `E/worker/r2`. Preserve prior receipts; they remain evidence of earlier candidates, not the corrected workflow.
+
+1. **R02/AC07: four actual YAML run bodies never invoke the runner.** Parent parsed `.github/workflows/ci.yml` and executed each gate step's exact `run` text with an owned fake `run_gate.sh` that prints its gate and exits 7. Guard/guard-fixtures/build reach it and propagate 7. Isolation/full-suite/app-build/packaging instead fail because the entire command plus arguments are quoted as an executable filename. Parent evidence: `E/parent/workflow-step-probe/receipt.json`.
+
+   Correct shell quoting in all seven gate call sites: quote the runner pathname by itself and each path argument by itself; do not quote the whole command. Preserve exact args and gate labels. Validate **every actual run body extracted from YAML**, without rewriting it for the test, against a fake runner with both ordinary and space-containing owned RUNNER_TEMP paths. Each must demonstrably invoke the intended gate and propagate producer exit 7; also prove a success path. Continue to preserve separate raw streams, actual argv/exit/duration receipts and all-gate not-run summary. Native hosted execution remains unmeasured.
+
+2. **R01/AC03: group-writable cleanup is accepted.** The new helper says group/other-writable roots are refused, but its `mode & 0o002` mask only checks other-write. A parent program created an owned handle, changed the directory to 0770, and cleanup deleted it. Evidence: `E/parent/helper-r1-probe-runtime/` (the symlink/`..` comparison in that probe passed; no correction to that behavior is requested).
+
+   Check both group-write and other-write at creation and cleanup; recheck current owner UID as well as recorded inode/device before removal. Add a meaningful controlled 0770 regression: cleanup refuses, child remains, restore safe mode and clean through the real handle. Do not mutate global umask/environment or touch an unrelated directory. Keep creation provenance and replacement rejection intact. Remove the newly introduced unused local `displayBase` and make comments accurate about display versus physical paths; no unrelated warning cleanup.
+
+3. Update the worker report to retract the earlier workflow-body validation claim and report the new actual extracted-body evidence. Clearly distinguish the post-recovery R1/R2 Git behavior from the earlier worker-created stash already recorded in `E/evidence/recovery.json`; do not imply no stash occurred anywhere in the phase.
+
+Rerun the affected helper/seam and primary isolation gates, the guard checks, and actual workflow-body validation with raw receipts. Existing builder/packaging observations may be reused only with protected shipping inputs verified byte-identical, since this correction changes test helpers and workflow, not app code. Parent will independently build/package again. Freeze the corrected candidate manifest, submit a concise report and stop edits. Full-suite acceptance remains blocked on the still-unapproved protected-source amendment; hosted AC08 and Git delivery remain pending.

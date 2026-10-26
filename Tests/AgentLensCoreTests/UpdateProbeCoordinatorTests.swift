@@ -1408,7 +1408,17 @@ private func replacingEnvironmentValue(_ environment: ShellEnvironment, key: Str
         verifier.environment = verifierEnvironment
         verifier.currentDirectoryURL = workingDirectory
         let result = try runIsolatedProcess(verifier, captureDirectory: root, label: "context-\(label)")
-        let expected = "counts=3,0;inputs=true;identity=true;cacheHit=true;cwd=\(workingDirectory.path)\n"
+        // The child reports `getcwd()`, which on this platform returns the PHYSICAL pathname
+        // (`/private/var/...`), not the inherited alias spelling the fixture passed in
+        // (`/var/...`). Compare physical identity, keeping every other field exact. A raw string
+        // comparison here fails under the ordinary TMPDIR for a spelling difference only.
+        // REQUIRE the physical resolution: silently falling back to the alias spelling would accept
+        // an unresolved cwd. `getcwd()` returns the physical pathname on this platform.
+        let physicalWorkingDirectory = try #require(
+            FileIdentityObserver.physicalPath(workingDirectory.path),
+            "the working directory must resolve physically for this context check"
+        )
+        let expected = "counts=3,0;inputs=true;identity=true;cacheHit=true;cwd=\(physicalWorkingDirectory)\n"
         #expect(result.status == 0, "isolated coordinator verifier failed: \(result.stderr)")
         #expect(result.stderr.isEmpty)
         #expect(result.stdout == expected)

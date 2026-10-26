@@ -13,16 +13,23 @@ import Testing
 //   running test products (symlinks resolved), never through the shared `.build` link. An
 //   override that does not name a regular executable `agent-lens` fails loudly — it never
 //   silently falls back to an unrelated executable.
-// * Every CLI subprocess launches under /usr/bin/sandbox-exec with a kernel-level denial of the
-//   REAL AgentLens cache directory. On this Mac Foundation ignores a synthetic HOME
-//   (NSHomeDirectory() and cachesDirectory both report the real user), so HOME isolation alone
-//   let earlier runs write synthetic metadata into ~/Library/Caches/AgentLens. The denial covers
-//   the CLI and every child it spawns. A failed cache write is neutral in the production
-//   contract, so the supported-CLI status assertions stay meaningful.
+// * Every CLI subprocess launches under /usr/bin/sandbox-exec with a kernel-level denial aimed at
+//   the REAL AgentLens cache directory. Measured ON THIS WORKSTATION: Foundation ignores a
+//   synthetic HOME (NSHomeDirectory() and cachesDirectory both report the real user), so HOME
+//   isolation alone let earlier runs write synthetic metadata into ~/Library/Caches/AgentLens.
+//   The denial is applied to the CLI and every child it spawns. A failed cache write is neutral in
+//   the production contract, so the supported-CLI status assertions stay meaningful.
 // * The fixture PATH no longer appends the real login-shell PATH, and fake OpenCode/Grok sit on
 //   it, so the default detectors cannot reach the real ~/.local, ~/.opencode or ~/.grok trees.
 // * Each launched process has a bounded watchdog; a hang fails the test instead of wedging the
 //   harness.
+// * M10-A portability: fixtures run under the inherited TMPDIR with no Agent Lens override. The
+//   denial profile names the PHYSICAL pathname (`realpath(3)`), because MEASURED HERE Seatbelt
+//   matched physical names and the inherited `/var/folders/.../T/` spelling is an alias of
+//   `/private/var/folders/.../T/`. An earlier comment here claimed the Darwin temp tree was
+//   unenforceable; that was wrong — the failure was this alias mismatch. Building the profile
+//   correctly is configuration, and the decoy control measures mechanism behaviour only at the
+//   decoy's own path: neither is a blanket syscall guarantee about the personal cache.
 
 private let sandboxExec = "/usr/bin/sandbox-exec"
 
@@ -32,27 +39,22 @@ private let cliRunBudget: TimeInterval = 120
 
 private func cliScratch(_ label: String) throws -> URL {
     // Fixture roots: the explicit operator override (AGENT_LENS_TEST_SCRATCH), else the runtime's
-    // temporary-directory root (TMPDIR). Never the user's home, and never
-    // FileManager.default.temporaryDirectory: measured on this Mac, that API resolves to the
-    // per-user /var/folders/.../T tree REGARDLESS of TMPDIR, and a Seatbelt subpath denial there
-    // does NOT hold (the sandboxed decoy write succeeded with exit 0). So the darwin temp root is
-    // both outside authorized storage and unenforceable. With neither override set and no TMPDIR,
-    // this fails closed rather than relocating fixtures somewhere unauthorized.
+    // inherited TMPDIR. Never the user's home, and never FileManager.default.temporaryDirectory
+    // (measured: that API ignores TMPDIR). With neither set this fails closed rather than
+    // relocating fixtures somewhere unauthorized.
+    //
     let environment = ProcessInfo.processInfo.environment
-    let base: URL
-    if let override = environment["AGENT_LENS_TEST_SCRATCH"], !override.isEmpty {
-        base = URL(fileURLWithPath: override, isDirectory: true)
-    } else if let tmpdir = environment["TMPDIR"], !tmpdir.isEmpty {
-        base = URL(fileURLWithPath: tmpdir, isDirectory: true)
-    } else {
-        throw scratchBlocker()
-    }
-    // Canonicalize against symlinks BEFORE the path is used in a Seatbelt profile or compared in a
-    // test: the kernel matches the resolved vnode path, not the symlinked spelling.
-    let root = base.resolvingSymlinksInPath()
-        .appendingPathComponent("agentlens-m6-cli-\(label)-\(UUID().uuidString)", isDirectory: true)
-    try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
-    return root.resolvingSymlinksInPath()
+    // DISPLAY spelling for callers: production normalizes observed paths via Foundation, and the
+    // assertions compare against these strings. The PHYSICAL spelling is a separate value —
+    // `ResolvedFixtureRoot.physicalPath`, resolved via `realpath(3)` in CLIFixtureIsolation.swift —
+    // and that one is what a sandbox profile must name.
+    //
+    // Measured ON THIS WORKSTATION: Seatbelt matched the physical pathname, and a profile built from
+    // the alias spelling did not deny the physical vnode, because the inherited `/var/folders/.../T/`
+    // spelling symlinks to `/private/var/folders/.../T/`. Foundation's `resolvingSymlinksInPath()`
+    // did not help here — measured, it returned the un-resolved `/var/...` spelling. That is a local
+    // observation, not a universal macOS guarantee.
+    return URL(fileURLWithPath: try makeOwnedFixtureRoot(label: label, environment: environment).displayPath)
 }
 
 private struct CLIResult {
@@ -65,8 +67,9 @@ private struct CLIResult {
 
 /// The REAL AgentLens cache directory, evaluated in the test process where Foundation reports
 /// the true user. This mirrors `updateCacheURL()` in Sources/agent-lens/main.swift:54-58 —
-/// cachesDirectory + "AgentLens" — because a synthetic HOME does NOT move that resolution on
-/// this platform, and the CLI therefore aims its cache writes at this exact path.
+/// cachesDirectory + "AgentLens" — because MEASURED HERE a synthetic HOME does not move that
+/// resolution, so the CLI aims its cache writes at this exact path. That is an observation on this
+/// workstation, not a claim about every macOS configuration.
 private func realAgentLensCacheDirectory() throws -> URL {
     guard let caches = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first
     else {
@@ -74,6 +77,42 @@ private func realAgentLensCacheDirectory() throws -> URL {
                       userInfo: [NSLocalizedDescriptionKey: "no user caches directory resolvable"])
     }
     return caches.appendingPathComponent("AgentLens", isDirectory: true)
+}
+
+/// Every spelling of the REAL AgentLens cache directory that the kernel may resolve to.
+///
+/// The denial must name the physical pathname, because Seatbelt matches physical names. The cache
+/// leaf usually does not exist, so `physicalPath` resolves the nearest existing ancestor (the
+/// user's `Library/Caches`) and re-appends `AgentLens`. The Foundation spelling is retained as
+/// well: if the leaf exists and is itself a symlink, either spelling may be the one the kernel
+/// compares against.
+private func agentLensCacheDenialTargets() throws -> [String] {
+    let cacheDirectory = try realAgentLensCacheDirectory()
+    var targets = [cacheDirectory.path]
+    if let physical = physicalPath(cacheDirectory.path), physical != cacheDirectory.path {
+        targets.append(physical)
+    }
+    return targets
+}
+
+/// The full denial profile for the REAL cache: one combined profile denying every known spelling.
+private func realCacheDenialProfile() throws -> String {
+    denialProfiles(for: try agentLensCacheDenialTargets())
+}
+
+/// Builds a SINGLE SBPL profile denying reads, writes and children under every supplied subpath.
+/// Deny wins over allow in Seatbelt, so this is a hard kernel-level block for the process and its
+/// descendants.
+private func denialProfiles(for subpaths: [String]) -> String {
+    var clauses = ["(version 1)", "(allow default)"]
+    for subpath in subpaths {
+        let escaped = subpath
+            .replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "\"", with: "\\\"")
+        clauses.append("(deny file-read* (subpath \"\(escaped)\"))")
+        clauses.append("(deny file-write* (subpath \"\(escaped)\"))")
+    }
+    return clauses.joined(separator: "\n")
 }
 
 /// An SBPL profile that allows everything EXCEPT all reads and writes under `subpath`. Deny wins
@@ -181,7 +220,7 @@ private func runCLI(
 ) throws -> CLIResult {
     let cli = try builtAgentLensExecutable()
     guard FileManager.default.isExecutableFile(atPath: sandboxExec) else { throw isolationBlocker() }
-    let profile = denialProfile(subpath: try realAgentLensCacheDirectory().path)
+    let profile = try realCacheDenialProfile()
     // Synthetic environment only — the real environment is never merged in.
     let environment: [String: String] = [
         "HOME": home.path,
@@ -213,7 +252,7 @@ private func launchCLIWithFileCapture(
 ) throws -> RunningCLI {
     let cli = try builtAgentLensExecutable()
     guard FileManager.default.isExecutableFile(atPath: sandboxExec) else { throw isolationBlocker() }
-    let profile = denialProfile(subpath: try realAgentLensCacheDirectory().path)
+    let profile = try realCacheDenialProfile()
     let stdoutURL = home.appendingPathComponent("live-stdout-\(UUID().uuidString).log")
     let stderrURL = home.appendingPathComponent("live-stderr-\(UUID().uuidString).log")
     FileManager.default.createFile(atPath: stdoutURL.path, contents: nil)
@@ -386,52 +425,109 @@ private func builtAgentLensExecutable() throws -> String {
 @Test func sandboxDeniesAllAccessToTheRealAgentLensCache() throws {
     let fileManager = FileManager.default
     guard fileManager.isExecutableFile(atPath: sandboxExec) else { throw isolationBlocker() }
-    let cacheDirectory = try realAgentLensCacheDirectory()
-    let scratch = try cliScratch("isolation")
 
-    // The denial target is asserted, never assumed. No syscall is issued against the real cache
-    // directory at any point in this file — the parent's ledger hash covers its contents.
+    // Test-process receipts: these four values are OBSERVED by this process, so parent/runner
+    // environment settings cannot be mistaken for what the child saw.
+    let environment = ProcessInfo.processInfo.environment
+    let overridePresent = !(environment["AGENT_LENS_TEST_SCRATCH"] ?? "").isEmpty
+    let inheritedTMPDIR = environment["TMPDIR"] ?? "<unset>"
+    let scratch = try cliScratch("isolation")
+    let scratchPhysical = physicalPath(scratch.path) ?? "<unresolvable>"
+    print("isolation-probe selected_root=\(scratch.path)")
+    print("isolation-probe physical_root=\(scratchPhysical)")
+    print("isolation-probe scratch_override_present=\(overridePresent)")
+    print("isolation-probe inherited_TMPDIR=\(inheritedTMPDIR)")
+    // The DISPLAY spelling may be an alias of the physical one (inherited TMPDIR is `/var/...`,
+    // physical `/private/var/...`). What must hold is that they name one vnode and the physical
+    // spelling is itself stable — profiles use the physical value recorded by the seam.
+    #expect(physicalPath(scratch.path) == scratchPhysical, "display and physical spellings must name one vnode")
+    #expect(physicalPath(scratchPhysical) == scratchPhysical, "the physical spelling must be stable")
+
+    // The denial target is asserted, never assumed. No syscall is ever issued against the real
+    // cache directory — controls use an owned decoy only.
+    let cacheDirectory = try realAgentLensCacheDirectory()
     let expectedTarget = FileManager.default
         .urls(for: .cachesDirectory, in: .userDomainMask)[0]
         .appendingPathComponent("AgentLens", isDirectory: true)
     #expect(cacheDirectory.path == expectedTarget.path, "the denial target must be exactly the directory main.swift:54-58 computes")
-    let profile = denialProfile(subpath: cacheDirectory.path)
-    #expect(profile.contains("(deny file-read* (subpath \"\(cacheDirectory.path)\"))"))
-    #expect(profile.contains("(deny file-write* (subpath \"\(cacheDirectory.path)\"))"))
 
-    // Mechanism control on a scratch decoy: the identical profile shape refuses, and the identical
-    // command WITHOUT the sandbox succeeds. The refusal therefore comes from the Seatbelt profile,
-    // not from file permissions — so the denial every CLI run installs is a genuine kernel-level
-    // guarantee for the path asserted above.
-    let decoy = try cliScratch("isolation-decoy")
-    let decoyTarget = decoy.appendingPathComponent("probe")
-    let decoyProfile = denialProfile(subpath: decoy.path)
-    let refused = try runCaptured(
-        executable: sandboxExec,
-        arguments: ["-p", decoyProfile, "/bin/sh", "-c", "touch \"$1\"", "_", decoyTarget.path],
-        environment: ["PATH": "/usr/bin:/bin"],
-        captureDirectory: scratch,
-        label: "decoy-refused"
-    )
-    #expect(refused.status != 0)
-    #expect(fileManager.fileExists(atPath: decoyTarget.path) == false)
+    // Both launch seams install the combined denial for every spelling of that directory.
+    let realProfile = try realCacheDenialProfile()
+    let targets = try agentLensCacheDenialTargets()
+    #expect(targets.contains(cacheDirectory.path), "the Foundation spelling must stay denied")
+    for target in targets {
+        #expect(realProfile.contains("(deny file-read* (subpath \"\(target)\"))"), "read denial for \(target)")
+        #expect(realProfile.contains("(deny file-write* (subpath \"\(target)\"))"), "write denial for \(target)")
+    }
+    if let physicalCache = physicalPath(cacheDirectory.path), physicalCache != cacheDirectory.path {
+        #expect(targets.contains(physicalCache), "the physical cache alias must also be denied")
+    }
 
-    let allowed = try runCaptured(
-        executable: "/bin/sh",
-        arguments: ["-c", "touch \"$1\"", "_", decoyTarget.path],
-        environment: ["PATH": "/usr/bin:/bin"],
+    // Mechanism control at the measured path. OWNED decoy: the profile denies reads AND writes;
+    // the child writes an allowed marker first, so a launch failure or a missing marker can never
+    // be mistaken for a denial.
+    let decoyRoot = try makeOwnedFixtureRoot(label: "isolation-decoy", environment: environment)
+    defer { try? removeOwnedFixtureRoot(decoyRoot, fileManager: fileManager) }
+    let decoy = URL(fileURLWithPath: decoyRoot.physicalPath, isDirectory: true)
+    let decoyProfile = denialProfile(subpath: decoyRoot.physicalPath)
+
+    let denied = try observeSandboxMechanism(
+        root: decoy,
+        profile: decoyProfile,
         captureDirectory: scratch,
-        label: "decoy-allowed"
+        label: "denied"
     )
-    #expect(allowed.status == 0, "unsandboxed control write must succeed, proving the denial is the sandbox")
-    #expect(fileManager.fileExists(atPath: decoyTarget.path))
+    #expect(denied.executedMarker == "executed",
+            "the probe process must demonstrably run before its denied operations are evidence")
+    #expect(denied.writeStatus != 0, "denied write must fail at the physical path")
+    #expect(denied.readStatus != 0, "denied read must fail at the physical path")
+    #expect(denied.readStdout.contains("owned fixture") == false, "denied read must yield no sentinel content")
+    #expect(denied.deniedLeafExists == false, "the denied write must not create the leaf")
+    // Exact raw payload including the trailing newline: a trimmed comparison would accept a
+    // newline-only modification as "unmodified".
+    #expect(denied.sentinelBefore == SandboxProbeObservation.expectedSentinelPayload)
+    #expect(denied.sentinelAfter == SandboxProbeObservation.expectedSentinelPayload,
+            "the sentinel must be byte-identical after a denied write")
+    #expect(denied.provesDenial)
+
+    // Unsandboxed positive control: the identical operations SUCCEED, so the refusal above comes
+    // from the Seatbelt profile and not from file permissions.
+    let controlRoot = try makeOwnedFixtureRoot(label: "isolation-control", environment: environment)
+    defer { try? removeOwnedFixtureRoot(controlRoot, fileManager: fileManager) }
+    let control = URL(fileURLWithPath: controlRoot.physicalPath, isDirectory: true)
+    let allowed = try observeSandboxMechanism(
+        root: control,
+        profile: decoyProfile,
+        sandboxExec: "/bin/sh",
+        captureDirectory: scratch,
+        label: "allowed"
+    )
+    #expect(allowed.executedMarker == "executed")
+    #expect(allowed.writeStatus == 0, "unsandboxed control write must succeed")
+    #expect(allowed.readStatus == 0, "unsandboxed control read must succeed")
+    #expect(allowed.readStdout.contains("owned fixture"), "unsandboxed control read must return the sentinel")
+    #expect(allowed.deniedLeafExists, "unsandboxed control write must create the leaf")
+    #expect(!allowed.provesDenial, "a non-enforcing run must never be reported as a denial")
+
+    // The decoy proves mechanism behaviour ONLY at the decoy's own measured path. It is not a
+    // syscall guarantee about the personal cache: the cache path is named in the profile by
+    // construction (configuration, not enforcement evidence), and the real cache is never read or
+    // written to demonstrate anything.
+
+    // Bounded owned cleanup: only the roots this test created, re-verified, are removed.
+    try removeOwnedFixtureRoot(decoyRoot, fileManager: fileManager)
+    try removeOwnedFixtureRoot(controlRoot, fileManager: fileManager)
+    #expect(!fileManager.fileExists(atPath: decoyRoot.physicalPath))
+    #expect(!fileManager.fileExists(atPath: controlRoot.physicalPath))
 }
 
 @Test func sandboxedCheckUpdatesPublishesNoReusableCacheAcrossTwoRuns() throws {
-    // Behavioural proof of the denial using fixture state only. A successful --check-updates run
-    // normally persists validated metadata, and a second run would then answer from cache with
-    // ZERO manager queries. Because the real cache directory is denied for reads AND writes, both
-    // runs must execute the full three-query batch and both must report fresh-probe provenance.
+    // INDIRECT evidence only. A successful --check-updates run normally persists validated
+    // metadata, and a second run would then answer from cache with ZERO manager queries. Both runs
+    // here execute the full three-query batch and report fresh-probe provenance, consistent with
+    // the cache being unusable. This does NOT by itself prove every cache read and write was
+    // prevented: it observes manager-query counts, not cache syscalls. Direct evidence is
+    // sandboxDeniesAllAccessToTheRealAgentLensCache plus review of the profile in both launch seams.
     // A failed cache write is neutral in the production contract, so the meaningful upToDate
     // result still stands on every attempt.
     let s = try makeBrewCLIScenario("brew-nocache", info: currentInfo, outdated: emptyOutdated)
