@@ -1,4 +1,10 @@
 #!/usr/bin/env python3
+# Postponed annotations keep this file importable on the oldest supported interpreter: PEP 604
+# unions such as `str | None` in helper annotations would otherwise evaluate at import time and
+# fail on Python 3.9, which the unmodified builder already ran under. The annotations are
+# documentation only; no runtime logic depends on evaluating them.
+from __future__ import annotations
+
 import sys
 sys.dont_write_bytecode = True
 
@@ -15,6 +21,307 @@ def is_contained_in(path: pathlib.Path, base: pathlib.Path) -> bool:
         return path == base or path.is_relative_to(base)
     except AttributeError:
         return path == base or base in path.parents
+
+class AccessorInterpretationError(Exception):
+    """Raised by interpret_resource_accessor for any unsupported, ambiguous or unsafe accessor.
+
+    Messages are stable and path-free (no absolute build paths) so the caller can prefix them
+    with its own diagnostic channel without leaking scratch locations.
+    """
+
+
+def _refuse_swift_literal_escapes(literal: str, origin: str) -> None:
+    # The extracted text is used verbatim as a filesystem name/path component. A backslash or
+    # an embedded quote means the literal was not fully understood; escapes are NEVER decoded.
+    if "\\" in literal:
+        raise AccessorInterpretationError(f"{origin} contains a Swift string escape")
+    if '"' in literal:
+        raise AccessorInterpretationError(f"{origin} contains an embedded quote")
+    if "\x00" in literal:
+        raise AccessorInterpretationError(f"{origin} contains NUL")
+
+
+def _validated_bundle_filename(filename: str, origin: str) -> str:
+    # Exactly one safe path component ending in `.bundle`: no separators, no traversal, no
+    # leading dot, no empty stem, no doubled suffix.
+    if not filename:
+        raise AccessorInterpretationError(f"{origin} is empty")
+    if "/" in filename or "\\" in filename:
+        raise AccessorInterpretationError(f"{origin} contains a path separator")
+    if filename in (".", "..") or filename.startswith("."):
+        raise AccessorInterpretationError(f"{origin} is a dot or hidden component")
+    if not filename.endswith(".bundle"):
+        raise AccessorInterpretationError(f"{origin} does not end in .bundle")
+    if filename.endswith(".bundle.bundle"):
+        raise AccessorInterpretationError(f"{origin} has a doubled .bundle suffix")
+    stem = filename[: -len(".bundle")]
+    if not stem:
+        raise AccessorInterpretationError(f"{origin} has an empty bundle stem")
+    if any(ch.isspace() or ord(ch) < 0x20 or ord(ch) == 0x7F for ch in stem):
+        raise AccessorInterpretationError(f"{origin} contains whitespace or control characters")
+    return filename
+
+
+def _lexical_view(content: str) -> tuple[str, str]:
+    """Split one Swift source into (code view, literal view) with identical offsets.
+
+    This is a lexical splitter, not a Swift parser: it exists only so that a declaration or a
+    call is recognised in CODE position and never inside a comment or an unrelated string. Both
+    results have exactly `len(content)` characters; the code view replaces every comment
+    character and every string-literal character with a space, while the literal view keeps the
+    ORIGINAL characters only inside string literals and spaces everywhere else. A character
+    therefore belongs to code, to a literal, or to a comment.
+
+    Supported lexical shapes are only those that appear in generated accessors: `//` line
+    comments, nested `/* */` block comments, and single-line `"..."` string literals without
+    interpolation. Interpolation, multi-line literals and unknown escapes are refused by the
+    caller's literal validation rather than guessed at.
+    """
+    code = list(content)
+    literal = [" "] * len(content)
+    i = 0
+    n = len(content)
+    while i < n:
+        ch = content[i]
+        if ch == "/" and i + 1 < n and content[i + 1] == "/":
+            while i < n and content[i] != "\n":
+                code[i] = " "
+                i += 1
+            continue
+        if ch == "/" and i + 1 < n and content[i + 1] == "*":
+            depth = 1
+            code[i] = code[i + 1] = " "
+            i += 2
+            while i < n and depth:
+                if content[i] == "/" and i + 1 < n and content[i + 1] == "*":
+                    depth += 1
+                    code[i] = code[i + 1] = " "
+                    i += 2
+                    continue
+                if content[i] == "*" and i + 1 < n and content[i + 1] == "/":
+                    depth -= 1
+                    code[i] = code[i + 1] = " "
+                    i += 2
+                    continue
+                code[i] = " "
+                i += 1
+            continue
+        if ch == "\"":
+            # String literal. Quotes stay in the code view (they are code); only the CONTENT is
+            # blanked there and preserved in the literal view. `"""..."""` spans lines; the
+            # shorter form stops at a newline, so a malformed source fails closed.
+            if content.startswith('"""', i):
+                i += 3
+                while i < n and not content.startswith('"""', i):
+                    literal[i] = content[i]
+                    code[i] = " "
+                    i += 1
+                i = min(i + 3, n)
+                continue
+            i += 1
+            while i < n and content[i] != "\"" and content[i] != "\n":
+                literal[i] = content[i]
+                code[i] = " "
+                i += 1
+            if i < n and content[i] == "\"":
+                i += 1
+            continue
+        i += 1
+    return "".join(code), "".join(literal)
+
+
+def _literal_at(content: str, literal_view: str, start: int, end: int) -> str:
+    """The literal text between the quotes spanning [start, end), taken from the ORIGINAL source."""
+    return literal_view[start:end]
+
+
+def _swift_build_stem(content: str) -> str | None:
+    """Return the bundle stem for the Swift Build family, or None when that family is absent.
+
+    Presence requires, all in CODE position: a `let bundleName = "<stem>"` declaration whose
+    literal is the binding, and the candidate-lookup shape that consumes that same binding.
+    Comment- or string-embedded lookalikes contribute nothing, and a duplicated declaration is
+    ambiguous and refused.
+    """
+    code, literal_view = _lexical_view(content)
+    declarations = list(re.finditer(r'let\s+bundleName\s*=\s*"', code))
+    # The generator appends a suffix to the binding. The suffix must be exactly the literal
+    # ".bundle" and must happen exactly once: a `+ ".wrong"`, a doubled append, or several
+    # conflicting appends are all unsupported expressions and are refused rather than assumed.
+    suffix_literals = []
+    for match in re.finditer(r"\bbundleName\s*\+\s*\"", code):
+        suffix_start = match.end()
+        suffix_match = re.match(r'([^"\n]*)"', code[suffix_start:])
+        if suffix_match is None:
+            raise AccessorInterpretationError(
+                "unsupported bundle suffix expression: not a single-line literal"
+            )
+        suffix_literals.append(
+            _literal_at(content, literal_view, suffix_start, suffix_start + len(suffix_match.group(1)))
+        )
+        # A chain such as `+".bundle" + ".bundle"` is not the generated expression. Only a
+        # single append is supported, and only with the exact `.bundle` suffix.
+        after = code[suffix_start + len(suffix_match.group(1)) + 1:]
+        if re.match(r'\s*\+', after):
+            raise AccessorInterpretationError(
+                "unsupported bundle suffix expression: chained append"
+            )
+    has_candidate_list = (
+        "Bundle.main.resourceURL" in code
+        and bool(suffix_literals)
+        and ("Bundle.init(url:)" in code or "Bundle(url:)" in code)
+    )
+    if len(suffix_literals) > 1:
+        raise AccessorInterpretationError(
+            "ambiguous accessor: bundleName suffix is appended more than once"
+        )
+    if suffix_literals and suffix_literals[0] != ".bundle":
+        raise AccessorInterpretationError(
+            "unsupported bundle suffix literal: expected \".bundle\""
+        )
+    if not declarations:
+        if has_candidate_list:
+            raise AccessorInterpretationError(
+                "Swift Build candidate lookup without a literal bundleName"
+            )
+        return None
+    if len(declarations) > 1:
+        raise AccessorInterpretationError("ambiguous accessor: duplicate bundleName declaration")
+    if not has_candidate_list:
+        raise AccessorInterpretationError(
+            "bundleName declaration without the supported Swift Build candidate lookup"
+        )
+
+    match = re.match(r'([^"\n]*)"', code[declarations[0].end():])
+    if match is None or declarations[0].end() + len(match.group(1)) >= len(code):
+        raise AccessorInterpretationError("bundleName literal is not a single-line string")
+    stem = _literal_at(
+        content, literal_view,
+        declarations[0].end(), declarations[0].end() + len(match.group(1)),
+    )
+    _refuse_swift_literal_escapes(stem, "bundleName")
+    if stem.endswith(".bundle"):
+        raise AccessorInterpretationError("Swift Build bundleName already carries .bundle")
+    return stem
+
+
+def _native_literal_paths(content: str) -> tuple[str, str] | None:
+    """Return (mainPath component, buildPath literal) for the native family, else None.
+
+    The generated body binds `mainPath` and `buildPath`, then loads
+    `Bundle(path: mainPath)` and falls back to `Bundle(path: buildPath)`. Recognition requires
+    those EXACT bindings in code position: a `Bundle(path:)` call on some other expression does
+    not establish this family, and duplicated bindings are ambiguous.
+    """
+    code, literal_view = _lexical_view(content)
+    main_decls = list(re.finditer(r'let\s+mainPath\s*=\s*Bundle\.main\.bundleURL'
+                                 r'\.appendingPathComponent\(\s*"', code))
+    build_decls = list(re.finditer(r'let\s+buildPath\s*=\s*"', code))
+    if not main_decls and not build_decls:
+        return None
+    if not main_decls or not build_decls:
+        raise AccessorInterpretationError(
+            "incomplete native accessor: mainPath and buildPath must both be literals"
+        )
+    if len(main_decls) > 1 or len(build_decls) > 1:
+        raise AccessorInterpretationError(
+            "ambiguous native accessor: duplicate mainPath or buildPath declaration"
+        )
+    if "WASI" in code:
+        raise AccessorInterpretationError("WASI resource accessor shapes are not supported")
+
+    loads_main = re.search(r'Bundle\(\s*path:\s*mainPath\s*\)', code) is not None
+    loads_build = re.search(r'Bundle\(\s*path:\s*buildPath\s*\)', code) is not None
+    if not (loads_main and loads_build):
+        raise AccessorInterpretationError(
+            "native accessor does not load its bundle from the mainPath/buildPath bindings"
+        )
+    if "Bundle.path(forResource:" in code or "appendingPathComponent" not in code:
+        raise AccessorInterpretationError("unsupported native resource lookup shape")
+
+    main_start = main_decls[0].end()
+    main_match = re.match(r'([^"\n]*)"', code[main_start:])
+    if main_match is None:
+        raise AccessorInterpretationError("native mainPath component is not a single-line string")
+    main_component = _literal_at(content, literal_view, main_start, main_start + len(main_match.group(1)))
+
+    build_start = build_decls[0].end()
+    build_match = re.match(r'([^"\n]*)"', code[build_start:])
+    if build_match is None:
+        raise AccessorInterpretationError("native buildPath is not a single-line string")
+    build_literal = _literal_at(content, literal_view, build_start, build_start + len(build_match.group(1)))
+
+    _refuse_swift_literal_escapes(main_component, "native mainPath component")
+    _refuse_swift_literal_escapes(build_literal, "native buildPath")
+    return main_component, build_literal
+
+
+def interpret_resource_accessor(
+    content: str,
+    bin_path: pathlib.Path,
+) -> dict:
+    """Interpret a compiled `resource_bundle_accessor.swift`; return the bundle identity.
+
+    Pure: no filesystem reads, no Swift evaluation, no bundle-name guessing and no directory
+    searching. Exactly two generated accessor families are recognised, keyed on their emitted
+    statements rather than on incidental declaration spelling:
+
+      family "swift-build" — `let bundleName = "<stem>"` plus the candidate list that appends
+        `<bundleName> + ".bundle"` and loads it with `Bundle.init(url:)`.
+      family "native" — a literal `Bundle.main.bundleURL.appendingPathComponent("<file>.bundle").path`
+        paired with an absolute literal `buildPath` of the same basename, loaded via
+        `Bundle(path:)`.
+
+    Both return the SAME extension-free `bundle_stem`; downstream code appends `.bundle` once.
+    For the native family, `buildPath`'s physically resolved parent must equal `bin_path`
+    (the discovered `--show-bin-path`, passed explicitly), so a cross-build pairing is refused.
+
+    Raises AccessorInterpretationError for missing, ambiguous, dual-family, unknown, WASI and
+    unsafe shapes.
+    """
+    if not isinstance(content, str):
+        raise AccessorInterpretationError("accessor content is not text")
+
+    swift_build_stem = _swift_build_stem(content)
+    native = _native_literal_paths(content)
+
+    if swift_build_stem is not None and native is not None:
+        raise AccessorInterpretationError(
+            "accessor matches both the Swift Build and native families"
+        )
+    if swift_build_stem is None and native is None:
+        raise AccessorInterpretationError("unsupported compiled accessor shape")
+
+    if swift_build_stem is not None:
+        bundle_filename = _validated_bundle_filename(swift_build_stem + ".bundle", "bundleName")
+        return {
+            "family": "swift-build",
+            "bundle_stem": bundle_filename[: -len(".bundle")],
+            "bundle_filename": bundle_filename,
+            "relative_bundle_path": f"Contents/Resources/{bundle_filename}",
+        }
+
+    main_filename, build_path_literal = native
+    bundle_filename = _validated_bundle_filename(main_filename, "native mainPath component")
+    if not build_path_literal.startswith("/"):
+        raise AccessorInterpretationError("native buildPath is not an absolute literal")
+    build_filename = pathlib.PurePosixPath(build_path_literal).name
+    if build_filename != bundle_filename:
+        raise AccessorInterpretationError(
+            "native buildPath basename does not match the mainPath component"
+        )
+    if pathlib.Path(build_path_literal).parent.resolve() != bin_path:
+        raise AccessorInterpretationError(
+            "native buildPath parent does not equal the discovered bin-path"
+        )
+
+    return {
+        "family": "native",
+        "bundle_stem": bundle_filename[: -len(".bundle")],
+        "bundle_filename": bundle_filename,
+        "relative_bundle_path": f"Contents/Resources/{bundle_filename}",
+    }
+
 
 def validate_scratch_root(scratch_root: pathlib.Path, repo_root: pathlib.Path) -> None:
     resolved = scratch_root.resolve()
@@ -158,24 +465,15 @@ def main():
         sys.stderr.write(f"build-dev-app: error: failed to read compiled accessor {accessor_file}: {e}\n")
         sys.exit(1)
 
-    match = re.search(r'let\s+bundleName\s*=\s*"([^"]+)"', content)
-    if not match:
-        sys.stderr.write(f"build-dev-app: error: failed to extract bundleName from compiled accessor under {spm_scratch}\n")
-        sys.exit(1)
-    bundle_name = match.group(1)
-
-    # Verify supported known accessor shape
-    if "Bundle.main.resourceURL" not in content:
-        sys.stderr.write("build-dev-app: error: compiled accessor does not include supported Bundle.main.resourceURL candidate\n")
-        sys.exit(1)
-    if 'bundleName + ".bundle"' not in content and f'"{bundle_name}.bundle"' not in content:
-        sys.stderr.write("build-dev-app: error: compiled accessor does not use supported bundle suffix lookup\n")
-        sys.exit(1)
-    if "Bundle.init(url:)" not in content and "Bundle(url:)" not in content:
-        sys.stderr.write("build-dev-app: error: compiled accessor does not initialize Bundle from candidate url\n")
+    try:
+        interpretation = interpret_resource_accessor(content, bin_path)
+    except AccessorInterpretationError as e:
+        sys.stderr.write(f"build-dev-app: error: {e} (compiled accessor under {spm_scratch})\n")
         sys.exit(1)
 
-    bundle_filename = f"{bundle_name}.bundle"
+    # Both generated formats normalize to ONE extension-free stem; `.bundle` is appended once.
+    bundle_name = interpretation["bundle_stem"]
+    bundle_filename = interpretation["bundle_filename"]
     built_bundle_path = bin_path / bundle_filename
     if not built_bundle_path.is_dir():
         sys.stderr.write(f"build-dev-app: error: compiled resource bundle {built_bundle_path} not found\n")

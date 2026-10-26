@@ -148,8 +148,11 @@ jobs:
           #   R5 candidate (parent observed, Swift Build):  353 = Core 282 + AppSupport 71
           #   R7 candidate (one bash/shell-fixture case):   354 = Core 283 + AppSupport 71
           #   R7 products repair (+15 selection controls):  369 = Core 298 + AppSupport 71
+          #   R8 builder/resource portability (+37 Core):    406 = Core 335 + AppSupport 71
           # Floors sit at the final candidate, so a lost/zero/regressed target fails while an extra case
-          # never does.
+          # never does. R8's 37 new cases live in BundledRegistryResourceTests.swift; the new
+          # local-only Python parser controls (Tests/Packaging/test_build_dev_app_accessor.py) are
+          # NOT Swift events and do not count here.
           #
           # OBSERVED BACKEND LAYOUTS for the full suite (both real, neither is a guess):
           #   * Local Swift Build prints TWO Swift Testing summaries (one per test target).
@@ -181,11 +184,11 @@ jobs:
                   # Exactly one combined summary OR exactly two component summaries.
                   "summaries": [1, 2],
                   "targets": [
-                      {"label": "Core", "floor": 298},
+                      {"label": "Core", "floor": 335},
                       {"label": "AppSupport", "floor": 71},
                   ],
-                  "total_floor": 369,
-                  "combined_total_floor": 369,
+                  "total_floor": 406,
+                  "combined_total_floor": 406,
                   # Each anchor is a real test FUNCTION name that appears on a passing run; file names
                   # never do. Both groups are required in either layout.
                   "required_passed_events": CORE_ANCHORS + APPSUPPORT_ANCHORS,

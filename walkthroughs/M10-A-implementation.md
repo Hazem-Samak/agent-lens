@@ -479,3 +479,158 @@ This guard makes an internally contradictory stream fail closed. It is **not** p
 verifier never saw produced cannot be authenticated, so the gate still relies on running the real suite.
 Hosted CI remains pending; only the parent's actual full passing streams can establish the green gate.
 Workflow parses with 11 steps; the verifier compiles.
+
+---
+
+## R8 implementation (worker report)
+
+Scope: the five approved paths only. No Git mutation, no settings/credentials change, no
+`Package.swift`/`Resources`/`AppEntry`/`InventoryService`/original-nine-test edit.
+
+### Files
+
+| path | change |
+|---|---|
+| `scripts/build-dev-app.py` | step 3 replaced by a pure `interpret_resource_accessor(content, bin_path)` seam (plus `AccessorInterpretationError` and lexical helpers). All other steps, guards, overrides and budgets are unchanged. |
+| `Tests/Packaging/test_build_dev_app_accessor.py` | NEW, local-only pure parser controls (36 cases). Not discovered by the frozen CI packaging command. |
+| `Sources/AgentLensCore/Detection/DetectorRegistry.swift` | `loadDefault()` resolves app-declared markers first; NEW internal `AppRegistryResourceError` + `AppRegistryResourceLocator`; internal injected `lazyFallback` on `loadDefaultRegistryData`. `validate(data:)` and the public error enum are untouched. |
+| `Tests/AgentLensCoreTests/BundledRegistryResourceTests.swift` | NEW, 31 Swift Testing cases. |
+| `.github/workflows/ci.yml` | floors/comments only: Core 298 to 329, total 369 to 400. No command/pin/timeout/step change. |
+
+### Both generated accessor families
+
+Recognition runs against a lexical code view (comments and string-literal contents blanked,
+offsets preserved), so a declaration or call is matched only in code position:
+
+* Swift Build: `let bundleName = "<stem>"` plus `bundleName + ".bundle"` consumed by
+  `Bundle.init(url:)`. Duplicate declarations are ambiguous and refused.
+* native: literal `mainPath` component and absolute literal `buildPath`, loaded through
+  `Bundle(path: mainPath)` and `Bundle(path: buildPath)`; unrelated identifiers or a commented
+  loader do not satisfy it. `buildPath`'s resolved parent must equal the observed `--show-bin-path`.
+
+Both normalize to the same extension-free stem `AgentLens_AgentLensCore`; the builder appends
+`.bundle` exactly once. Declaration spelling (`static let` vs `static nonisolated let`) is irrelevant.
+Triple-quoted literals, nested block comments, WASI signatures, escapes/backslashes and
+separator/traversal/doubled-suffix names fail closed; no unescaping and no bundle-name guessing.
+
+### Core resource location
+
+When either marker key is present both are authoritative: the name must be one safe component,
+the path must be exactly `Contents/Resources/<name>.bundle`, the app resource root must physically be
+the app's own `Contents/Resources`, and the bundle must resolve inside it. The registry file is found
+with Foundation's `Bundle(url:).url(forResource:withExtension:)` (the frozen preflight's mechanism)
+because the two real layouts differ (Swift Build nests under `Contents/Resources`, native is flat), then
+containment, a real `lstat` regular-file check, and readability are enforced. Only when both keys
+are absent does the legacy `Bundle.module` guard run, unchanged including its `fatalError` text.
+
+### Measured results (raw streams under E/worker/r8-builder, E/worker/r8-core)
+
+* parser controls: `python3 Tests/Packaging/test_build_dev_app_accessor.py` -> 36 ran, OK, exit 0.
+* parent control matrix replayed: 8/8 as wanted (2 real accepts with equal normalized identity,
+  6 refusals: comment-only line/block, string-only, duplicate name, duplicate native buildPath,
+  wrong loader identifiers).
+* locator probe built from the production seam against the parent's own fixtures:
+  real R6 structured app ACCEPT, FIFO REJECT registry file is not a regular file (no read).
+* focused Core: 31 new cases pass (`swift test --filter BundledRegistryResourceTests`), exit 0.
+* full suite in an owned external scratch: Test run with 332 tests and Test run with 71 tests,
+  both passed, exit 0, so Core 332 = 298 + 34 and total 403 = 403.
+
+### R8 corrections after parent-executed counterexamples
+
+Two executed counterexamples in the approved paths were fixed and re-verified:
+
+* **Swift Build bound suffix.** `has_candidate_list` previously accepted any `bundleName + "..."`.
+  A template with `bundleName + ".wrong"` was accepted and a `.bundle` identity was fabricated.
+  The suffix literal is now read through the literal view: it must be exactly `.bundle`, must
+  occur exactly once, and a chained or non-literal expression is refused. Parent matrix replay is
+  now 10/10 (adds `wrong-swiftbuild-suffix` and `raw-string-only`), and three new Python negatives
+  cover wrong literal, chained append, and a suffix that only appears in a comment. Parser controls:
+  `Ran 39 tests`, OK, exit 0.
+* **Partial injected context.** `loadDefaultRegistryData` previously required BOTH
+  `infoDictionary` and `mainBundleURL` to use injected context, so a supplied marker dictionary
+  with no app URL was silently replaced by process metadata and reached the fallback
+  (measured `invalid-injected-marker:ACCEPT:fallback-calls=1`). Now a supplied dictionary is never
+  discarded: any injected argument means the supplied values are used, and a marker-present
+  dictionary without an app URL throws the new internal
+  `AppRegistryResourceError.missingInjectedContext`. The parent's exact driver now reports
+  `invalid-injected-marker:REJECT:fallback-calls=0`. A filled-in matrix probe confirms
+  name-only, path-only and URL-without-dictionary all reject with `calls=0`, while the
+  nothing-supplied production path still accepts with `calls=1` (the only fallback route).
+  Three new Swift cases pin this on the same seam with invocation counters.
+
+Local macro discovery failed first (`plugin for module 'TestingMacros' not found`), so the documented
+invocation-local `-load-plugin-library .../libTestingMacros.dylib` fallback was used for local runs only.
+Not claimed: hosted CI, parent acceptance, or any backend/native-suite result.
+
+### R8 correction: interpreter compatibility of the builder parser
+
+The new step-3 helpers annotated `str | None` / `tuple[str, str] | None`. Under `from __future__
+import annotations` those are documentation only; without it they evaluate at import time and the
+unmodified builder's interpreter floor is silently raised (measured: installed
+`/usr/bin/python3` 3.9.6 raised `TypeError: unsupported operand type(s) for |: 'type' and 'NoneType'`
+at `scripts/build-dev-app.py:132`, before a single parser control ran). The reviewed builder
+imported fine there, so this was a regression introduced by the amendment, not a new requirement.
+
+Fix is the single `from __future__ import annotations` statement plus a comment. No function body,
+interpreter selection, toolchain, dependency or parser semantic changed, and the annotations keep
+their exact spelling. Verified with the actual system interpreter:
+
+* `/usr/bin/python3` 3.9.6 import of the builder: exit 0.
+* `/usr/bin/python3 Tests/Packaging/test_build_dev_app_accessor.py`: 39 ran, OK, exit 0.
+* current `python3` on the same file: 39 ran, OK, exit 0.
+* `/usr/bin/python3 scripts/build-dev-app.py --help`: exit 0, usage intact.
+
+No Swift file, CI file, packaging test or baseline builder body was modified in this correction.
+
+### R8 correction: independent Core identity
+
+The earlier marker-selected loader was rejected by the unchanged packaging suite. Both real builders
+succeeded and the Swift suite passed, but BOTH unchanged packaging runs failed `test_09` at Case C:
+paired valid markers named a decoy `mismatch.bundle` (1 detector) while the real Core bundle
+(3 detectors) was retained, so the marker-selected loader read the SAME decoy the frozen preflight
+had already validated and the equality check falsely passed (`AssertionError: 0 == 0`). Raw red
+evidence is preserved at `E/parent/r8-default-packaging` and `E/parent/r8-native-packaging`;
+methods 01-08 passed and 09 stopped at C, so D/E/F did not execute. The earlier 403 pass and the
+builder successes are therefore partial candidates, not acceptance.
+
+Identity is now independent of the declaration:
+
+* `AppRegistryResourceLocator.compiledBundleStem = "AgentLens_AgentLensCore"` is a source-owned
+  compiled project contract tied to the frozen `Package.swift` (package `AgentLens`, target
+  `AgentLensCore`), never a heuristic, directory search or second candidate.
+* The marker pair remains a BRANCH and VALIDITY signal: both keys, exact
+  `Contents/Resources/<name>.bundle`, physical containment, Foundation bundle lookup, `lstat`
+  regular + readable checks. Any defect throws the internal `AppRegistryResourceError`.
+* Only after that validation does Core resolve ITS OWN compiled bundle under the same app resource
+  root, with the same containment and regular/readable rules, and return those bytes.
+* A valid declaration naming a different bundle therefore does NOT throw: Core loads the real
+  payload, and the frozen `AgentLensAppEntry` compares different definitions and emits its existing
+  `bundle-preflight: failed: loaded registry mismatch with guarded bundle` with ordinary exit 1.
+* A missing compiled bundle while a valid decoy exists throws `bundleMissing` and does not consult
+  the fallback; the decoy is never read as Core.
+* Both markers absent still takes the exact historical lazy `Bundle.module` guard, including its
+  `fatalError` statement. No stderr is emitted on any branch.
+
+Shared resolution was factored into `resolvedAppRoots` and `registryFile(inBundle:)` so the
+declaration check and the compiled lookup cannot drift apart. Doc comments that implied the markers
+select Core's identity were corrected; markers are a branch/validity signal only.
+
+New Core cases (fixtures now take the ACTUAL bundle name from
+`AppRegistryResourceLocator.compiledBundleStem` and keep the decoy separate):
+
+* `validDeclaredDecoyLoadsCompiledCorePayloadWithoutThrowing` - paired valid decoy, compiled
+  bundle present: returns the compiled payload and order, does not throw, fallback 0.
+* `compiledBundleMissingWhileValidDecoyExistsThrows` - internal `bundleMissing`, fallback 0.
+* `customCompiledPayloadIsReadByContentAndOrder` - custom payload read verbatim in order.
+
+Focused results (`E/worker/r8-identity`): `swift test --filter BundledRegistryResourceTests` ->
+`Test run with 37 tests in 0 suites passed`, exit 0. Full suite in the owned external scratch ->
+`Test run with 335 tests` and `Test run with 71 tests`, both passed, exit 0. So Core 335 = 298 + 37
+and total 406 = 406; the earlier 403 figure is superseded. A seam-only probe built from this file
+reported `paired-valid-decoy:bytes-equal-compiled=true:fallback-calls=0` and
+`compiled-missing:REJECT:fallback-calls=0:...declared resource bundle is missing`.
+
+Not changed: builder/Python (39 controls pass on both 3.9 and 3.15, `scripts/build-dev-app.py`
+still derives the real name from the accessor), the original packaging suite, `AgentLensAppEntry`,
+`Package.swift`, `Resources`, public API and public error cases. Parent owns the fresh default and
+native builder runs against real packaging 9, the updated native-object probes and hosted CI.

@@ -379,6 +379,259 @@ public enum DetectorRegistryError: Error, Equatable, Sendable, CustomStringConve
     }
 }
 
+/// Internal failure for app-declared registry resource location (M10-A R8).
+///
+/// Deliberately NOT a `DetectorRegistryError` case and not public: registry *data* validation
+/// errors keep their exact public vocabulary, while a broken app resource declaration — a
+/// packaging/metadata defect, not a registry defect — is reported in its own narrow type. Each
+/// case names the defect without echoing absolute paths. Callers that only catch
+/// `DetectorRegistryError` therefore fail closed on these (the frozen preflight reports them as
+/// an unexpected registry load error and exits 1, which is accepted).
+internal enum AppRegistryResourceError: Error, Equatable, Sendable, CustomStringConvertible {
+    /// One marker key present, the other absent.
+    case incompleteMarkers(missingKey: String)
+    /// A marker key present with a non-string or empty value.
+    case invalidMarker(key: String, reason: String)
+    /// The path marker is not exactly `Contents/Resources/<safe-stem>.bundle`.
+    case unsafePath(String)
+    /// The two markers disagree about the bundle.
+    case inconsistentMarkers
+    /// The app resource root is not physically owned by the running app.
+    case resourceRootEscapesApp
+    /// The declared bundle is missing, or is not contained in the app's resource root.
+    case bundleNotContained(String)
+    /// The declared bundle directory is missing or is not a directory.
+    case bundleMissing
+    /// The bundle is a symlink escape or not a regular readable file for the registry.
+    case resourceNotReadable(String)
+    /// Injected test context is incomplete: an argument was supplied without its companion.
+    case missingInjectedContext(String)
+
+    var description: String {
+        switch self {
+        case .incompleteMarkers(let key):
+            return "app registry resource: incomplete marker pair (missing '\(key)')"
+        case .invalidMarker(let key, let reason):
+            return "app registry resource: invalid marker '\(key)': \(reason)"
+        case .unsafePath(let reason):
+            return "app registry resource: unsafe bundle path: \(reason)"
+        case .inconsistentMarkers:
+            return "app registry resource: name and path markers are inconsistent"
+        case .resourceRootEscapesApp:
+            return "app registry resource: app resource root escapes the app bundle"
+        case .bundleNotContained(let reason):
+            return "app registry resource: bundle escapes the app resource root: \(reason)"
+        case .bundleMissing:
+            return "app registry resource: declared resource bundle is missing"
+        case .resourceNotReadable(let reason):
+            return "app registry resource: registry file is not readable: \(reason)"
+        case .missingInjectedContext(let name):
+            return "app registry resource: injected context is missing '\(name)'"
+        }
+    }
+}
+
+/// Locates the registry resource the running app declares in its `Info.plist` (M10-A R8).
+///
+/// Pure with respect to injected inputs: it never reads the environment, never changes the
+/// working directory and never consults `Bundle.module`. Both marker keys are authoritative;
+/// when neither is present it reports `.absent` so the caller can use the legacy lookup.
+internal enum AppRegistryResourceLocator {
+
+    enum Outcome: Equatable {
+        case absent
+        case declared(URL)
+    }
+
+    static let nameKey = "AgentLensCoreResourceBundleName"
+    static let pathKey = "AgentLensCoreResourceBundlePath"
+    static let registryFile = "DefaultDetectors.json"
+
+    /// The COMPILED identity of AgentLensCore's resource bundle.
+    ///
+    /// This is a source-owned project contract, not a heuristic: `Package.swift` names the package
+    /// `AgentLens` and the target `AgentLensCore`, and SwiftPM derives the bundle name as
+    /// `<package>_<target>`. Core's own registry therefore always lives in this bundle inside the
+    /// app, and the `Info.plist` marker pair never selects it. The markers remain authoritative
+    /// for whether the app branch applies and for declaration validity; they are a branch and
+    /// validity signal, NOT the source of Core's resource identity.
+    ///
+    /// A rename of the package or target must fail the real builder and the packaged preflight
+    /// closed, and requires a reviewed update here — never a guessed fallback, never a directory
+    /// search, never a second candidate.
+    static let compiledBundleStem = "AgentLens_AgentLensCore"
+
+    private static let resourcesPrefix = "Contents/Resources/"
+    private static let bundleSuffix = ".bundle"
+
+    /// Whether this dictionary declares either registry marker at all.
+    static func declaresMarkers(in infoDictionary: [String: Any]) -> Bool {
+        infoDictionary[nameKey] != nil || infoDictionary[pathKey] != nil
+    }
+
+    static func locate(
+        infoDictionary: [String: Any],
+        appBundleURL: URL,
+        appResourceURL: URL?
+    ) throws -> Outcome {
+        let rawName = infoDictionary[nameKey]
+        let rawPath = infoDictionary[pathKey]
+
+        if rawName == nil && rawPath == nil {
+            return .absent
+        }
+        guard let rawName else {
+            throw AppRegistryResourceError.incompleteMarkers(missingKey: nameKey)
+        }
+        guard let rawPath else {
+            throw AppRegistryResourceError.incompleteMarkers(missingKey: pathKey)
+        }
+        guard let name = rawName as? String else {
+            throw AppRegistryResourceError.invalidMarker(key: nameKey, reason: "must be a string")
+        }
+        guard let path = rawPath as? String else {
+            throw AppRegistryResourceError.invalidMarker(key: pathKey, reason: "must be a string")
+        }
+        guard !name.isEmpty else {
+            throw AppRegistryResourceError.invalidMarker(key: nameKey, reason: "must not be empty")
+        }
+        guard !path.isEmpty else {
+            throw AppRegistryResourceError.invalidMarker(key: pathKey, reason: "must not be empty")
+        }
+
+        // Name: one safe path component. Separators, traversal, control characters and a
+        // literal `.bundle` suffix in the name are all refusals.
+        if name.contains("/") || name.contains("\\") || name.contains("\u{0}") {
+            throw AppRegistryResourceError.invalidMarker(key: nameKey, reason: "must be a single path component")
+        }
+        if name == "." || name == ".." || name.hasPrefix(".") {
+            throw AppRegistryResourceError.invalidMarker(key: nameKey, reason: "must not be a dot component")
+        }
+        if name.unicodeScalars.contains(where: { scalar in
+            scalar.properties.generalCategory == .control
+                || CharacterSet.whitespacesAndNewlines.contains(scalar)
+        }) {
+            throw AppRegistryResourceError.invalidMarker(key: nameKey, reason: "must not contain whitespace or control characters")
+        }
+        if name.hasSuffix(bundleSuffix) {
+            throw AppRegistryResourceError.invalidMarker(key: nameKey, reason: "must not carry the .bundle suffix")
+        }
+
+        let bundleFilename = name + bundleSuffix
+        let expectedPath = resourcesPrefix + bundleFilename
+
+        // Path: lexical validation only at this point; physical containment is checked below.
+        if path.hasPrefix("/") || path.contains("..") {
+            throw AppRegistryResourceError.unsafePath("must be relative with no traversal")
+        }
+        guard path == expectedPath else {
+            throw AppRegistryResourceError.inconsistentMarkers
+        }
+
+        // Physical containment 1: the app's own resource root must be physically inside the
+        // app bundle. The marker pair's declaration is then checked for containment too.
+        let roots = try resolvedAppRoots(appBundleURL: appBundleURL, appResourceURL: appResourceURL)
+        let declaredURL = roots.app.appendingPathComponent(path, isDirectory: true)
+        let resolvedBundle = declaredURL.resolvingSymlinksInPath().standardizedFileURL
+        guard contains(resolvedBundle, roots.resource) else {
+            throw AppRegistryResourceError.bundleNotContained("resolved path is outside Contents/Resources")
+        }
+        _ = try registryFile(inBundle: resolvedBundle)
+        return .declared(resolvedBundle)
+    }
+
+    /// Resolves Core's own registry file inside the COMPILED bundle under the app's resource
+    /// root. Independent of the marker pair's value: a valid declaration pointing at some other
+    /// bundle cannot redirect Core's identity, and a missing compiled bundle is a refusal rather
+    /// than a fallback to the declared (possibly decoy) bundle.
+    static func locateCompiledBundle(
+        appBundleURL: URL,
+        appResourceURL: URL?
+    ) throws -> URL {
+        let roots = try resolvedAppRoots(appBundleURL: appBundleURL, appResourceURL: appResourceURL)
+        let compiledURL = roots.resource
+            .appendingPathComponent(compiledBundleStem + ".bundle", isDirectory: true)
+        let resolvedBundle = compiledURL.resolvingSymlinksInPath().standardizedFileURL
+        guard contains(resolvedBundle, roots.resource) else {
+            throw AppRegistryResourceError.bundleNotContained("compiled bundle is outside Contents/Resources")
+        }
+        return try registryFile(inBundle: resolvedBundle)
+    }
+
+    /// The app bundle and its resource root, both physically owned by the running app.
+    private static func resolvedAppRoots(
+        appBundleURL: URL,
+        appResourceURL: URL?
+    ) throws -> (app: URL, resource: URL) {
+        guard let appResourceURL else {
+            throw AppRegistryResourceError.resourceRootEscapesApp
+        }
+        let resolvedApp = appBundleURL.resolvingSymlinksInPath().standardizedFileURL
+        let resolvedResource = appResourceURL.resolvingSymlinksInPath().standardizedFileURL
+        let expectedRoot = resolvedApp
+            .appendingPathComponent("Contents", isDirectory: true)
+            .appendingPathComponent("Resources", isDirectory: true)
+            .standardizedFileURL
+        guard resolvedResource == expectedRoot else {
+            throw AppRegistryResourceError.resourceRootEscapesApp
+        }
+        guard contains(resolvedResource, resolvedApp) else {
+            throw AppRegistryResourceError.resourceRootEscapesApp
+        }
+        return (resolvedApp, resolvedResource)
+    }
+
+    /// The registry file inside one bundle directory, contained and a real regular readable file.
+    ///
+    /// Resolution uses Foundation's bundle lookup — the SAME mechanism the frozen preflight
+    /// uses — because the two real generated layouts differ:
+    ///   * Swift Build bundles: <Core.bundle>/Contents/Resources/DefaultDetectors.json
+    ///   * native SwiftPM bundles: <Core.bundle>/DefaultDetectors.json
+    /// A hand-built path would only work for one of them.
+    private static func registryFile(inBundle resolvedBundle: URL) throws -> URL {
+        var isDirectory: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: resolvedBundle.path, isDirectory: &isDirectory),
+              isDirectory.boolValue
+        else {
+            throw AppRegistryResourceError.bundleMissing
+        }
+        guard let bundle = Bundle(url: resolvedBundle) else {
+            throw AppRegistryResourceError.bundleMissing
+        }
+        guard let candidate = bundle.url(
+            forResource: "DefaultDetectors", withExtension: "json"
+        ) else {
+            throw AppRegistryResourceError.resourceNotReadable("registry file is missing")
+        }
+
+        // Physically contain the SELECTED file, then require a real regular file. `lstat` is
+        // used because the security-relevant question is what the path itself is, not what it
+        // points at: a FIFO or device node is refused here, before any read could block.
+        let resolvedFile = candidate.resolvingSymlinksInPath().standardizedFileURL
+        guard contains(resolvedFile, resolvedBundle) else {
+            throw AppRegistryResourceError.resourceNotReadable("registry file escapes the declared bundle")
+        }
+        var info = stat()
+        guard lstat(resolvedFile.path, &info) == 0 else {
+            throw AppRegistryResourceError.resourceNotReadable("registry file is missing")
+        }
+        guard (info.st_mode & S_IFMT) == S_IFREG else {
+            throw AppRegistryResourceError.resourceNotReadable("registry file is not a regular file")
+        }
+        guard FileManager.default.isReadableFile(atPath: resolvedFile.path) else {
+            throw AppRegistryResourceError.resourceNotReadable("registry file is not readable")
+        }
+        return resolvedFile
+    }
+
+    /// `child` is `parent` itself or a descendant of it, after both have been resolved.
+    private static func contains(_ child: URL, _ parent: URL) -> Bool {
+        let parentPath = parent.path
+        let childPath = child.path
+        return childPath == parentPath || childPath.hasPrefix(parentPath + "/")
+    }
+}
+
 public enum DetectorRegistry {
 
     public static let supportedSchemaVersion = 2
@@ -397,12 +650,99 @@ public enum DetectorRegistry {
     /// Loads and validates the registry bundled with AgentLensCore (M4 req. 4).
     /// Throws `DetectorRegistryError` with a named cause; the CLI surfaces it
     /// on stderr and exits non-zero. No silent skipping.
+    ///
+    /// Resource location (M10-A R8). A packaged macOS `.app` declares a Core resource location
+    /// in `Info.plist` (`AgentLensCoreResourceBundleName` / `AgentLensCoreResourceBundlePath`).
+    /// When EITHER marker key is present, the app branch applies: that declaration is validated
+    /// (both keys, exact `Contents/Resources/<name>.bundle`, physically contained, regular file)
+    /// and any defect throws `AppRegistryResourceError`. The markers are a BRANCH and VALIDITY
+    /// signal only — Core's own identity is the compiled `AgentLens_AgentLensCore` bundle, so a
+    /// valid declaration naming a different bundle cannot redirect which payload Core reads.
+    /// `Bundle.module` is never consulted on that branch, so a generated accessor's compile-time
+    /// build-path fallback cannot mask a missing or wrong in-app resource. When BOTH keys are
+    /// absent (CLI, tests, a plain build tree) the historical lazy `Bundle.module` path is used,
+    /// unchanged.
     public static func loadDefault() throws -> [DetectorDefinition] {
+        let data = try loadDefaultRegistryData()
+        return try validate(data: data)
+    }
+
+    /// The raw bytes `loadDefault()` validates. Internal so tests exercise the same seam
+    /// production calls.
+    ///
+    /// `lazyFallback` is the legacy `Bundle.module` lookup. It is injected so tests can count
+    /// how often it is actually INVOKED (it must be exactly zero whenever either marker key is
+    /// present, and exactly once when both are absent). Production passes the closure below,
+    /// which keeps the historical guard and its exact fatalError text.
+    static func loadDefaultRegistryData(
+        infoDictionary: [String: Any]? = nil,
+        mainBundleURL: URL? = nil,
+        mainResourceURL: URL? = nil,
+        lazyFallback: () throws -> Data = agentLensCoreBundledRegistryData
+    ) throws -> Data {
+        // Resolution rule: a SUPPLIED metadata dictionary is never discarded. `nil` for every
+        // injected argument means "use the process's main bundle" (the production call). If any
+        // argument is supplied, the supplied values are used as-is and a missing app URL is a
+        // refusal — never a silent substitution of process metadata, which could hide a marker
+        // present in the supplied dictionary and reach the fallback.
+        let info: [String: Any]
+        let appURL: URL
+        let resourceRoot: URL?
+        let nothingSupplied = infoDictionary == nil && mainBundleURL == nil && mainResourceURL == nil
+        if nothingSupplied {
+            let bundle = Bundle.main
+            info = bundle.infoDictionary ?? [:]
+            appURL = bundle.bundleURL
+            resourceRoot = bundle.resourceURL
+        } else {
+            guard let suppliedInfo = infoDictionary else {
+                throw AppRegistryResourceError.missingInjectedContext("infoDictionary")
+            }
+            info = suppliedInfo
+            if let suppliedURL = mainBundleURL {
+                appURL = suppliedURL
+            } else if AppRegistryResourceLocator.declaresMarkers(in: suppliedInfo) {
+                // A marker-present dictionary with no app URL cannot be resolved against the
+                // process's own bundle: that would silently substitute unrelated metadata.
+                throw AppRegistryResourceError.missingInjectedContext("mainBundleURL")
+            } else {
+                // No markers and no URL: unreachable for locating (the locator reports `.absent`
+                // before touching the URL), so any placeholder is never read.
+                appURL = URL(fileURLWithPath: "/", isDirectory: true)
+            }
+            resourceRoot = mainResourceURL
+        }
+
+        switch try AppRegistryResourceLocator.locate(
+            infoDictionary: info,
+            appBundleURL: appURL,
+            appResourceURL: resourceRoot
+        ) {
+        case .declared:
+            // The declaration is valid and physically sane, but it does NOT choose Core's
+            // identity: resolve the COMPILED bundle under the same app resource root. A valid
+            // declaration pointing elsewhere must still load the real Core data, so the frozen
+            // preflight's own guarded-vs-loaded comparison can report its existing mismatch.
+            let compiled = try AppRegistryResourceLocator.locateCompiledBundle(
+                appBundleURL: appURL,
+                appResourceURL: resourceRoot
+            )
+            return try Data(contentsOf: compiled)
+        case .absent:
+            // Both marker keys absent: the historical behavior, including its exact message.
+            // The closure is only reached here, so a marker-present branch can never touch
+            // `Bundle.module` (no generated build-path fallback, no eager lookup).
+            return try lazyFallback()
+        }
+    }
+
+    /// The legacy bundled lookup, unchanged in behavior and message. Reached only when the app
+    /// declares no registry resource markers at all (CLI, tests, a plain build tree).
+    private static func agentLensCoreBundledRegistryData() throws -> Data {
         guard let url = Bundle.module.url(forResource: "DefaultDetectors", withExtension: "json") else {
             fatalError("DefaultDetectors.json missing from the AgentLensCore bundle — package misconfiguration")
         }
-        let data = try Data(contentsOf: url)
-        return try validate(data: data)
+        return try Data(contentsOf: url)
     }
 
     /// Strict validation of registry data (M4 req. 3). Pure — unit-tested directly.
