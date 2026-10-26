@@ -109,6 +109,11 @@ jobs:
               run's output, so they must not be used as anchors.
             * Skipped detection is marker-based: a Swift Testing `Test ... skipped` event, a `Skipped:`
               list header, and unittest `OK (skipped=N)`. Names that merely contain "skip" are not skips.
+            * Failure detection is line-anchored and INDEPENDENT of the run summary. A raw stream that
+              carries a failed case/issue event and then prints a `passed` summary is CONTRADICTORY and
+              never verifies, so a hand-altered summary alone cannot turn a red stream green. This is a
+              guard against internally inconsistent evidence, NOT proof of provenance: bytes the verifier
+              never saw produced cannot be authenticated.
           """
           import json
           import re
@@ -122,6 +127,14 @@ jobs:
           )
           # A real skip EVENT: Swift Testing prints "➜ Test name() skipped" (or "✔ ... skipped").
           SWIFT_SKIP_EVENT = re.compile(r"^[^\n]*\bTest\b[^\n]*\bskipped\b", re.MULTILINE | re.IGNORECASE)
+          # A REAL failure/issue event, line-anchored on the Unicode markers Swift Testing actually
+          # prints. This is deliberately independent of the run summary: a stream that contains a
+          # failed case and then prints "passed" is CONTRADICTORY and must never verify.
+          SWIFT_FAILURE_EVENT = re.compile(
+              r"^\s*[\u2718\u2717]\s+(?:Test|Suite)\b", re.MULTILINE
+          )
+          # The same contradiction without the glyph, e.g. "recorded an issue at".
+          SWIFT_ISSUE_EVENT = re.compile(r"^[^\n]*\brecorded an issue\b", re.MULTILINE)
           SWIFT_SKIPPED_LIST = re.compile(r"^\s*Skipped:\s*$", re.MULTILINE)
           SWIFT_PASSED_EVENT = re.compile(r"^\s*[✔✓]\s+Test\s+(?P<name>[^\s(]+)\(\)\s+passed\b", re.MULTILINE)
           UNITTEST_RAN = re.compile(r"^Ran (?P<tests>\d+) tests? in [\d.]+s$", re.MULTILINE)
@@ -130,11 +143,30 @@ jobs:
           EXECUTED = re.compile(r"^Executed (?P<tests>\d+) tests?\b", re.MULTILINE)
 
           # Floors are conservative and explicit, named against observed history:
-          #   Baseline (M9, historical):            329 = Core 258 + AppSupport 71
-          #   Pre-R5 M10-A candidate:               346 = Core 275 + AppSupport 71
-          #   R5 final candidate (parent observed): 353 = Core 282 + AppSupport 71 (R5 adds 7 Core cases)
+          #   Baseline (M9, historical):                    329 = Core 258 + AppSupport 71
+          #   Pre-R5 M10-A candidate:                       346 = Core 275 + AppSupport 71
+          #   R5 candidate (parent observed, Swift Build):  353 = Core 282 + AppSupport 71
+          #   R7 candidate (one bash/shell-fixture case):   354 = Core 283 + AppSupport 71
+          #   R7 products repair (+15 selection controls):  369 = Core 298 + AppSupport 71
           # Floors sit at the final candidate, so a lost/zero/regressed target fails while an extra case
           # never does.
+          #
+          # OBSERVED BACKEND LAYOUTS for the full suite (both real, neither is a guess):
+          #   * Local Swift Build prints TWO Swift Testing summaries (one per test target).
+          #   * Hosted native SwiftPM prints ONE combined summary across both targets
+          #     ("Test run with 353 tests in 5 suites" — measured in run 40325427147).
+          # A combined count is therefore NOT reported as separate observed Core/App totals; only the
+          # observed total is claimed, and both anchor groups must still appear as PASSED events.
+          CORE_ANCHORS = [
+              "bundledDefaultDetectorsIsValidWithThreeTools",
+              "unknownKeysAreRejectedAtRootDefinitionFixturePackageAndQueryLevels",
+              "makeDetectorUsesRegistryArgumentsInTheProductionPath",
+          ]
+          # An AppSupport-owned test function, confirmed PASSED in real hosted output.
+          APPSUPPORT_ANCHORS = [
+              "productionWiringUsesOnlyTheCoreLoginShellSeams",
+          ]
+
           SPECS = {
               "guard": {"kind": "plain"},
               "guard-fixtures": {"kind": "unittest", "floor": 21},
@@ -146,18 +178,20 @@ jobs:
               },
               "full-test-suite": {
                   "kind": "swift",
-                  "summaries": 2,
+                  # Exactly one combined summary OR exactly two component summaries.
+                  "summaries": [1, 2],
                   "targets": [
-                      {"label": "Core", "floor": 282},
+                      {"label": "Core", "floor": 298},
                       {"label": "AppSupport", "floor": 71},
                   ],
-                  "total_floor": 353,
-                  # PASSED-event anchors, one per registry/schema/query test file. These are the real
-                  # test function names that appear on a passing run; file names never do.
-                  "required_passed_events": [
-                      "bundledDefaultDetectorsIsValidWithThreeTools",
-                      "unknownKeysAreRejectedAtRootDefinitionFixturePackageAndQueryLevels",
-                      "makeDetectorUsesRegistryArgumentsInTheProductionPath",
+                  "total_floor": 369,
+                  "combined_total_floor": 369,
+                  # Each anchor is a real test FUNCTION name that appears on a passing run; file names
+                  # never do. Both groups are required in either layout.
+                  "required_passed_events": CORE_ANCHORS + APPSUPPORT_ANCHORS,
+                  "combined_anchor_groups": [
+                      {"label": "Core registry/schema/query", "anchors": CORE_ANCHORS},
+                      {"label": "AppSupport wiring", "anchors": APPSUPPORT_ANCHORS},
                   ],
               },
               "build-dev-app": {"kind": "plain"},
@@ -219,23 +253,68 @@ jobs:
               executed_zero = [int(m.group("tests")) for m in EXECUTED.finditer(text)]
               skip_events = len(SWIFT_SKIP_EVENT.findall(text))
               skipped_lists = len(SWIFT_SKIPPED_LIST.findall(text))
+              failure_events = len(SWIFT_FAILURE_EVENT.findall(text))
+              issue_events = len(SWIFT_ISSUE_EVENT.findall(text))
               passed_events = set(m.group("name") for m in SWIFT_PASSED_EVENT.finditer(text))
               problems = []
-              expected = spec.get("summaries", 1)
-              if len(found) != expected:
+
+              # `summaries` is either an exact count (isolation-gate) or the observed set of allowed layouts.
+              allowed = spec.get("summaries", 1)
+              allowed_counts = list(allowed) if isinstance(allowed, (list, tuple)) else [allowed]
+              if len(found) not in allowed_counts:
+                  wanted = " or ".join(str(count) for count in allowed_counts)
                   problems.append(
-                      f"expected {expected} Swift Testing run summar{'y' if expected == 1 else 'ies'}, "
-                      f"found {len(found)}"
+                      f"expected {wanted} Swift Testing run summar"
+                      f"{'y' if max(allowed_counts) == 1 else 'ies'}, found {len(found)}"
                   )
-              matches, match_problems = match_targets(found, spec.get("targets", []))
-              problems.extend(match_problems)
+
               totals = [f["tests"] for f in found]
-              if "total_floor" in spec:
-                  total = sum(totals)
-                  if total < spec["total_floor"]:
+              total = sum(totals)
+              combined_mode = "combined_total_floor" in spec and len(found) == 1
+
+              if combined_mode:
+                  # One summary covers both test targets. Report ONLY the observed total; do not invent
+                  # per-target counts. The declared per-target floors still bound the aggregate.
+                  if total < spec["combined_total_floor"]:
+                      problems.append(
+                          f"combined executed {total}, below floor {spec['combined_total_floor']}"
+                      )
+                  component_floor = sum(target["floor"] for target in spec.get("targets", []))
+                  if total < component_floor:
+                      problems.append(
+                          f"combined executed {total}, below the sum of component floors {component_floor}"
+                      )
+                  matches = [{
+                      "label": "combined(Core+AppSupport)",
+                      "floor": spec["combined_total_floor"],
+                      "matched_count": total,
+                      "satisfied": total >= spec["combined_total_floor"],
+                  }]
+              else:
+                  matches, match_problems = match_targets(found, spec.get("targets", []))
+                  problems.extend(match_problems)
+                  if "total_floor" in spec and total < spec["total_floor"]:
                       problems.append(f"total executed {total}, below floor {spec['total_floor']}")
+
               if any(f["verdict"] != "passed" for f in found):
                   problems.append("a Swift Testing run summary reported failure")
+              # Contradiction guard, independent of the summary above: a real failed-case or issue
+              # event is terminal even when a later summary line reads "passed". Without this a stream
+              # with a red case plus an altered green summary would verify, which is not a green run.
+              if failure_events:
+                  problems.append(
+                      f"Swift Testing failure event(s) present ({failure_events} line(s) starting with "
+                      f"the failure glyph) despite the run summary"
+                  )
+              if issue_events:
+                  problems.append(
+                      f"Swift Testing issue event(s) present ({issue_events} 'recorded an issue' line(s)) "
+                      f"despite the run summary"
+                  )
+              if found and (failure_events or issue_events):
+                  problems.append(
+                      "contradictory stream: failure/issue evidence coexists with a run summary"
+                  )
               if skip_events or skipped_lists:
                   problems.append(
                       f"Swift Testing skipped evidence present ({skip_events} event(s), "
@@ -244,12 +323,23 @@ jobs:
               for name in spec.get("required_passed_events", []):
                   if name not in passed_events:
                       problems.append(f"required passed test event {name} did not run and pass")
+              # Names alone are not enough in combined mode: each declared group must be wholly present, so a
+              # single target's events can never satisfy the whole requirement by coincidence.
+              for group in spec.get("combined_anchor_groups", []):
+                  missing = [anchor for anchor in group["anchors"] if anchor not in passed_events]
+                  if missing:
+                      problems.append(
+                          f"{group['label']} group is missing passed event(s): {', '.join(missing)}"
+                      )
               return {
                   "kind": "swift",
                   "summaries": found,
                   "totals": totals,
+                  "layout": "combined" if combined_mode else "components",
                   "target_matches": matches,
                   "passed_event_count": len(passed_events),
+                  "failure_event_count": failure_events,
+                  "issue_event_count": issue_events,
                   "executed_zero_lines": executed_zero,
                   "skipped": skip_events + skipped_lists,
                   "stream_bytes": {name: len(body) for name, body in per_stream.items()},

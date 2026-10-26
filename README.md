@@ -72,8 +72,9 @@ Local version measurement executes the discovered tool with its validated litera
 Run `swift build` and `swift test`. M6 integration fixtures use `AGENT_LENS_TEST_SCRATCH` when it is
 nonempty, otherwise the standard macOS `TMPDIR`; they fail closed if neither supplies an authorized,
 writable root. `AGENT_LENS_TEST_PRODUCTS` is optional and, when set, names a **directory** containing a
-regular executable `agent-lens`. Tests use synthetic tools/managers and must not
-change installed tools or the real Agent Lens cache.
+regular executable `agent-lens`; it is also the single configuration root from which Core probe
+compilation/linking resolves its module and objects in either build layout. Tests use synthetic
+tools/managers and must not change installed tools or the real Agent Lens cache.
 
 ### Check commands
 

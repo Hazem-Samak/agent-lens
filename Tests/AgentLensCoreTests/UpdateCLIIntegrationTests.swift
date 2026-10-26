@@ -570,14 +570,23 @@ private func writeFakeBrew(in binDirectory: URL, cellar: URL, logURL: URL, infoJ
     try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: url.path)
 }
 
-/// Writes the synthetic login-shell startup. `.zshrc` runs after the system `/etc/zprofile`
-/// `path_helper`, so these entries win. The PATH is CLOSED — absolute fixture entries plus the
-/// resolver's own `/usr/bin:/bin` requirement — and never appends the real login-shell PATH, so
-/// no real tool can leak into a fixture run.
-private func writeRC(zdotdir: URL, pathEntries: [String]) throws {
+/// Writes the synthetic login-shell startup for BOTH shell families the production resolver can
+/// observe. MEASURED on the hosted runner: its password database selects `/bin/bash`, so a
+/// zsh-only fixture left the real login-shell PATH in place and no fixture manager was reachable.
+/// Production keeps using `getpwuid`, never `$SHELL`; this fixture simply covers both rc files.
+///
+/// `.zshrc` runs after the system `/etc/zprofile` `path_helper`; a login bash reads
+/// `~/.bash_profile` via `HOME` (the fixture launches `-l -i`). Both payloads are identical
+/// POSIX-compatible `export PATH=…`, so
+/// either shell exports the same CLOSED PATH — absolute fixture entries plus the resolver's own
+/// `/usr/bin:/bin` — and never appends the real login-shell PATH, so no real tool can leak in.
+private func writeRC(zdotdir: URL, home: URL, pathEntries: [String]) throws {
     try FileManager.default.createDirectory(at: zdotdir, withIntermediateDirectories: true)
+    try FileManager.default.createDirectory(at: home, withIntermediateDirectories: true)
     let joined = (pathEntries + ["/usr/bin", "/bin"]).map(shellQuote).joined(separator: ":")
-    try Data("export PATH=\(joined)\n".utf8).write(to: zdotdir.appendingPathComponent(".zshrc"))
+    let payload = Data("export PATH=\(joined)\n".utf8)
+    try payload.write(to: zdotdir.appendingPathComponent(".zshrc"))
+    try payload.write(to: home.appendingPathComponent(".bash_profile"))
 }
 
 private func expectedM5Prefix(pathEntries: [String], isDegraded: Bool = false) throws -> String {
@@ -645,7 +654,7 @@ private func makeBrewCLIScenario(_ label: String, info: String, outdated: String
     try writeFakeTool(in: binDirectory, named: "grok", version: "1.0.52")
 
     // The login shell sees ONLY the fake brew/codex/opencode/grok PATH.
-    try writeRC(zdotdir: zdotdir, pathEntries: [binDirectory.path])
+    try writeRC(zdotdir: zdotdir, home: home, pathEntries: [binDirectory.path])
     return BrewCLIScenario(root: root, home: home, zdotdir: zdotdir, binDirectory: binDirectory, logURL: logURL)
 }
 
@@ -708,7 +717,7 @@ private func makeNpmOwnershipCLIScenario(_ label: String) throws -> NpmOwnership
     // Fake standalone tools keep the closed fixture PATH from falling through to real extra roots.
     try writeFakeTool(in: extraBin, named: "opencode", version: "2.0.28")
     try writeFakeTool(in: extraBin, named: "grok", version: "1.0.52")
-    try writeRC(zdotdir: zdotdir, pathEntries: [prefixBin.path, npmBin.path, extraBin.path])
+    try writeRC(zdotdir: zdotdir, home: home, pathEntries: [prefixBin.path, npmBin.path, extraBin.path])
     return NpmOwnershipCLIScenario(
         root: root, home: home, zdotdir: zdotdir, prefix: prefix,
         packageRoot: packageRoot, logURL: logURL
@@ -757,7 +766,7 @@ private func makeFormulaOwnershipCLIScenario(_ label: String) throws -> FormulaO
     let brewURL = binDirectory.appendingPathComponent("brew")
     try Data(brewScript.utf8).write(to: brewURL)
     try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: brewURL.path)
-    try writeRC(zdotdir: zdotdir, pathEntries: [binDirectory.path])
+    try writeRC(zdotdir: zdotdir, home: home, pathEntries: [binDirectory.path])
     return FormulaOwnershipCLIScenario(
         root: root, home: home, zdotdir: zdotdir, prefix: prefix, cellar: cellar,
         kegDirectory: kegDirectory, kegTarget: kegTarget, logURL: logURL
@@ -837,7 +846,7 @@ private let emptyOutdated = #"{"formulae":[],"casks":[]}"#
         withDestinationPath: scenario.root.appendingPathComponent("missing-codex").path
     )
     let pathEntries = [scenario.binDirectory.path, aliasRoot.path, shadowedRoot.path, invalidRoot.path]
-    try writeRC(zdotdir: scenario.zdotdir, pathEntries: pathEntries)
+    try writeRC(zdotdir: scenario.zdotdir, home: scenario.home, pathEntries: pathEntries)
 
     let expectedPrefix = try expectedM5Prefix(pathEntries: pathEntries)
     try Data().write(to: detectorLog)
@@ -1272,4 +1281,52 @@ private let emptyOutdated = #"{"formulae":[],"casks":[]}"#
     #expect(result.stdout.contains("VERSION / UPDATE STATUS"))
     #expect(result.stdout.contains("0.162.1"))
     #expect(result.stdout.contains("unknown — update probe failed"))
+}
+// MARK: Login-shell fixture portability (zsh and bash)
+
+/// Proves OBSERVED, from a real process in both supported shell families, that the fixture rc
+/// payload yields the exact CLOSED fixture PATH. The hosted runner's password database selects
+/// `/bin/bash`, so a zsh-only fixture silently kept the real login-shell PATH; this control runs
+/// the same owned HOME/ZDOTDIR pair under `/bin/zsh` and `/bin/bash` with login + interactive
+/// flags and reads back the exported `PATH` the shell itself reports.
+///
+/// The invariant is EXACT stdout equality with the expected printf payload. A prefix or substring
+/// match would accept the closed fixture PATH with an inherited suffix appended, which is exactly
+/// the defect this control exists to catch.
+///
+/// No production override and no `$SHELL` mutation: both shells are invoked directly, the fixture
+/// writes the same payload to both rc locations, and the children run under the standard cache
+/// denial profile. Only `PATH` text crosses the boundary — no tool discovery and no manager calls.
+@Test func loginShellFixtureExportsTheExactClosedPathForBothZshAndBash() throws {
+    let fileManager = FileManager.default
+    guard fileManager.isExecutableFile(atPath: sandboxExec) else { throw isolationBlocker() }
+    let root = try cliScratch("login-shell-portability")
+    let home = root.appendingPathComponent("home", isDirectory: true)
+    let zdotdir = root.appendingPathComponent("zdot", isDirectory: true)
+    let fixtureBin = root.appendingPathComponent("fixture-bin", isDirectory: true)
+    try fileManager.createDirectory(at: fixtureBin, withIntermediateDirectories: true)
+    try writeRC(zdotdir: zdotdir, home: home, pathEntries: [fixtureBin.path])
+
+    // The fixture entry is first, then the resolver's own /usr/bin:/bin requirement.
+    let expected = ([fixtureBin.path] + ["/usr/bin", "/bin"]).joined(separator: ":")
+    // printf emits the PATH followed by exactly one newline; nothing else may reach stdout.
+    let expectedStdout = expected + "\n"
+
+    let profile = try realCacheDenialProfile()
+    for shell in ["/bin/zsh", "/bin/bash"] {
+        guard fileManager.isExecutableFile(atPath: shell) else { throw isolationBlocker() }
+        let result = try runCaptured(
+            executable: sandboxExec,
+            arguments: ["-p", profile, shell, "-l", "-i", "-c", "/usr/bin/printf '%s\\n' \"$PATH\""],
+            environment: ["HOME": home.path, "ZDOTDIR": zdotdir.path, "PATH": "/usr/bin:/bin"],
+            captureDirectory: home,
+            label: "login-shell-\((shell as NSString).lastPathComponent)",
+            budget: cliRunBudget
+        )
+        // An interactive shell may print its own banner ("no job control") on stderr, so stderr is
+        // deliberately NOT asserted empty. Exit status and the exact exported PATH are the evidence.
+        #expect(result.status == 0, "\(shell) exited \(result.status): \(result.stderr)")
+        #expect(result.stdout == expectedStdout,
+                "\(shell) stdout was not the exact closed fixture PATH; stdout: \(result.stdout), stderr: \(result.stderr)")
+    }
 }

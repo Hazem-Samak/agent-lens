@@ -370,7 +370,7 @@ private func expectUnknownKey(
 @Test func dangerousSchemaVersionsAreRejectedWithoutTrappingTheTestProcess() throws {
     let root = try metadataScratchRoot("schema-boundary")
     defer { try? FileManager.default.removeItem(at: root) }
-    let products = try agentLensCoreProductsDirectory()
+    let products = try agentLensCoreProducts()
     let source = root.appendingPathComponent("schema-boundary-probe.swift")
     let executable = root.appendingPathComponent("schema-boundary-probe")
 
@@ -421,10 +421,8 @@ private func expectUnknownKey(
 
     let compiler = Process()
     compiler.executableURL = URL(fileURLWithPath: "/usr/bin/swiftc")
-    compiler.arguments = [
-        "-I", products.path,
+    compiler.arguments = agentLensCoreCompileArguments(for: products) + [
         source.path,
-        products.appendingPathComponent("AgentLensCore.o").path,
         "-o", executable.path,
     ]
     compiler.currentDirectoryURL = root

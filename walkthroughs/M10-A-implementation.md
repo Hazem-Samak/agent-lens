@@ -173,3 +173,309 @@ change in that file. Existing `private State` declarations/defaults, body, acces
 
 Not executed by me: no build, no tests, no app launch, no hosted CI, no Git operations. Nothing here
 asserts hosted acceptance; only a native hosted run can establish that.
+
+## R7 (partial) — hosted fixture and summary portability, in-scope half only
+
+Scope executed: the two authorized in-scope items from `briefs/M10-A-R7-hosted-portability.md`.
+The protected-helper repair (aggregate `AgentLensCore.o` discovery in `ToolDetectorTests`,
+`DetectorMetadataTests`, `UpdateProbeCoordinatorTests`) is **NOT done** — its human amendment is still
+pending, so the three compiled-Core subprocess failures remain.
+
+### 1. CLI fixture repair — `Tests/AgentLensCoreTests/UpdateCLIIntegrationTests.swift`
+
+`writeRC` now takes the owned scenario `HOME` and writes the identical POSIX `export PATH=…` payload
+to both `ZDOTDIR/.zshrc` and `HOME/.bash_profile`. All four scenario setups pass their existing owned
+`home`. Production still resolves the login shell via `getpwuid`; no `$SHELL` override, no global
+shell, no real rc file read, no change to the launch profiles, environments, watchdogs, assertions,
+prefixes, query counts or exit/stderr checks.
+
+Measured control (`E/worker/r7-in-scope/shell-fixture-control.json`), `/bin/bash -l -i` versus
+`/bin/zsh -l -i` under one owned HOME/ZDOTDIR, closed fixture PATH, no tool discovery or managers:
+
+| fixture state | `/bin/bash` | `/bin/zsh` |
+|---|---|---|
+| `.zshrc` only | real system PATH (fixture entry **absent**) | exact closed PATH |
+| `.zshrc` + `.bash_profile` | exact closed PATH | exact closed PATH |
+
+That reproduces the hosted defect (`bash` resolved, fixture silently missed) and shows the repair.
+
+New real-process regression `loginShellFixtureExportsTheExactClosedPathForBothZshAndBash` runs both
+shells with login+interactive flags under the standard cache-denial profile and asserts the PATH the
+shell itself exports. Adds exactly **1** case.
+
+Executed here (local, default `TMPDIR`, no overrides):
+
+| run | exit | result |
+|---|---|---|
+| new shell case | 0 | 1 test passed, 0.181 s |
+| `validDebugEnvironment…` | 0 | 1 test passed |
+| `checkUpdates…ThreeQueries` | 0 | 1 test passed |
+| `verifyInstallationNpm…` | 0 | 1 test passed |
+| `sandboxedCheckUpdates…TwoRuns` | 0 | 1 test passed |
+| Core target | 0 | **283 tests** passed |
+| AppSupport target | 0 | **71 tests** passed |
+
+Intermediate inventory **354 = Core 283 + AppSupport 71**, matching the declared floor.
+
+### 2. CI summary repair — `.github/workflows/ci.yml`
+
+The full-suite spec now accepts **exactly one combined summary or exactly two component summaries**
+(`summaries: [1, 2]`). Combined mode enforces `combined_total_floor` 354 and the sum of component
+floors, and reports only the observed total — it never fabricates per-target counts. Two-summary mode
+keeps the multiset floors (Core 283, AppSupport 71) plus total 354. Both anchor groups (Core
+registry/schema/query and AppSupport `productionWiringUsesOnlyTheCoreLoginShellSeams`) must be present
+as PASSED events in either layout. Missing/zero/underfloor/three summaries, skip evidence, FAILED
+verdicts and missing anchors stay red. Isolation gate (`summaries: 1`, floor 1), guard-fixtures (21)
+and packaging (9) are unchanged, as are producer-exit authority, raw stream capture, metrics per gate,
+the seven gate commands, unsets, pins, permissions, timeouts and the build backend.
+
+Generated-verifier controls (`E/worker/r7-in-scope/controls/`, driver `verify_counts.py`):
+
+| control | expected | observed exit |
+|---|---|---|
+| **actual hosted failed stream 40325427147** | red | **1** — "combined executed 353, below floor 354" + "reported failure" |
+| combined 354, both anchor groups | green | 0 |
+| combined 353 | red | 1 |
+| combined, missing AppSupport anchor | red | 1 |
+| combined, missing Core anchors | red | 1 |
+| two components 283+71 | green | 0 |
+| two components 282+71 | red | 1 |
+| three summaries | red | 1 |
+| no summary | red | 1 |
+| combined with a skip event | red | 1 |
+| combined, FAILED verdict | red | 1 |
+| isolation 1 summary / floor 1 | green | 0 |
+| isolation 0 cases / two summaries | red / red | 1 / 1 |
+| guard-fixtures 21 / 20 | green / red | 0 / 1 |
+| packaging 9 / 8 / skipped=1 | green / red / red | 0 / 1 / 1 |
+| real local two-summary content | green | 0 |
+| same real content as one summary | green | 0 |
+
+The real local streams (283 + 71) verify green in two-summary mode; the same event content collapsed
+into one 354 summary verifies green in combined mode. **The actual hosted failed stream remains red**,
+and its red reason is now the honest one (total + failure), not a layout mismatch.
+
+Workflow still parses as YAML with all **11 steps** and all seven gate invocations unchanged. No build
+backend, TMPDIR, `||true`, `continue-on-error` or count reduction was introduced; no test was skipped
+or removed.
+
+### Limits
+
+- The parser repair is **not** green-test evidence. Hosted run 40325427147 remains a failure: 19 cases
+  / 64 issues, of which 16 CLI cases this repair targets and 3 compiled-Core cases awaiting the
+  protected-helper amendment.
+- No hosted run, no full-suite gate, no debug-app or packaging run, and no Git operation was performed
+  or authorized here. Only a fresh native hosted run can establish acceptance.
+
+### R7 correction — exact stdout assertion in the dual-shell fixture
+
+Parent review found the first version of `loginShellFixtureExportsTheExactClosedPathForBothZshAndBash`
+too weak: `result.stdout.contains(expected)` would accept the closed fixture PATH with an inherited
+suffix appended — precisely the defect the control exists to detect.
+
+Corrections applied (test body and doc comment only):
+
+- The assertion is now **exact** `result.stdout == expected + "\n"`, the literal printf payload.
+- The incidental `expected.contains("/usr/local/bin")` / `expected.contains("/opt/homebrew")`
+  substring checks were removed; exact dynamic payload equality is the real invariant, and an
+  operator-authorized scratch base whose name merely contains such text must not be rejected.
+- Exit status 0 is still required. stderr is still **not** asserted empty, with the explicit comment
+  that an interactive shell may print its `no job control` banner.
+- `writeRC` doc corrected from "a non-interactive bash reads" to "a login bash reads `~/.bash_profile`
+  via `HOME` (the fixture launches `-l -i`)", matching the actual invocation.
+
+Discriminating control (`E/worker/r7-in-scope/exact-assertion-control.json`), same owned
+HOME/ZDOTDIR, `/bin/zsh -l -i` and `/bin/bash -l -i`:
+
+| rc payload | exported PATH | exact equality | old `contains` |
+|---|---|---|---|
+| closed fixture PATH | `fixture-bin:/usr/bin:/bin` | accepted | accepted |
+| closed + `:/usr/local/bin` appended | `fixture-bin:/usr/bin:/bin:/usr/local/bin` | **rejected** | **accepted (would have passed)** |
+
+So the old form would have gone green on a leaking shell; the new form fails closed.
+
+Executed with real tools, focused case only (native macro discovery failed on this workstation, so the
+documented invocation-local plugin fallback was used; that is local-only):
+
+| run | exit | result |
+|---|---|---|
+| `loginShellFixtureExportsTheExactClosedPathForBothZshAndBash` | 0 | 1 test passed, 0.209 s |
+
+Not re-run: any other test, the full suite, CI parser, debug app or packaging. No protected helper,
+production source, `Package.swift` or CI file changed in this correction, and no Git operation was
+performed.
+
+## R7 completed — native test-product repair (coordinator-scoped)
+
+Applied the three protected-file test-product seams under the coordinator's control grant, plus the
+CI floor constants and one README sentence. No production source, `Package.swift`, packaging builder,
+resources/schema, dependencies, timeouts or original assertions were changed, and no Git operation was
+performed.
+
+### Shared typed selection (`Tests/AgentLensCoreTests/ToolDetectorTests.swift`)
+
+`AgentLensCoreProducts` now carries explicit `configurationRoot`, `moduleSearchDirectory`,
+`objectFiles` and a `Layout` (`.aggregate` / `.native`). Provenance is explicit: it is never inferred
+from the object count, so a one-object native vector is still native.
+
+Recognized layouts, both measured on disk:
+
+| layout | module | objects |
+|---|---|---|
+| Swift Build | `AgentLensCore.swiftmodule` beside the root | single `AgentLensCore.o` |
+| native SwiftPM | `Modules/AgentLensCore.swiftmodule` | sorted regular `AgentLensCore.build/*.o` |
+
+Validation is now fail-closed rather than best-effort:
+
+- An **invalid override fails before any fallback**, including `AGENT_LENS_TEST_PRODUCTS=""`; relative
+  and NUL-containing values are rejected rather than being URL-converted to the CWD. Absolute directory
+  semantics are unchanged.
+- A root holding **both** complete signatures is refused as ambiguous instead of picking aggregate by
+  precedence.
+- Every recognized-invalid layout error is **terminal**: only the `noLayout` code may keep climbing
+  ancestors, so a nearer broken active root can never silently resolve to a valid (possibly stale)
+  ancestor.
+- A native vector containing an external or symlinked `.o` is **refused**, not filtered: dropping it
+  would link an incomplete Core that still exits 0. A symlinked `AgentLensCore.build` directory is
+  refused for the same reason. An escaping aggregate module/object is refused (the parent's prior
+  aggregate-symlink measurement is preserved as a regression).
+- Inputs are compared through the POSIX `realpath(3)` seam, so a legitimate `/var` ↔ `/private/var`
+  alias of the same directory is accepted while anything outside the one canonical root is not.
+
+Diagnostics are test-parent only, one line per selection, prefixed `core-probe` and naming
+layout/root/module/object-count/`compiler=/usr/bin/swiftc` (the actual unchanged proxy). They never
+reach a probe child's stdout/stderr, so no compile assertion is polluted. Compiler processes keep
+their inherited environment (`DEVELOPER_DIR` included); the verifier's synthetic env is untouched.
+
+Adapted seams only: the compile argv in `ToolDetectorTests` and `DetectorMetadataTests`, and the
+context-verifier selection/argv in `UpdateProbeCoordinatorTests` (whose duplicate helper was deleted
+because the shared seam now covers it). The approved physical-cwd fixture and the counts
+`3,0`/inputs/identity/cacheHit/cwd/exit/stderr assertions are unchanged.
+
+### Executed evidence (`E/worker/r7-products`, raw separated logs, producer exit captured)
+
+| run | exit | result |
+|---|---|---|
+| 14 focused selection controls | 0 | 14 passed |
+| `detectorAndVersionQueryHonor…IsolatedWorkingDirectory` | 0 | 1 passed, aggregate, objects=1 |
+| `dangerousSchemaVersionsAreRejectedWithoutTrapping…` | 0 | 1 passed, aggregate, objects=1 |
+| `actualSubprocessWorkingDirectoryControlsCoordinator…` | 0 | 1 passed, aggregate, objects=1 |
+| the same three with `AGENT_LENS_TEST_PRODUCTS` = real native root | 0/0/0 | all passed, **layout=native, objects=27** |
+| `AgentLensCoreTests` target | 0 | **297 tests** passed |
+
+The 14 controls cover: aggregate selection; sorted, target-scoped native vector; one-object native
+labelling; empty override with a valid bundle present; relative/NUL overrides; invalid override proven
+not to fall back although the bundle alone would succeed; dual-layout ambiguity; incomplete active root;
+**invalid nearer root with a valid ancestor** (load-bearing, throws); escaping module; external object
+symlink; symlinked object directory; physical alias acceptance; active-bundle discovery with no CWD
+fallback.
+
+### Inventory and CI floors
+
+353 existing cases are intact, plus the R7 shell-control case = 354, plus **14** new focused controls =
+**368 = Core 297 + AppSupport 71**. Workflow floors updated to exactly that: Core 297, `total_floor`
+368, `combined_total_floor` 368. Verified against the real streams:
+
+| stream | verifier exit |
+|---|---|
+| real local 297 + 71 | **0** (two-summary) |
+| 296 + 71 | 1 (underfloor) |
+| actual hosted failed 353 stream | **1** — `combined executed 353, below floor 368` + `reported failure` |
+
+Workflow still parses as YAML with 11 steps and the generated verifier still compiles.
+
+### Limits (worker vs parent vs hosted)
+
+- **Worker (this note):** local default Swift Build backend on this workstation, using the documented
+  invocation-local plugin fallback because native macro discovery is intermittent here. Local only.
+- The local deprecated native backend cannot import `Testing`, so a native-backend full-suite pass is
+  **not** claimed. Native layout was instead exercised against the real 27-object product root through
+  the explicit override on the supported default test runner.
+- **Parent (not claimed here):** the full default suite, fresh debug app and all nine packaging checks.
+- **Hosted:** no run has executed these changes. Hosted CI for this phase remains pending, and the
+  failed runs 40300975808 / 40325427147 stay red as before-evidence.
+
+### R7 final correction — physical (not lexical) bundle ancestry
+
+Parent finding: the hint was resolved to a physical path only for the existence check, then ancestry
+climbed the **lexical** parent. With an active `.xctest` SYMLINK living under a different complete
+product root and pointing at the real bundle in another complete root, the seam selected the unrelated
+lexical root.
+
+Fix (selector hint initialization only): `physicalHint = canonicalPhysicalPath(hint)`, then the walk
+starts at `physicalHint`'s `deletingLastPathComponent()` and continues over physical ancestors, bounded
+to 8. Absolute physical configuration and the no-layout-only climbing rule are unchanged, so a nearer
+invalid root still terminates the search.
+
+New focused control `productSelectionFollowsThePhysicalBundleNotTheLexicalParentRoot`: a complete
+aggregate root holds the real `Active.xctest`; a second complete aggregate root holds `Linked.xctest` as
+a symlink to it. Selection must be the real bundle's root and must differ from the decoy. This is a
+different-parent case, so the existing `/var` ↔ `/private/var` alias control cannot catch it.
+
+Discriminating measurement (`E/worker/r7-products/physical-bundle-control.json`) over the same fixture
+shape with raw POSIX paths:
+
+| walk | selected root | correct |
+|---|---|---|
+| lexical ancestors of the unresolved hint (old) | `lexical-decoy` | **no** |
+| physical ancestors of the resolved hint (new) | `physical-active` | **yes** |
+
+Executed after the fix:
+
+| run | exit | result |
+|---|---|---|
+| 15 focused selection controls | 0 | 15 passed |
+| `AgentLensCoreTests` target | 1 | `298 tests`, one issue: `productionProcessHandlesParentExitBeforeItsHangingDescendant` elapsed 9.731 s vs its unchanged `< 9` bound |
+| that same untouched case re-run in isolation | 0 | passed in 7.009 s |
+
+The timing case is unchanged by this work (no budget or assertion edited); it exceeded its bound while
+the whole suite ran under load. It is reported as observed, not claimed green from the full run.
+
+Final inventory: 353 existing + 1 shell-control + **15** focused controls = **369 = Core 298 +
+AppSupport 71**. Workflow floors now say exactly that.
+
+### Correction — the 298+71 "green" control was synthetic, and it exposed a verifier gap
+
+An earlier revision of this note claimed a **real** 298 + 71 stream verified green at exit 0. **That was
+wrong.**
+The Core run behind it was **red** (`✘ Test run with 298 tests in 0 suites failed … with 1 issue`,
+`productionProcessHandlesParentExitBeforeItsHangingDescendant` elapsed 9.731 s against its unchanged
+`< 9` bound). The control used to prove the floor was built by rewriting only the summary line of that
+red stream to `✔ … passed` while keeping its failed-case and `recorded an issue` lines:
+
+```
+core = core_suite_stdout.replace('✘ Test run with 298 tests … with 1 issue.',
+                                 '✔ Test run with 298 tests … passed.')
+```
+
+That is a **SYNTHETIC summary-altered copy**, not a passing stream, and it is not gate evidence. No raw
+run artifact was rewritten; the original red receipts are intact. The local Core result is **red as
+observed**, with the single timing case re-run in isolation green (7.009 s).
+
+The synthetic copy also **exposed a verifier contradiction gap**: the generated verifier computed the
+Swift Testing failure/issue events but never used them, so the altered stream verified **exit 0** while
+its own output still contained a failing case. Reproduced against the pre-fix verifier from `HEAD`.
+
+Repair (`.github/workflows/ci.yml`, failure-event detection only; floors, counts, gates, `producer_exit`
+handling, pins and scope unchanged): `parse_swift` now rejects any line-anchored failure glyph
+(`✘`/`✗` `Test`/`Suite`) or `recorded an issue` line independently of the summary verdict, and reports
+`failure_event_count` / `issue_event_count` in the receipt.
+
+Controls (generated verifier `E/worker/r7-verifier-contradiction/verify_counts.py`,
+`sha256 26916c10…ab624`; driver inputs untouched):
+
+| control | producer_exit | expected | observed |
+|---|---|---|---|
+| untouched real red local 298+71 | 1 | red | **1** — summary failure + 3 glyph events + 1 issue + contradiction |
+| untouched real red local 298+71 | 0 | red (contradiction guard alone) | **1** — same reasons |
+| **SYNTHETIC** summary-flip 298+71 | 0 | red | **1** — 2 glyph events + 1 issue + contradiction |
+| pre-fix verifier on that same synthetic copy | 0 | — | **0** ← the gap |
+| SYNTHETIC clean 298+71 (failure lines removed) | 0 | green | **0** |
+| SYNTHETIC clean 297+71 | 0 | red | **1** — underfloor 298, total 368 < 369 |
+| hosted failed 353 stream (40325427147), untouched | 1 | red | **1** — underfloor + summary failure + 84 glyph + 64 issue |
+| SYNTHETIC, all summaries stripped, failure lines kept | 0 | red | **1** — missing summaries + floors + failure/issue events |
+
+This guard makes an internally contradictory stream fail closed. It is **not** provenance proof: bytes a
+verifier never saw produced cannot be authenticated, so the gate still relies on running the real suite.
+Hosted CI remains pending; only the parent's actual full passing streams can establish the green gate.
+Workflow parses with 11 steps; the verifier compiles.

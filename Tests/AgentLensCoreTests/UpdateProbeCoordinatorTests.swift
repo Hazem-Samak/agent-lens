@@ -324,55 +324,6 @@ private func runIsolatedProcess(
     )
 }
 
-private func coreProductsForContextVerifier() throws -> URL {
-    let fileManager = FileManager.default
-    func hasCoreArtifacts(_ directory: URL) -> Bool {
-        let objectExists = fileManager.fileExists(atPath: directory.appendingPathComponent("AgentLensCore.o").path)
-        let moduleExists = fileManager.fileExists(atPath: directory.appendingPathComponent("AgentLensCore.swiftmodule").path)
-            || fileManager.fileExists(atPath: directory.appendingPathComponent("Modules/AgentLensCore.swiftmodule").path)
-        return objectExists && moduleExists
-    }
-
-    let argv = CommandLine.arguments
-    var starts: [URL] = []
-    if let index = argv.firstIndex(of: "--test-bundle-path"), index + 1 < argv.count {
-        starts.append(URL(fileURLWithPath: argv[index + 1]))
-    }
-    if let last = argv.last, last.contains(".xctest") {
-        starts.append(URL(fileURLWithPath: last))
-    }
-    for start in starts {
-        var directory = start.resolvingSymlinksInPath().deletingLastPathComponent()
-        for _ in 0..<8 {
-            if hasCoreArtifacts(directory) { return directory }
-            let parent = directory.deletingLastPathComponent()
-            if parent == directory { break }
-            directory = parent
-        }
-    }
-
-    let packageRoot = URL(fileURLWithPath: #filePath)
-        .deletingLastPathComponent()
-        .deletingLastPathComponent()
-        .deletingLastPathComponent()
-        .standardizedFileURL
-    for searchRoot in [
-        packageRoot.appendingPathComponent(".build", isDirectory: true),
-        packageRoot.appendingPathComponent("build", isDirectory: true),
-    ] {
-        guard let enumerator = fileManager.enumerator(
-            at: searchRoot,
-            includingPropertiesForKeys: [.isDirectoryKey],
-            options: [.skipsHiddenFiles]
-        ) else { continue }
-        while let item = enumerator.nextObject() as? URL {
-            if hasCoreArtifacts(item) { return item }
-        }
-    }
-    throw NSError(domain: "AgentLensTests", code: 3,
-                  userInfo: [NSLocalizedDescriptionKey: "could not locate active AgentLensCore build products"])
-}
-
 /// The three manager answers for one current Codex keg at revision 1 with stable 0.162.1.
 private func healthyHandler(cellar: String) -> @Sendable ([String]) -> CommandOutcome {
     { arguments in
@@ -1383,12 +1334,15 @@ private func replacingEnvironmentValue(_ environment: ShellEnvironment, key: Str
     let cacheURL = root.appendingPathComponent("shared-cache.json")
     try Data(verifierSource.utf8).write(to: sourceURL)
 
-    let products = try coreProductsForContextVerifier()
+    let products = try selectAgentLensCoreProducts(
+        environment: ProcessInfo.processInfo.environment,
+        arguments: CommandLine.arguments,
+        executablePath: Bundle.main.executableURL?.path
+    )
     let compiler = Process()
     compiler.executableURL = URL(fileURLWithPath: "/usr/bin/swiftc")
-    compiler.arguments = [
-        "-parse-as-library", "-I", products.path, sourceURL.path,
-        products.appendingPathComponent("AgentLensCore.o").path,
+    compiler.arguments = agentLensCoreCompileArguments(for: products) + [
+        "-parse-as-library", sourceURL.path,
         "-o", executableURL.path,
     ]
     compiler.currentDirectoryURL = root
