@@ -158,3 +158,18 @@ Evidence provenance:
   invocation-local fallback and is labelled local-only.
 - **Hosted CI has still never run and no Git delivery was authorized.** Action pins were verified by the
   parent against official refs; hosted behavior remains unproven.
+
+## R6 — hosted constructor compatibility (user-approved, applied)
+
+User approved the one-file amendment for `Sources/AgentLensApp/PathActions.swift` (explicit internal
+initializer for `PathActionRow`). Applied exactly the hunk in
+`E/parent/hosted-constructor-proposal/proposed.patch`: six inserted lines, zero deletions, no other
+change in that file. Existing `private State` declarations/defaults, body, access levels and the
+`ToolDetailView` caller are byte-identical.
+
+- SHA256 before: `2099bd143585d65b4c7e4fee11eb5905cce824505d88ec7204be61ebdc8a9584`
+- SHA256 after: `fadba4e513b3b0e926dcffbc30a06ef06f602d30695dbcd4c707a7de321e6084` (matches the approved after-hash)
+- `git diff -U0`: `1 file changed, 6 insertions(+)`
+
+Not executed by me: no build, no tests, no app launch, no hosted CI, no Git operations. Nothing here
+asserts hosted acceptance; only a native hosted run can establish that.
