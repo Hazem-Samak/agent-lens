@@ -1,0 +1,21 @@
+{
+  "args": [
+    "view",
+    "@openai/codex@latest",
+    "name",
+    "version",
+    "dist-tags.latest",
+    "--json",
+    "--global",
+    "--registry=https://registry.npmjs.org/",
+    "--@openai:registry=https://registry.npmjs.org/",
+    "--prefer-online",
+    "--offline=false",
+    "--fetch-retries=0",
+    "--fetch-timeout=10000"
+  ],
+  "exit": 0,
+  "stdout": "{\n  \"name\": \"@openai/codex\",\n  \"version\": \"0.164.0\",\n  \"dist-tags.latest\": \"0.164.0\"\n}\n",
+  "stderr": "",
+  "context": "user scope remains set to now-closed controlled loopback registry; both base and scoped CLI flags bind public registry"
+}

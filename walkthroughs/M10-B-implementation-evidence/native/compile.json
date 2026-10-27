@@ -1,0 +1,28 @@
+{
+  "argv": [
+    "swiftc",
+    "-parse-as-library",
+    "-swift-version",
+    "6",
+    "-I",
+    "/private/tmp/agent-lens-m10b-implementation-9jaujmja/parent/qoder-r1-batch3/products/out/Products/Debug",
+    "/private/tmp/agent-lens-m10b-implementation-9jaujmja/parent/qoder-r1-batch3/native/FixtureHost.swift",
+    "Sources/AgentLensApp/PathActions.swift",
+    "Sources/AgentLensApp/ToolListView.swift",
+    "Sources/AgentLensApp/MainWindow.swift",
+    "Sources/AgentLensApp/DiagnosticsView.swift",
+    "Sources/AgentLensApp/OwnershipVerificationView.swift",
+    "Sources/AgentLensApp/ToolDetailView.swift",
+    "/private/tmp/agent-lens-m10b-implementation-9jaujmja/parent/qoder-r1-batch3/products/out/Products/Debug/AgentLensCore.o",
+    "/private/tmp/agent-lens-m10b-implementation-9jaujmja/parent/qoder-r1-batch3/products/out/Products/Debug/AgentLensAppSupport.o",
+    "-framework",
+    "SwiftUI",
+    "-framework",
+    "AppKit",
+    "-o",
+    "/private/tmp/agent-lens-m10b-implementation-9jaujmja/parent/qoder-r1-batch3/native/M10BFixtureHost.app/Contents/MacOS/M10BFixtureHost"
+  ],
+  "exit": 0,
+  "stdout": "",
+  "stderr": "/private/tmp/agent-lens-m10b-implementation-9jaujmja/parent/qoder-r1-batch3/native/FixtureHost.swift:38:9: warning: result of 'try?' is unused [#NoUsage]\n 36 |               let handle = try? FileHandle(forWritingTo: url) else { return }\n 37 |         defer { try? handle.close() }\n 38 |         try? handle.seekToEnd()\n    |         `- warning: result of 'try?' is unused [#NoUsage]\n 39 |         try? handle.write(contentsOf: data + Data([10]))\n 40 |     }\n\n[#NoUsage]: <https://docs.swift.org/compiler/documentation/diagnostics/no-usage>\n"
+}

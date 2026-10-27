@@ -1,0 +1,24 @@
+{
+  "surface": "CUA native host compiled unchanged product views against corrected final Core/AppSupport objects",
+  "sequence": [
+    "local launch:1.0.0, Not checked",
+    "Check:fresh 2.0.0 at2026-10-27T18:09:20Z",
+    "Check:cache same2026-10-27T18:09:20Z",
+    "Refresh:fresh at2026-10-27T18:09:30Z",
+    "Rescan:Not checked; count reset",
+    "Quit host"
+  ],
+  "displayed": [
+    "@openai/codex",
+    "https://registry.npmjs.org/ / latest",
+    "npm10.9.8",
+    "1 update available"
+  ],
+  "view_launches": 2,
+  "scratch_children_after": 0,
+  "screenshots": "parent CUA transcript",
+  "ordinary_packaged_startup": "fresh final debug app opened local-only3known/3installed; Not checked; no Verify/Check/Refresh; quit",
+  "server_requests_total": 6,
+  "server_request_breakdown": "2 headless +2 actualCLI +2 native",
+  "cleanup": "owned server stopped and both apps quit"
+}

@@ -1,0 +1,11 @@
+{
+  "argv": [
+    "git",
+    "diff",
+    "--check"
+  ],
+  "exit": 0,
+  "seconds": 0.0183345420009573,
+  "AgentLens_test_overrides": "both unset",
+  "TMPDIR": "/var/folders/tf/jsdyxcts6y72fs98s7wl3dfm0000gn/T/"
+}

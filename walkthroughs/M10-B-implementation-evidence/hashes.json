@@ -1,0 +1,67 @@
+[
+  {
+    "path": "Sources/AgentLensCore/Updates/NpmUpdateProbe.swift",
+    "expected": "b2015789de23ae735b59ebaf6716e7eee9eb53b840e65a859ad0d683226f432c",
+    "actual": "b2015789de23ae735b59ebaf6716e7eee9eb53b840e65a859ad0d683226f432c"
+  },
+  {
+    "path": "Sources/AgentLensCore/Updates/NpmUpdateMetadataCache.swift",
+    "expected": "2ff37cc2183aa9a217f65f85fa5cc66be416691305aac4e3a0b26232cabaa644",
+    "actual": "2ff37cc2183aa9a217f65f85fa5cc66be416691305aac4e3a0b26232cabaa644"
+  },
+  {
+    "path": "Sources/AgentLensCore/Updates/UpdateProbeCoordinator.swift",
+    "expected": "abaecf524e21ee832add60c7c01b9602815944581f725b2d19e72607e6f9b8cd",
+    "actual": "abaecf524e21ee832add60c7c01b9602815944581f725b2d19e72607e6f9b8cd"
+  },
+  {
+    "path": "Sources/AgentLensCore/Updates/UpdateScanRenderer.swift",
+    "expected": "0c14cf5a0dca2cfaa0a81090f04d71752bbbb6824cadfc5046bb58aa8e971779",
+    "actual": "0c14cf5a0dca2cfaa0a81090f04d71752bbbb6824cadfc5046bb58aa8e971779"
+  },
+  {
+    "path": "Sources/AgentLensCore/Updates/VersionStatus.swift",
+    "expected": "87d1951c94439b754732d14d8092638ec68ca940c26a83aabe22ee882b041731",
+    "actual": "87d1951c94439b754732d14d8092638ec68ca940c26a83aabe22ee882b041731"
+  },
+  {
+    "path": "Sources/AgentLensCore/Ownership/NpmOwnershipProbe.swift",
+    "expected": "3a87c40680d438d3633c78eafa56471e9dc61337f89fd15b0e9627f139754d19",
+    "actual": "3a87c40680d438d3633c78eafa56471e9dc61337f89fd15b0e9627f139754d19"
+  },
+  {
+    "path": "Sources/AgentLensAppSupport/InventoryService.swift",
+    "expected": "8888c871f7f6a38c1d72f84321b7cbd4aad2ca2ab1cd3ccda0b20715850cb9a7",
+    "actual": "8888c871f7f6a38c1d72f84321b7cbd4aad2ca2ab1cd3ccda0b20715850cb9a7"
+  },
+  {
+    "path": "Sources/AgentLensApp/ToolDetailView.swift",
+    "expected": "f742b8cff97dbea9c0aa621579f362a13ab55c31e3f34d43aae91d46e1b945c5",
+    "actual": "f742b8cff97dbea9c0aa621579f362a13ab55c31e3f34d43aae91d46e1b945c5"
+  },
+  {
+    "path": "Sources/agent-lens/main.swift",
+    "expected": "1e5b8a47ba8ed3841dcb961de20c87c65a6f3babc33438c2acc3e2b90a78f5d9",
+    "actual": "1e5b8a47ba8ed3841dcb961de20c87c65a6f3babc33438c2acc3e2b90a78f5d9"
+  },
+  {
+    "path": "Tests/AgentLensCoreTests/NpmUpdateProbeTests.swift",
+    "expected": "675736f04da65add420d28473995086ab71b80c75cb659b203bc68bb635eab34",
+    "actual": "675736f04da65add420d28473995086ab71b80c75cb659b203bc68bb635eab34"
+  },
+  {
+    "path": "Tests/AgentLensCoreTests/NpmUpdateMetadataCacheTests.swift",
+    "expected": "c8b2c70287038eb3a25a22e113e9dd0db9dab4994aa07a7ee54aeef3df11cd04",
+    "actual": "c8b2c70287038eb3a25a22e113e9dd0db9dab4994aa07a7ee54aeef3df11cd04"
+  },
+  {
+    "path": "Tests/AgentLensCoreTests/UpdateProbeCoordinatorTests.swift",
+    "expected": "f407b4f387df8ed8c8243316563f1fa9aecc07ca8aa880d188f075c75547982f",
+    "actual": "f407b4f387df8ed8c8243316563f1fa9aecc07ca8aa880d188f075c75547982f"
+  },
+  {
+    "path": "README.md",
+    "expected": "0af58d5135b10b38a1ac6ba9ac5f6ac8c744672a591935b9cbd2fddcd3a27abb",
+    "actual": "0af58d5135b10b38a1ac6ba9ac5f6ac8c744672a591935b9cbd2fddcd3a27abb"
+  }
+]

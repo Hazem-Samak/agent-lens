@@ -42,6 +42,11 @@ public struct InventoryService: Sendable {
     /// The M6 metadata cache location. Injected so tests never touch the real app cache.
     public let updateCacheURL: URL
 
+    /// The M10-B npm scratch base. `nil` (production) makes the npm probe use Foundation's
+    /// `temporaryDirectory`; tests and the controlled native host inject an owned root so no real
+    /// cache/log/install path is ever touched.
+    public let npmScratchBaseURL: URL?
+
     /// The working directory relative PATH entries resolve against, fixed for the app session.
     public let currentDirectory: String
 
@@ -59,6 +64,7 @@ public struct InventoryService: Sendable {
         },
         updateRunner: UpdateCommandRunner = ProcessUpdateCommandRunner(),
         updateCacheURL: URL,
+        npmScratchBaseURL: URL? = nil,
         currentDirectory: String = FileManager.default.currentDirectoryPath,
         clock: @escaping @Sendable () -> Date = { Date() }
     ) {
@@ -67,6 +73,7 @@ public struct InventoryService: Sendable {
         self.scanner = scanner
         self.updateRunner = updateRunner
         self.updateCacheURL = updateCacheURL
+        self.npmScratchBaseURL = npmScratchBaseURL
         self.currentDirectory = currentDirectory
         self.clock = clock
     }
@@ -174,8 +181,7 @@ public struct InventoryService: Sendable {
         let probeEnvironment = await environment.sessionEnvironment()
         let subjects = snapshot.entries.map { entry in
             UpdateProbeSubject(
-                registryID: entry.registryID,
-                displayName: entry.definition.displayName,
+                definition: entry.definition,
                 diagnostic: entry.diagnostic
             )
         }
@@ -186,7 +192,8 @@ public struct InventoryService: Sendable {
             runner: updateRunner,
             cacheURL: updateCacheURL,
             currentDirectory: currentDirectory,
-            now: clock
+            now: clock,
+            npmScratchBaseURL: npmScratchBaseURL
         )
         let resultByRegistryID = Dictionary(
             results.map { ($0.registryID, $0) },

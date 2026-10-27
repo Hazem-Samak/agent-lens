@@ -1,0 +1,18 @@
+{
+  "M10-B-R1.md": "8e2163fc9c95d0079248b93d7d462d317d7ffc58a4ca70f9bac863a8a1180aba",
+  "M10-B-R3-reviewed.md": "10359d7e7046dcef1afe127599bfd5459964a02874dc5665980e51862e33f1a9",
+  "minimax-r1.md": "dd5642ed9636fc03adbe159f7cadfba867894bc83e90950c90edf46b089d132e",
+  "deepseek-r1.md": "230c19a26b50573de808110e6b3d62a6d15a9b5cf2659594288da5821aef68e6",
+  "minimax-r2.md": "545e80bced43cd085568aa6c4fe4d9eb23c7b1557cee2b112a281162fffdd6c6",
+  "deepseek-r2.md": "9a478e13135971b75c09db614f6b885bd5ab4ff1d4d1d92fcf083bd2af9c96d8",
+  "qwen-final-r3.md": "b304033b6232069f40b6bfeb8182d7be3c4210e18f6bd9602f74afb13e455c25",
+  "base.json": "ecfacdb71a7a3b48f2e45c04ac01773e5b3240cfff7a5ae99511c65f0b5a584c",
+  "scope.json": "c4457f8b8166be74a0fd6cd8eef2b786bd099d540eb96d1d9e01aa5cf391c1b5",
+  "view.json": "3b2bbb1df02d6d48ad1971371abfd6de99c4f8c2ec09990e220cb8989990fbe1",
+  "registry-probe.json": "292dc60791fa5e317e79e72f33e4143b4f1780b5f602b473d3aa4b4a3d2232a4",
+  "scope-pin-probe.json": "bcebdb55367e7c7749915c71337344486b24b0be365e8c3a18cc6cf92d23f329",
+  "scratch-policy-probe.json": "cb730802a9b4e309574f380f3a2f6635dad46947a71b154fcd213ecbef91c689",
+  "env-and-second-major-probe.json": "ad6e2f01198203e08355a8b5d1df9e27fb328a77e7bd6c7e7603a506fb958c91",
+  "ownership-and-global-probe.json": "85f2a8b9d1b683cbedb5757b0767c1f46bf2b1abb80db2db359240844564b342",
+  "../../briefs/M10-B-npm-latest.md": "1270cb3dc660195c71e67977f6bbab883e9b0dcbb730e34c484f4c424ec0c35c"
+}

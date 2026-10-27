@@ -1,0 +1,5 @@
+{
+  "exit": -5,
+  "stdout": "PASS stable: updateAvailable(installed: 1.0.0, latest: 2.0.0), views=1, persisted=true\nPASS two-prefix-mismatch: unknown(installed: Optional(1.0.0), reason: AgentLensCore.UnknownReason.identityUnverified), views=0, persisted=false\nPASS custom-base-public-scope: unknown(installed: Optional(1.0.0), reason: AgentLensCore.UnknownReason.unsupportedRegistry), views=0, persisted=false\nPASS credential-registry: unknown(installed: Optional(1.0.0), reason: AgentLensCore.UnknownReason.unsupportedRegistry), views=0, persisted=false\nFAIL registry-changed: unknown(installed: Optional(1.0.0), reason: AgentLensCore.UnknownReason.unsupportedRegistry), views=1, persisted=false\n",
+  "stderr": "Swift/ErrorType.swift:254: Fatal error: Error raised at top level: Error Domain=matrix Code=1 \"registry-changed\" UserInfo={NSLocalizedDescription=registry-changed}\n"
+}

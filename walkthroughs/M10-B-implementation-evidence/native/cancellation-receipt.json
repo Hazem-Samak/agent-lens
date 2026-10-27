@@ -1,0 +1,13 @@
+{
+  "surface": "CUA delayed external native host; unchanged final product view/Core/AppSupport objects",
+  "delay": "external runner awaits 15s before launching actual view; cancellation returns cancelled",
+  "observed": [
+    "Refresh: Checking busy indicator, Cancel enabled; Rescan/Check/Refresh/Verify disabled",
+    "Cancel: busy ends, all controls reenabled, local1.0.0 retained and Not checked",
+    "second Refresh: same disabled controls; window Close ends app, final CUA observation reports procNotFound"
+  ],
+  "cancelled_delays": 2,
+  "cache_byte_identical": true,
+  "scratch_children": 0,
+  "limits": "Cancellation during real child-process execution is covered by full-suite existing bounded-runner/ownership tests; this native run gates before child launch."
+}

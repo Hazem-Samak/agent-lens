@@ -1,0 +1,58 @@
+build-dev-app: building AgentLensApp with SwiftPM (debug)...
+Building for debugging...
+[Planning deferred tasks]
+[42 / 65]
+[43 / 66] AgentLensCore
+[54 / 135]
+[62 / 135]
+[64 / 135]
+[69 / 135]
+[73 / 135]
+[77 / 135]
+[79 / 135]
+[80 / 135]
+[81 / 135]
+[88 / 135]
+[89 / 135]
+[94 / 135]
+[95 / 135]
+[97 / 135]
+[99 / 135]
+[101 / 135]
+[112 / 135] AgentLensCore
+[113 / 135] AgentLensCore
+[119 / 136]
+[121 / 142] AgentLensAppSupport
+[122 / 142] AgentLensAppSupport
+/Users/corvette/Documents/Projects Coding/Agent Lens/Sources/AgentLensCore/Environment/ShellEnvironmentResolver.swift:114:27: warning: 'init(validatingUTF8:)' is deprecated: replaced by 'String.init(validatingCString:)' [#DeprecatedDeclaration]
+112 |         guard let passwd = getpwuid(getuid()) else { return nil }
+113 |         guard let shell = passwd.pointee.pw_shell else { return nil }
+114 |         let shellString = String(validatingUTF8: shell)
+    |                           |- warning: 'init(validatingUTF8:)' is deprecated: replaced by 'String.init(validatingCString:)' [#DeprecatedDeclaration]
+    |                           `- note: use 'String.init(validatingCString:)' instead
+115 |         guard let shellString, !shellString.isEmpty else { return nil }
+116 |         return shellString
+
+[#DeprecatedDeclaration]: <https://docs.swift.org/compiler/documentation/diagnostics/deprecated-declaration>
+/Users/corvette/Documents/Projects Coding/Agent Lens/Package.swift: AgentLensCore: ld: warning: search path '/Library/Developer/CommandLineTools/Developer/Library/Frameworks' not found
+[136 / 143] AgentLensAppSupport
+/Users/corvette/Documents/Projects Coding/Agent Lens/Package.swift: AgentLensAppSupport: ld: warning: search path '/Library/Developer/CommandLineTools/Developer/Library/Frameworks' not found
+[138 / 143] AgentLensApp-product
+[157 / 205]
+[166 / 205]
+[171 / 205]
+[174 / 205]
+[182 / 205]
+[183 / 205]
+[186 / 205]
+[187 / 205]
+[189 / 205]
+[190 / 205]
+[191 / 205]
+[192 / 205]
+[200 / 205] AgentLensApp-product
+[201 / 205] AgentLensApp-product
+/Users/corvette/Documents/Projects Coding/Agent Lens/Package.swift: AgentLensApp-product: ld: warning: search path '/Library/Developer/CommandLineTools/Developer/usr/lib' not found
+/Users/corvette/Documents/Projects Coding/Agent Lens/Package.swift: AgentLensApp-product: ld: warning: search path '/Library/Developer/CommandLineTools/Developer/Library/Frameworks' not found
+[203 / 205] AgentLensApp-product
+Build complete! (25.24 secs)

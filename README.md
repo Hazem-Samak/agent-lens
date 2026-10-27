@@ -4,7 +4,7 @@ A macOS-native utility that tells you **which AI CLI tools are actually installe
 
 This repository surfaces the diagnostic that no existing tool answers: when multiple copies of an AI CLI exist on your machine, which one wins — and why. See `AGENT_LENS_SCOPE.md` for the full scope and `DECISIONS.md` for settled design decisions.
 
-The [complete application roadmap](ROADMAP.md) maps the remaining work through manager-backed Update/Uninstall, broader tool support, the finished native interface, and signed distribution. **M9 is technically accepted, user-UI-approved, and delivered to `main` (feature commit `eb4f586`, integrated milestone tip `1ac22c4`).** No public app release was published. M10–M19 remain planned, not delivered features.
+The [complete application roadmap](ROADMAP.md) maps the remaining work through manager-backed Update/Uninstall, broader tool support, the finished native interface, and signed distribution. **M9 is technically accepted, user-UI-approved, and delivered to `main` (feature commit `eb4f586`, integrated milestone tip `1ac22c4`).** No public app release was published. M10-A (clean CI and fixture portability) is technically accepted on `codex/m10-npm-management`; M10-B is implemented in the working tree with local checks and independent River DeepSeek review passed; hosted acceptance remains pending. M10-C through M19 remain planned. M10 as a whole is not complete.
 
 ## Build and open the development app
 
@@ -36,7 +36,7 @@ This is still a locally built, unsigned development app: no Agent Lens installer
 ```sh
 agent-lens scan                      # local inventory and PATH diagnostics; no update checks
 agent-lens scan --check-updates      # add update status; uses a valid six-hour cache when present
-agent-lens scan --refresh-updates    # bypass the cache and probe Homebrew again
+agent-lens scan --refresh-updates    # bypass the caches and re-query Homebrew and npm
 agent-lens scan --offline            # local inventory only; no update probe, no cache read
 agent-lens verify-installation codex # explicit read-only ownership check for the selected installation
 agent-lens debug-env                 # show the login-shell environment used for discovery
@@ -54,18 +54,35 @@ Local version measurement executes the discovered tool with its validated litera
 
 ## Update status limitations
 
-- Only **Homebrew formulae** are checked. npm, standalone, and unsupported managers show `unknown`.
+- **Homebrew formulae** and **npm-global** tools are checked. An npm tool is only checked when its
+  installation ownership and its effective registry were verified in the same probe stage; standalone,
+  unsupported managers, and npm tools whose ownership or registry could not be verified show `unknown`.
 - Latest values are **the latest known to Homebrew metadata**, not guaranteed newest upstream releases. The
   checker never runs `brew update`, so the displayed time is the observation time, not an upstream refresh time.
-- Cached metadata is reused for six hours (`~/Library/Caches/AgentLens/update-metadata-v1.json`). The JSON
+- For npm the latest value is the public registry's `dist-tags.latest` for the package recorded by the
+  verified installation, read with a bounded `npm view` against the pinned public registry; prerelease and
+  unsupported version text stays unknown.
+- Homebrew metadata is reused for six hours (`~/Library/Caches/AgentLens/update-metadata-v1.json`). The JSON
   document is schema 3, capped at 1 MiB, and stores only validated successful selected-formula metadata;
   status is recalculated from the current local version and selection. Keys include verified manager,
   formula, selected-target, and probe-context identities; context is stored as a stable digest, not raw
   environment values. Invalid or older-schema documents are cache misses.
+- npm metadata is reused for six hours from a **separate** document
+  (`~/Library/Caches/AgentLens/npm-update-metadata-v1.json`, schema 1, capped at 1 MiB) so an npm result can
+  never be read as, or overwrite, a Homebrew result. Its keys bind the tool, package, registry, tag, verified
+  manager and selected-target paths and fingerprints, installation root, ownership-proof fingerprint and a
+  stable probe-context digest — never raw environment values. Only fully validated successful observations are
+  stored; an ambiguous or unverifiable identity is a cache miss, never a guess, and is repaired only by that
+  tool's own newly verified metadata.
+- The npm registry-config, metadata and version invocations each run with their own private cache and log
+  directory under the app-owned scratch base, and that directory is removed when the invocation returns; npm
+  never writes your own cache or configuration, and no probe reads or writes a project's `node_modules`. If
+  that cleanup cannot be completed safely, the result is reported as unknown instead of being published.
 - Unsupported version formats (dates, `HEAD`, `1.x`, malformed text) remain unknown, keeping the local text.
 - Generic process failures remain `unknown` (`probeFailed`); network or rate-limit reasons are used only
   with explicit policy or typed evidence. No failure is guessed to mean “up to date.”
-- Update checking never installs, upgrades, uninstalls, pins, relinks a tool, or refreshes Homebrew metadata.
+- Update checking never installs, upgrades, uninstalls, pins, relinks a tool, refreshes Homebrew metadata,
+  or changes any npm registry configuration.
 
 ## Tests and fixture safety
 
@@ -125,22 +142,24 @@ stderr in separate receipts, records the producer exit verbatim, and then runs a
 verifier that writes a per-gate metrics JSON. The step's effective exit is the producer's nonzero exit
 unchanged, otherwise the verifier's exit, so a producer failure and a count-verification failure stay
 distinguishable. The verifier fails a gate on absent, zero, under-floor or actually-skipped results: the
-full suite requires two Swift Testing run summaries (`Test run with N tests`) satisfying the Core and
-AppSupport floors and a declared total, plus three named registry/schema/query tests appearing as
-**passed** events; the isolation gate requires at least one case; the guard fixtures require their
-declared floor; packaging requires all nine. XCTest's `Executed 0 tests` wrapper is not counted as Swift
-Testing cases. The summary step reports passed / failed / NOT RUN per gate with executed counts, skipped
-counts, per-gate seconds and an aggregate, and fails when a count-bearing gate is missing evidence.
+full suite accepts either one combined Swift Testing summary with at least 406 tests, or two
+component summaries satisfying the configured Core/AppSupport floors and total. Required named
+registry/schema/query tests must appear as passed events; combined mode additionally checks target
+anchor groups. The isolation gate requires at least one case; guard fixtures require their declared
+floor; packaging requires all nine. XCTest's `Executed 0 tests` wrapper is not counted as Swift
+Testing cases. Failed events, skips and contradictory summaries fail verification.
 
-The two Swift summaries are matched to their floors by observed count, not by position, because the
-emission order of the two targets is not guaranteed; the receipt reports the count that satisfied each
-floor. Summaries are therefore not attributed to a specific target. Parsing reads both captured streams,
-so a future toolchain that multiplexes the summary onto stderr still verifies; a summary split mid-line
-across the two streams would not be rejoined and would fail closed.
+Two component summaries are matched to floors by count, not emission order; they are not attributed
+to a target by position. Combined mode reports only the observed combined count, without inventing
+separate target totals. Parsing searches both captured streams; a summary split mid-line across
+streams fails closed. The summary step reports passed / failed / NOT RUN, counts and elapsed time,
+and fails when required evidence is missing.
 
 Local tooling note (this workstation only, not a supported CI command): where Swift Testing macro
 discovery is intermittent, the invocation-local fallback adds `-Xswiftc -load-plugin-library -Xswiftc
 /Library/Developer/CommandLineTools/usr/lib/swift/host/plugins/testing/libTestingMacros.dylib` together
 with `--build-system swiftbuild`. CI uses native macro discovery and must pass on its own.
 
-The final M9 gate passed all 329 Swift tests with `--no-parallel` and 9 packaging checks; no assertion was loosened or test skipped. An unchanged M6 real-process timing bound had failed under worker parallel load. Those are historical results, not an M10-A pass: hosted CI for this phase is still pending.
+The final M9 gate passed all 329 Swift tests with `--no-parallel` and 9 packaging checks; no assertion was loosened or test skipped. An unchanged M6 real-process timing bound had failed under worker parallel load. Those are historical M9 results. M10-A subsequently passed all seven hosted gates on implementation commit `f442aa2`, including 406 Swift tests and all nine packaging checks; the closeout commit `b667be6` also passed CI. See the [M10-A acceptance record](walkthroughs/M10-A-acceptance.md) and [closeout run](https://github.com/Hazem-Samak/agent-lens/actions/runs/40390296000). M10-B implementation has passed independent local checks and a read-only final review; exact-SHA hosted acceptance remains pending at the recorded local checkpoint.
+
+M10-B planning is [frozen after council review](walkthroughs/M10-B-planning.md). The selected Qwen3.8-Flash/Qoder implementer completed the working-tree candidate; see [coordinator verification](walkthroughs/M10-B-coordinator-verification.md) and the [final review](walkthroughs/M10-B-final-review.md). Hosted acceptance remains pending at this pre-push checkpoint. The [bounded brief](briefs/M10-B-npm-latest.md) covers verified public-npm latest metadata and caching only. The Qwen Flash implementation review is supplemental because it used the implementer’s model/provider. [River Pi DeepSeek V4.1 Flash 1017 independently reviewed and rechecked](walkthroughs/M10-B-river-review-r2.md) the corrected candidate: PASS, no blockers and no required changes. The user’s condition for feature-branch commit/push is satisfied; hosted proof must match the delivered SHA.

@@ -1,0 +1,19 @@
+◇ Test run started.
+↳ Testing Library Version: 2084
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Test everyNpmInvocationOverridesInheritedCacheLogsAndNotifierIncludingFourOwnershipQueries() started.
+✘ Test everyNpmInvocationOverridesInheritedCacheLogsAndNotifierIncludingFourOwnershipQueries() recorded an issue at NpmUpdateProbeTests.swift:1416:5: Expectation failed: Set(roots).count == 8
+↳ Set(roots).count == 8 → false
+↳   Set(roots).count → 6
+✘ Test everyNpmInvocationOverridesInheritedCacheLogsAndNotifierIncludingFourOwnershipQueries() failed after 0.018 seconds with 1 issue.
+◇ Test metadataDeadlineRefusalUsesBudgetReasonWhileTaskCancellationStaysNeutral() started.
+✘ Test metadataDeadlineRefusalUsesBudgetReasonWhileTaskCancellationStaysNeutral() recorded an issue at NpmUpdateProbeTests.swift:1474:9: Expectation failed: npmProbeReason(result.status) == (cancelTask ? .probeFailed : .budgetExhausted)
+↳ npmProbeReason(result.status) == (cancelTask ? .probeFailed : .budgetExhausted) → false
+↳   npmProbeReason(result.status) → .probeFailed
+↳     some → .probeFailed
+↳   (cancelTask ? .probeFailed : .budgetExhausted) → .budgetExhausted
+↳     some → .budgetExhausted
+✘ Test metadataDeadlineRefusalUsesBudgetReasonWhileTaskCancellationStaysNeutral() failed after 0.012 seconds with 1 issue.
+✘ Test run with 2 tests in 0 suites failed after 0.031 seconds with 2 issues.
+Note: Some test targets reported failures:
+  - AgentLensCoreTests (Swift Testing)

@@ -1,0 +1,6 @@
+{
+  "exit": 0,
+  "stdout": "mode: checkUpdates\nscratchBase-before: []\nscratchBase-after: []\nresult: registryID=codex display=Codex local=1.0.0 status=updateAvailable(installed: 1.0.0, latest: 2.0.0) provenance=freshProbe(observedAt: 2026-10-27 18:09:08 +0000) npmPackage=@openai/codex npmRegistry=https://registry.npmjs.org/ npmTag=latest npmVersion=10.9.8\nnpmDocumentExists: true\nnpmSchemaVersion: 1\nnpmEntryCount: 1\nnpmRecord: @openai/codex 2.0.0 tag=latest registry=https://registry.npmjs.org/\nhomebrewDocumentExists: false\npersonalCachesAgentLens: false\n",
+  "stderr": "",
+  "seconds": 1.657829292002134
+}

@@ -1,0 +1,16 @@
+/Users/corvette/Documents/Projects Coding/Agent Lens/Sources/AgentLensCore/Environment/ShellEnvironmentResolver.swift:114:27: warning: 'init(validatingUTF8:)' is deprecated: replaced by 'String.init(validatingCString:)' [#DeprecatedDeclaration]
+112 |         guard let passwd = getpwuid(getuid()) else { return nil }
+113 |         guard let shell = passwd.pointee.pw_shell else { return nil }
+114 |         let shellString = String(validatingUTF8: shell)
+    |                           |- warning: 'init(validatingUTF8:)' is deprecated: replaced by 'String.init(validatingCString:)' [#DeprecatedDeclaration]
+    |                           `- note: use 'String.init(validatingCString:)' instead
+115 |         guard let shellString, !shellString.isEmpty else { return nil }
+116 |         return shellString
+
+[#DeprecatedDeclaration]: <https://docs.swift.org/compiler/documentation/diagnostics/deprecated-declaration>
+/Users/corvette/Documents/Projects Coding/Agent Lens/Package.swift: AgentLensCore: ld: warning: search path '/Library/Developer/CommandLineTools/Developer/Library/Frameworks' not found
+/Users/corvette/Documents/Projects Coding/Agent Lens/Package.swift: agent-lens-product: ld: warning: search path '/Library/Developer/CommandLineTools/Developer/usr/lib' not found
+/Users/corvette/Documents/Projects Coding/Agent Lens/Package.swift: agent-lens-product: ld: warning: search path '/Library/Developer/CommandLineTools/Developer/Library/Frameworks' not found
+/Users/corvette/Documents/Projects Coding/Agent Lens/Package.swift: AgentLensAppSupport: ld: warning: search path '/Library/Developer/CommandLineTools/Developer/Library/Frameworks' not found
+/Users/corvette/Documents/Projects Coding/Agent Lens/Package.swift: AgentLensApp-product: ld: warning: search path '/Library/Developer/CommandLineTools/Developer/usr/lib' not found
+/Users/corvette/Documents/Projects Coding/Agent Lens/Package.swift: AgentLensApp-product: ld: warning: search path '/Library/Developer/CommandLineTools/Developer/Library/Frameworks' not found

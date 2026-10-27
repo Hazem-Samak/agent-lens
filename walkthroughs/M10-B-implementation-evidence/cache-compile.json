@@ -1,0 +1,17 @@
+{
+  "argv": [
+    "swiftc",
+    "-parse-as-library",
+    "-swift-version",
+    "6",
+    "-I",
+    "/private/tmp/agent-lens-m10b-implementation-9jaujmja/parent/qoder-r1-batch3/products/out/Products/Debug",
+    "/private/tmp/agent-lens-m10b-implementation-9jaujmja/parent/qoder-r1-batch3/CacheProbe.swift",
+    "/private/tmp/agent-lens-m10b-implementation-9jaujmja/parent/qoder-r1-batch3/products/out/Products/Debug/AgentLensCore.o",
+    "-o",
+    "/private/tmp/agent-lens-m10b-implementation-9jaujmja/parent/qoder-r1-batch3/CacheProbe"
+  ],
+  "exit": 0,
+  "stdout": "",
+  "stderr": ""
+}

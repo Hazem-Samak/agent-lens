@@ -1,0 +1,11 @@
+#!/usr/bin/python3
+import sys,json,subprocess
+from pathlib import Path
+R=Path('/private/tmp/agent-lens-m10b-implementation-9jaujmja/parent/qoder-r1-batch3/cli-transport')
+a=sys.argv[1:];executed=a[:];is_view='view' in a
+if is_view:
+ assert '--registry=https://registry.npmjs.org/' in a and '--@openai:registry=https://registry.npmjs.org/' in a
+ endpoint=(R.parent/'transport/registry-url.txt').read_text().strip();assert endpoint.startswith('http://127.0.0.1:')
+ executed=[('--registry='+endpoint if x.startswith('--registry=') else '--@openai:registry='+endpoint if x.startswith('--@openai:registry=') else x) for x in a]
+with (R/'argv.jsonl').open('a') as f:f.write(json.dumps({'original':a,'executed':executed,'view':is_view})+'\n')
+sys.exit(subprocess.call(['/Users/corvette/.hermes/node/lib/node_modules/npm/bin/npm-cli.js',*executed]))

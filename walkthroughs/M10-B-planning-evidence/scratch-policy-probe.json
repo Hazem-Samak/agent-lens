@@ -1,0 +1,73 @@
+[
+  {
+    "label": "config",
+    "args": [
+      "config",
+      "get",
+      "registry",
+      "--global",
+      "--cache=/private/tmp/agent-lens-m10b-plan-b7klgulu/scratch-policy-probe/config-on01nh1j",
+      "--logs-dir=/private/tmp/agent-lens-m10b-plan-b7klgulu/scratch-policy-probe/config-on01nh1j/logs",
+      "--no-update-notifier"
+    ],
+    "exit": 0,
+    "stdout": "https://registry.npmjs.org/\n",
+    "stderr": "",
+    "mode": "0o700",
+    "files": [
+      "logs",
+      "logs/2026-10-27T11_37_54_274Z-debug-0.log"
+    ],
+    "displaced_cache_files": [
+      "sentinel"
+    ],
+    "sentinel_unchanged": true,
+    "personal_cache_kernel_denied": "/Users/corvette/.npm",
+    "owned_child_removed": true
+  },
+  {
+    "label": "metadata",
+    "args": [
+      "view",
+      "@openai/codex@latest",
+      "name",
+      "version",
+      "dist-tags.latest",
+      "--json",
+      "--global",
+      "--registry=https://registry.npmjs.org/",
+      "--@openai:registry=https://registry.npmjs.org/",
+      "--prefer-online",
+      "--offline=false",
+      "--fetch-retries=0",
+      "--cache=/private/tmp/agent-lens-m10b-plan-b7klgulu/scratch-policy-probe/metadata-t0j1nveh",
+      "--logs-dir=/private/tmp/agent-lens-m10b-plan-b7klgulu/scratch-policy-probe/metadata-t0j1nveh/logs",
+      "--no-update-notifier"
+    ],
+    "exit": 0,
+    "stdout": "{\n  \"name\": \"@openai/codex\",\n  \"version\": \"0.164.0\",\n  \"dist-tags.latest\": \"0.164.0\"\n}\n",
+    "stderr": "",
+    "mode": "0o700",
+    "files": [
+      "_cacache",
+      "logs",
+      "_cacache/content-v2",
+      "_cacache/tmp",
+      "_cacache/index-v5",
+      "logs/2026-10-27T11_37_54_354Z-debug-0.log",
+      "_cacache/content-v2/sha512",
+      "_cacache/index-v5/f5",
+      "_cacache/index-v5/f5/dc",
+      "_cacache/index-v5/f5/dc/c4e113933dc9336af5ff67031ccabd30b60538026ed131d00e2087f9fd8a",
+      "_cacache/content-v2/sha512/a3",
+      "_cacache/content-v2/sha512/a3/a5",
+      "_cacache/content-v2/sha512/a3/a5/3984e03c236dd2f280e723092d4a48143738e7d3123cf4cd2328d035eefc7c5accfaa25f80178e540555dbcdbfd88f7a435858255c711d46b3399ec82c91"
+    ],
+    "displaced_cache_files": [
+      "sentinel"
+    ],
+    "sentinel_unchanged": true,
+    "personal_cache_kernel_denied": "/Users/corvette/.npm",
+    "owned_child_removed": true
+  }
+]

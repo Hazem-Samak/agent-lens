@@ -387,17 +387,40 @@ public struct ToolDetailView: View {
                     }
 
                     GridRow {
-                        Text("Latest Known Homebrew Metadata")
+                        Text(update.npmPackage != nil
+                             ? "Latest Known npm Metadata"
+                             : "Latest Known Homebrew Metadata")
                             .foregroundColor(.secondary)
                         Text(latestVersionText(update.status))
                             .fontDesign(.monospaced)
+                    }
+
+                    if let package = update.npmPackage {
+                        GridRow(alignment: .top) {
+                            Text("npm Package")
+                                .foregroundColor(.secondary)
+                            Text(package)
+                                .fontDesign(.monospaced)
+                        }
+                        GridRow(alignment: .top) {
+                            Text("npm Registry / Tag")
+                                .foregroundColor(.secondary)
+                            Text("\(update.npmRegistry ?? "—") / \(update.npmTag ?? "—")")
+                                .fontDesign(.monospaced)
+                        }
+                        GridRow(alignment: .top) {
+                            Text("npm Version Observed")
+                                .foregroundColor(.secondary)
+                            Text(update.npmVersion ?? "unknown")
+                                .fontDesign(.monospaced)
+                        }
                     }
 
                     if case .unknown(_, let reason) = update.status {
                         GridRow(alignment: .top) {
                             Text("Reason")
                                 .foregroundColor(.secondary)
-                            Text(plainLanguageReason(reason))
+                            Text(plainLanguageReason(reason, npm: update.npmPackage != nil))
                                 .foregroundColor(.secondary)
                         }
                     }
@@ -411,7 +434,7 @@ public struct ToolDetailView: View {
                         }
                     }
 
-                    if let provenanceText = provenanceDescription(update.provenance) {
+                    if let provenanceText = provenanceDescription(update) {
                         GridRow(alignment: .top) {
                             Text("Provenance")
                                 .foregroundColor(.secondary)
@@ -463,7 +486,7 @@ public struct ToolDetailView: View {
         }
     }
 
-    private func plainLanguageReason(_ reason: UnknownReason) -> String {
+    private func plainLanguageReason(_ reason: UnknownReason, npm: Bool = false) -> String {
         switch reason {
         case .noRegistry:
             "No registry"
@@ -484,7 +507,7 @@ public struct ToolDetailView: View {
         case .unsupportedVersion:
             "Unsupported version format"
         case .managerUnavailable:
-            "Homebrew not available on PATH"
+            npm ? "npm not available on PATH" : "Homebrew not available on PATH"
         case .managerMismatch:
             "Selected executable is not in the Homebrew Cellar"
         case .identityUnverified:
@@ -493,11 +516,32 @@ public struct ToolDetailView: View {
             "PATH diagnostics are inconsistent"
         case .newerThanKnownMetadata:
             "Installed version is newer than known metadata"
+        case .unsupportedRegistry:
+            "Unsupported registry"
+        case .unsupportedChannel:
+            "Unsupported update channel"
+        case .budgetExhausted:
+            "Update stage budget exhausted"
+        case .metadataInvalid:
+            "Invalid metadata"
+        case .queryTimedOut:
+            "Metadata query timed out"
         }
     }
 
-    private func provenanceDescription(_ provenance: UpdateProvenance) -> String? {
-        switch provenance {
+    private func provenanceDescription(_ result: ToolUpdateResult) -> String? {
+        if let package = result.npmPackage, let registry = result.npmRegistry, let tag = result.npmTag {
+            let identity = "npm package \(package), registry \(registry), tag \(tag); npm version \(result.npmVersion ?? "unknown")"
+            switch result.provenance {
+            case .none:
+                return nil
+            case .freshProbe(let observedAt):
+                return "npm metadata (\(identity)); checked at \(formatTimestamp(observedAt))"
+            case .cache(let observedAt):
+                return "npm metadata cache (\(identity)); observed at \(formatTimestamp(observedAt))"
+            }
+        }
+        switch result.provenance {
         case .none:
             return nil
         case .freshProbe(let observedAt):

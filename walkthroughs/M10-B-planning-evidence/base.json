@@ -1,0 +1,11 @@
+{
+  "args": [
+    "config",
+    "get",
+    "registry",
+    "--global"
+  ],
+  "exit": 0,
+  "stdout": "https://registry.npmjs.org/\n",
+  "stderr": ""
+}

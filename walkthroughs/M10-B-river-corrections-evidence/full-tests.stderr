@@ -1,0 +1,51 @@
+Building for debugging...
+[Pre-planning 1 / 211]
+[Planning deferred tasks]
+[23 / 65] AgentLensCore
+[33 / 70] AgentLensAppSupport
+/Users/corvette/Documents/Projects Coding/Agent Lens/Package.swift: agent-lens-product: ld: warning: search path '/Library/Developer/CommandLineTools/Developer/usr/lib' not found
+/Users/corvette/Documents/Projects Coding/Agent Lens/Package.swift: agent-lens-product: ld: warning: search path '/Library/Developer/CommandLineTools/Developer/Library/Frameworks' not found
+[45 / 72] agent-lens-product
+[51 / 90] AgentLensAppSupportTests-product
+[51 / 94]
+[62 / 94] AgentLensCoreTests-product
+/Users/corvette/Documents/Projects Coding/Agent Lens/Package.swift: AgentLensApp-product: ld: warning: search path '/Library/Developer/CommandLineTools/Developer/usr/lib' not found
+/Users/corvette/Documents/Projects Coding/Agent Lens/Package.swift: AgentLensApp-product: ld: warning: search path '/Library/Developer/CommandLineTools/Developer/Library/Frameworks' not found
+[63 / 94] AgentLensCoreTests-product
+[64 / 94] AgentLensAppSupportTests-product
+[65 / 94] AgentLensAppSupportTests-product
+[71 / 94] AgentLensCoreTests-product
+[71 / 94] AgentLensAppSupportTests-product
+[73 / 94] AgentLensAppSupportTests-product
+[74 / 94] AgentLensCoreTests-product
+[75 / 94] AgentLensCoreTests-product
+[80 / 94] AgentLensCoreTests-product
+[81 / 94] AllIncludingTests
+[83 / 95] AgentLensCoreTests-product
+[83 / 95] AgentLensAppSupportTests-product
+[85 / 95] AgentLensCoreTests-product
+/Users/corvette/Documents/Projects Coding/Agent Lens/Package.swift: AgentLensAppSupportTests-product: ld: warning: search path '/Library/Developer/CommandLineTools/Developer/usr/lib' not found
+/Users/corvette/Documents/Projects Coding/Agent Lens/Package.swift: AgentLensAppSupportTests-product: ld: warning: search path '/Library/Developer/CommandLineTools/Developer/Library/Frameworks' not found
+[86 / 95] AgentLensAppSupportTests-product
+[89 / 95] AgentLensCoreTests-product
+/Users/corvette/Documents/Projects Coding/Agent Lens/Tests/AgentLensCoreTests/ShellEnvironmentResolverTests.swift:149:30: warning: '#require(_:_:)' is redundant because 'outcome.dump' never equals 'nil' (from macro 'require')
+147 |     let outcome = ShellEnvironmentResolver.capture(shellPath: "/bin/sh", script: script)
+148 |     #expect(!outcome.timedOut)
+149 |     let dump = try? #require(outcome.dump)
+    |                              `- warning: '#require(_:_:)' is redundant because 'outcome.dump' never equals 'nil' (from macro 'require')
+150 |     #expect(dump?["PATH"] != nil)
+151 |     #expect(dump?["HOME"] != nil)
+
+/Users/corvette/Documents/Projects Coding/Agent Lens/Tests/AgentLensCoreTests/ToolDetectorTests.swift:100:12: warning: 'init(cString:)' is deprecated: Use String(decoding: array, as: UTF8.self) instead, after truncating the null termination. [#DeprecatedDeclaration]
+  98 |     var resolved = [CChar](repeating: 0, count: Int(PATH_MAX))
+  99 |     guard realpath(url.path, &resolved) != nil else { return nil }
+ 100 |     return String(cString: resolved)
+     |            `- warning: 'init(cString:)' is deprecated: Use String(decoding: array, as: UTF8.self) instead, after truncating the null termination. [#DeprecatedDeclaration]
+ 101 | }
+ 102 | 
+
+[#DeprecatedDeclaration]: <https://docs.swift.org/compiler/documentation/diagnostics/deprecated-declaration>
+/Users/corvette/Documents/Projects Coding/Agent Lens/Package.swift: AgentLensCoreTests-product: ld: warning: search path '/Library/Developer/CommandLineTools/Developer/usr/lib' not found
+/Users/corvette/Documents/Projects Coding/Agent Lens/Package.swift: AgentLensCoreTests-product: ld: warning: search path '/Library/Developer/CommandLineTools/Developer/Library/Frameworks' not found
+[91 / 95] AgentLensCoreTests-product
+Build complete! (9.70 secs)

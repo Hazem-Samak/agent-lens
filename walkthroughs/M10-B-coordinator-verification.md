@@ -1,0 +1,59 @@
+# M10-B coordinator verification — final R1 batch3 candidate
+
+Status: independent local checks and controlled runtime checks passed. The Qwen Flash review is supplemental because the implementer used the same model/provider. River Pi DeepSeek V4.1 Flash 1017 required RC1/RC2, then independently rechecked the corrections: PASS, no blockers and no required changes. The user authorized commit/push only if that review finds no blockers or required changes; exact-SHA hosted CI follows that push. This is not full milestone acceptance or Git delivery.
+
+Candidate: uncommitted `codex/m10-npm-management` at baseline `b667be6`. Product/test hashes independently matched every entry in `walkthroughs/M10-B-implementation.md` §4. Frozen brief SHA256 remains `1270cb3dc660195c71e67977f6bbab883e9b0dcbb730e34c484f4c424ec0c35c`.
+
+Evidence root: `/private/tmp/agent-lens-m10b-implementation-9jaujmja/parent/qoder-r1-batch3`.
+
+- Fresh full Swift build/test: exit 0, 105.10s; 395 Core + 71 AppSupport = 466, no failures/skips. Ordinary inherited TMPDIR; both AGENT_LENS_TEST_* overrides unset. Test-only local TestingMacros load-plugin fallback retained exactly in `default-tests.json`; hosted command unchanged.
+- Core UI guard: 28 files clean; all 21 behavior fixtures passed. Whitespace check clean.
+- Fresh ordinary debug-app builder: exit 0, build 25.59s; original 9 packaging checks passed (1.588s).
+- Original independent mixed-valid/invalid cache reproduction recompiled against final Core: before unrelated save miss; unrelated B save true; after unrelated save STILL miss. Raw `cache-probe.json`, source and compile receipt retained.
+- Independently rebuilt external transport harness drives InventoryService -> production coordinator/probe/runner -> real npm10.9.8. Check1 fresh at 16:58:44Z; Check2 cache with same timestamp; Refresh fresh at 16:58:46Z. Exactly 2 view requests; app npm document schema1, one record. Both public registry pins asserted before external loopback substitution. Per-run scratch empty; Homebrew document absent. Original/executed argv in transport/harness-receipts.jsonl. Prepared fixture files were not edited.
+- Controlled native host compiled unchanged product views against final fresh objects. CUA interactions: local launch Not checked; Check fresh (16:58:55Z), second Check cache with same timestamp, Refresh fresh (16:59:10Z); all show local1.0.0/latest2.0.0, @openai/codex, public registry/latest, npm10.9.8, 1 update available. Rescan resets Not checked and clears count. Two native view launches and zero remaining scratch children; raw query and interaction receipts in native/. Screenshots emitted in parent CUA transcript show the update metadata and fresh provenance. Host quit afterward.
+- Ordinary packaged app separately launched with CUA: 3 known/3 installed, Not checked, no Verify/Check/Refresh invoked; screenshot emitted, then quit. This is local startup evidence only, not isolated npm acceptance. Initial sandboxed subprocess stayed running but CUA could not bind it; coordinator terminated that owned process before normal CUA launch. Retained startup stdout/stderr/receipt disclose the failed binding.
+- Loopback server stopped after host/transport checks; no provider-hook configuration changed.
+
+## Final review and runtime closeout
+
+The [fresh read-only Qwen Flash review](M10-B-final-review.md) returned PASS/no material blockers on the pinned candidate. Its findings were adjudicated as follows: the narrow view-cancellation reason-label race remains an explicit nonblocking limitation (neutral failure, no stale publication/cache); dedicated new AppSupport unit cases are unnecessary for the two carried-through arguments because the production service path was exercised with real npm and native views; coordinator-owned stale README/roadmap/brief-index status was corrected after the review. All 12 reviewed source/test hashes remain unchanged. The README snapshot hash in the worker walkthrough is historical, before that status-only correction. Cross-process atomic last-writer cache replacement remains the frozen design's documented boundary; no machine-wide lock is claimed.
+
+Retained receipts and harness sources are now in [implementation evidence](M10-B-implementation-evidence/README.md), with a SHA256 manifest. The separate [review report](M10-B-final-review.md) is preserved verbatim, including its read-only limits. Reviewer inability to execute a runtime check is not evidence that the coordinator did not execute it; the observations below are the coordinator's own work.
+
+| Acceptance item | Coordinator disposition |
+|---|---|
+| AC01 plain/offline/local/rescan | Full-suite mode tests; actual isolated CLI plain/offline; native local launch and Rescan Not checked. External wrapper receives no plain/offline npm commands. |
+| AC02 proof | Existing M9 ownership/adversarial cases all pass unchanged (alias, missing manager-bin, root mismatch, cross-prefix symlink/decoy, manifest/name/bin mismatch, traversal, ancestor replacement, selection/manager retarget, off-PATH/inconsistent selections). M10 tests cover verified later declaration and same-path identity replacement. Additional compiled matrix directly proves selected prefix A cannot borrow manager prefix B: zero view/cache. |
+| AC03 registry | Unit refusal/pinning/final-live gates; actual CLI with real npm refuses custom user-scope, global-base and environment-base routes with zero view requests, while project base/scope overrides are ignored in global mode. Direct scoped-env npm10/npm11 precedence remains measured in planning receipts. External matrix covers custom base + public scope, credential URL and final registry change; final change refuses without publication/cache. |
+| AC04 metadata | Real npm flat payload accepted through production parser. Unit cases plus compiled matrix reject extra/nested/mismatched keys, multiple JSON objects, array, wrong value type, invalid UTF8 and oversize output. Controlled registry latest2.0.0 is selected over next3.0.0-beta.1. |
+| AC05 versions | Full strict SemVer/comparison suite, including comparator-only +build; compiled matrix covers stable, prerelease-installed -> stable latest, latest prerelease refusal, enormous numeric component, ahead and malformed version. No unsupported result persisted. |
+| AC06 cache | Full cache/probe regressions plus independent original contamination reproduction and real npm fresh/cache/fresh flow; second Check retains timestamp and omits view. Homebrew sibling unchanged; typed misses, TTL/identity checks and merge/prune remain covered. |
+| AC07 lifecycle | Coordinator tests prove one cross-manager admission, Homebrew first with retained result after npm exhaustion, clipped deadlines, cancellation and exact permit release. Native delayed external runner shows Checking/Cancel, disabled concurrent Rescan/Check/Refresh/Verify controls, successful Cancel and window Close. Both cancellations preserve cache byte-for-byte and leave scratch empty. Real child-process cancellation/overflow bounds are exercised by existing full-suite runner/ownership tests; native delay itself occurs before child launch. |
+| AC08 CLI/native | Actual CLI Check and Refresh now use real npm via an external transport wrapper asserting both public pins. Output matches native controlled fixture: local1.0.0/latest2.0.0, public npm @openai/codex/latest, npm10.9.8, one update. CLI personal caches are sandbox-denied, so CLI cache reuse is not claimed; injected native/service flow proves it. Native screenshots and interaction receipts plus separate ordinary packaged startup are recorded. |
+| AC09 actual npm/isolation | Real npm10.9.8 controlled reads, public-pin original/executed argv, config precedence, per-query scratch removal; no personal install/config/cache mutation. Owned servers/apps stopped. Unrelated sentinel retains its original literal fixture content. |
+| AC10 regression | Fresh 466 tests, 21 guard fixtures, fresh debug build and 9 original packaging checks all pass; no product change after final review/test candidate. |
+| AC11 scope/hosted | Baseline file fingerprint comparison and final reviewer confirm protected scope unchanged; all 12 source/test candidate hashes retained. Hosted all-seven exact-SHA gates remain PENDING until user authorizes commit and push. |
+
+Harness failures are retained rather than retried away: sandbox-denied prepared Node alias (external physical alias fixed); mistaken expected final-registry error reason (actual unsupportedRegistry is correct); scoped environment injection through login capture did not create the intended route and is excluded from passing CLI config evidence. See evidence README. These required no product, shell-capture, policy or protected-file edits.
+
+Local implementation/runtime verification and final review are complete. Full milestone acceptance still requires exact-SHA all-seven hosted CI. No commit/push/PR/main merge/release was performed; M10-C/D and release remain separate.
+
+
+## Review independence correction and conditional Git authorization
+
+The coordinator initially treated a fresh Qwen Flash session as the independent review gate. The user challenged that because implementation used the same model/provider. That review remains supplemental evidence only; it does not satisfy the reopened independent review gate. The user now explicitly selects River Pi DeepSeek V4.1 Flash 1017 for implementation review and authorizes commit/push only if it reports no blockers or required changes. No MiniMax or Qwen Max review is being commissioned. Product candidate remains unchanged; hosted exact-SHA gates remain pending.
+
+
+## Latest checkpoint — River corrections
+
+RC1/RC2 have been corrected directly by the coordinator and validated with fresh468 Swift tests, guard21, fresh debug build and packaging9. See `walkthroughs/M10-B-river-corrections.md` and its retained raw receipts, including the reproduced red failure. Fresh real-npm/service/actual-CLI/native Check/cache/Refresh and ordinary packaged startup checks passed against corrected objects. The original final-review reports are historical and unchanged. River recheck remains the independent gate; conditional commit/push has not been exercised.
+
+
+## Independent review approval and Git authorization — pre-push checkpoint
+
+[River R2](M10-B-river-review-r2.md) returned PASS/no blockers/no required changes and verified all249 pinned candidate files, the unchanged frozen brief, the two-file code delta, both required regressions and all retained final gate receipts. The coordinator accepts RC1/RC2 as closed. River’s optional ownership-stage generic failure labeling is accepted within the frozen M9-verifier boundary: no wrong metadata/publication/cache claim occurs, and this milestone does not expand the existing ownership error vocabulary. Other optional cost/TMPDIR/timing-test observations remain disclosed in the unedited report.
+
+The user authorized commit and push if this exact reviewer found no blockers or required changes; that condition is now satisfied. Before adding this approval report/status-only documentation, the coordinator rehashed the full249-file reviewed candidate: zero mismatches. Product/test bytes remain unchanged after review. The next action is normal commit/push to codex/m10-npm-management; no PR/main merge/release is authorized. Hosted all-seven exact-SHA acceptance remains pending at this checkpoint, to be verified against the pushed implementation commit.
+
+Staging the previously untracked raw receipts exposed compiler-echoed trailing whitespace in four stderr files. Their bytes are preserved exactly as reviewed; directory-local `.gitattributes` excludes only retained `*.stderr` artifacts from whitespace linting. Source/test whitespace checks remain enabled. Evidence manifests include these scoped artifact-format files; no product/test bytes changed.

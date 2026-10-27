@@ -1,0 +1,192 @@
+[
+  {
+    "case": "user-base",
+    "commands": [
+      {
+        "args": [
+          "config",
+          "get",
+          "registry",
+          "--global"
+        ],
+        "exit": 0,
+        "stdout": "http://127.0.0.1:64380/user/\n",
+        "stderr": ""
+      },
+      {
+        "args": [
+          "config",
+          "get",
+          "@openai:registry",
+          "--global"
+        ],
+        "exit": 0,
+        "stdout": "undefined\n",
+        "stderr": ""
+      },
+      {
+        "args": [
+          "view",
+          "@openai/codex@latest",
+          "name",
+          "version",
+          "dist-tags.latest",
+          "--json",
+          "--global",
+          "--registry=https://registry.npmjs.org/",
+          "--prefer-online",
+          "--offline=false",
+          "--fetch-retries=0",
+          "--fetch-timeout=10000"
+        ],
+        "exit": 0,
+        "stdout": "{\n  \"name\": \"@openai/codex\",\n  \"version\": \"0.164.0\",\n  \"dist-tags.latest\": \"0.164.0\"\n}\n",
+        "stderr": ""
+      }
+    ],
+    "controlled_hits": []
+  },
+  {
+    "case": "project-base",
+    "commands": [
+      {
+        "args": [
+          "config",
+          "get",
+          "registry",
+          "--global"
+        ],
+        "exit": 0,
+        "stdout": "https://registry.npmjs.org/\n",
+        "stderr": ""
+      },
+      {
+        "args": [
+          "config",
+          "get",
+          "@openai:registry",
+          "--global"
+        ],
+        "exit": 0,
+        "stdout": "undefined\n",
+        "stderr": ""
+      },
+      {
+        "args": [
+          "view",
+          "@openai/codex@latest",
+          "name",
+          "version",
+          "dist-tags.latest",
+          "--json",
+          "--global",
+          "--registry=https://registry.npmjs.org/",
+          "--prefer-online",
+          "--offline=false",
+          "--fetch-retries=0",
+          "--fetch-timeout=10000"
+        ],
+        "exit": 0,
+        "stdout": "{\n  \"name\": \"@openai/codex\",\n  \"version\": \"0.164.0\",\n  \"dist-tags.latest\": \"0.164.0\"\n}\n",
+        "stderr": ""
+      }
+    ],
+    "controlled_hits": []
+  },
+  {
+    "case": "user-scope",
+    "commands": [
+      {
+        "args": [
+          "config",
+          "get",
+          "registry",
+          "--global"
+        ],
+        "exit": 0,
+        "stdout": "https://registry.npmjs.org/\n",
+        "stderr": ""
+      },
+      {
+        "args": [
+          "config",
+          "get",
+          "@openai:registry",
+          "--global"
+        ],
+        "exit": 0,
+        "stdout": "http://127.0.0.1:64380/user-scope/\n",
+        "stderr": ""
+      },
+      {
+        "args": [
+          "view",
+          "@openai/codex@latest",
+          "name",
+          "version",
+          "dist-tags.latest",
+          "--json",
+          "--global",
+          "--registry=https://registry.npmjs.org/",
+          "--prefer-online",
+          "--offline=false",
+          "--fetch-retries=0",
+          "--fetch-timeout=10000"
+        ],
+        "exit": 0,
+        "stdout": "{\n  \"name\": \"@openai/codex\",\n  \"version\": \"1.2.3\",\n  \"dist-tags.latest\": \"1.2.3\"\n}\n",
+        "stderr": ""
+      }
+    ],
+    "controlled_hits": [
+      "/user-scope/@openai%2fcodex"
+    ]
+  },
+  {
+    "case": "project-scope",
+    "commands": [
+      {
+        "args": [
+          "config",
+          "get",
+          "registry",
+          "--global"
+        ],
+        "exit": 0,
+        "stdout": "https://registry.npmjs.org/\n",
+        "stderr": ""
+      },
+      {
+        "args": [
+          "config",
+          "get",
+          "@openai:registry",
+          "--global"
+        ],
+        "exit": 0,
+        "stdout": "undefined\n",
+        "stderr": ""
+      },
+      {
+        "args": [
+          "view",
+          "@openai/codex@latest",
+          "name",
+          "version",
+          "dist-tags.latest",
+          "--json",
+          "--global",
+          "--registry=https://registry.npmjs.org/",
+          "--prefer-online",
+          "--offline=false",
+          "--fetch-retries=0",
+          "--fetch-timeout=10000"
+        ],
+        "exit": 0,
+        "stdout": "{\n  \"name\": \"@openai/codex\",\n  \"version\": \"0.164.0\",\n  \"dist-tags.latest\": \"0.164.0\"\n}\n",
+        "stderr": ""
+      }
+    ],
+    "controlled_hits": []
+  }
+]
