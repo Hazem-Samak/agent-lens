@@ -1,0 +1,53 @@
+{
+  "gate": "full-test-suite",
+  "kind": "swift",
+  "expected_floor": 406,
+  "target_floors": [
+    {
+      "label": "Core",
+      "floor": 335
+    },
+    {
+      "label": "AppSupport",
+      "floor": 71
+    }
+  ],
+  "parsed": {
+    "kind": "swift",
+    "summaries": [
+      {
+        "tests": 468,
+        "suites": 5,
+        "verdict": "passed"
+      }
+    ],
+    "totals": [
+      468
+    ],
+    "layout": "combined",
+    "target_matches": [
+      {
+        "label": "combined(Core+AppSupport)",
+        "floor": 406,
+        "matched_count": 468,
+        "satisfied": true
+      }
+    ],
+    "passed_event_count": 434,
+    "failure_event_count": 0,
+    "issue_event_count": 0,
+    "executed_zero_lines": [],
+    "skipped": 0,
+    "stream_bytes": {
+      "stdout": 81072,
+      "stderr": 118
+    }
+  },
+  "skipped": 0,
+  "producer_exit": 0,
+  "verification_exit": 0,
+  "effective_exit": 0,
+  "elapsed_seconds": 60.437,
+  "verification_problems": [],
+  "verified_at": "2026-10-27T18:21:58Z"
+}

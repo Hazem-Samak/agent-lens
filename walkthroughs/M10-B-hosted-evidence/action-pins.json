@@ -1,0 +1,14 @@
+{
+  "pinned_actions": {
+    "checkout": {
+      "uses": "actions/checkout",
+      "ref": "v5.1.0",
+      "sha": "fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09"
+    },
+    "upload-artifact": {
+      "uses": "actions/upload-artifact",
+      "ref": "v4.6.2",
+      "sha": "ea165f8d65b6e75b540449e92b4886f43607fa02"
+    }
+  }
+}

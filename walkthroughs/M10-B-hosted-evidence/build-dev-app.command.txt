@@ -1,0 +1,6 @@
+gate: build-dev-app
+argv: ["python3", "scripts/build-dev-app.py", "--scratch-root", "/Users/runner/work/_temp/dev-app", "--configuration", "debug"]
+cwd: /Users/runner/work/agent-lens/agent-lens
+started_epoch: 1793125318
+elapsed_seconds: 23.922
+producer_exit: 0

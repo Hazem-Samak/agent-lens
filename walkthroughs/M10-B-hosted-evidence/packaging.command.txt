@@ -1,0 +1,6 @@
+gate: packaging
+argv: ["python3", "Tests/Packaging/test_dev_app_bundle.py", "--app", "/Users/runner/work/_temp/dev-app/AgentLensApp-debug.app"]
+cwd: /Users/runner/work/agent-lens/agent-lens
+started_epoch: 1793125343
+elapsed_seconds: 0.532
+producer_exit: 0

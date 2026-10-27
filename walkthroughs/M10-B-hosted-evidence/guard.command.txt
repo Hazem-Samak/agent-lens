@@ -1,0 +1,6 @@
+gate: guard
+argv: ["python3", "scripts/check-core-ui-imports.py"]
+cwd: /Users/runner/work/agent-lens/agent-lens
+started_epoch: 1793125175
+elapsed_seconds: 0.299
+producer_exit: 0
