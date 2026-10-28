@@ -307,3 +307,16 @@ See `AGENT_LENS_SCOPE.md` §15 for the authoritative list.
 M6 preserves local detection and adds an opt-in, asynchronous, tri-state update result based on the selected installation and verified Homebrew formula metadata. The adapter supports formulae only and runs at most three bounded queries per eligible batch; it does not run `brew update` or perform package operations. Unsupported managers, unsupported version schemes, and opaque process failures remain neutral `unknown` results. Only verified successful metadata is cached, in schema 3 with a six-hour TTL and a 1 MiB limit; the cache is keyed by full manager/formula/selection/context identity and does not store raw environment values. Status is recomputed from current local facts on every run.
 
 **Consequence:** latest means latest known to Homebrew metadata at observation time, not a guarantee of the newest upstream release. npm, standalone, cask, uv/pip, and Cargo adapters remain outside M6. M7 subsequently consumed this same contract without extending manager support; see the delivered M7 milestone above.
+
+---
+
+## D-020 — Value-first delivery order and lean planning
+
+**Status:** settled (2026-10-28, after M10-B)
+**Source:** `AGENT_LENS_SCOPE.md` §7, §9, §25, §28.2, §29.4–5; `ROADMAP.md` (2026-10-28 revision)
+
+The future execution order is **M10 npm management → M11 original catalogue/contributor foundation → M12 complete native diagnostic and operation workflow → M13 Homebrew → M14 Python → M15 Cargo → M16 cached launch/menu bar → M17 bundled CLI → M18 release candidate → M19 signed distribution**. This supersedes only the future ordering in the 2026-10-22 roadmap; historical milestone IDs, briefs, and acceptance evidence remain unchanged.
+
+**Rationale:** the previous order delivered three additional manager tracks before broad detection and the complete diagnostic UI. That delayed the product's primary value and user-testable progress. The revised order proves one safe mutation lifecycle, expands diagnostic coverage, completes the native workflow, and then reuses that workflow for the remaining managers.
+
+**Consequence:** catalogue entries whose manager adapters do not yet exist remain informational or disabled with a truthful reason. The outstanding M8 keyboard-only Copy/Reveal check becomes a required M12 acceptance gate. Planning changes require no council or implementer; independent orchestrator acceptance and risk-based read-only review for high-risk implementation remain mandatory.
