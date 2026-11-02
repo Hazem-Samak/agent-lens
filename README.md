@@ -52,6 +52,16 @@ when available, while `--refresh-updates` bypasses it.
 
 Local version measurement executes the discovered tool with its validated literal argument array. Diagnostic scans query each canonical target at most once, sequentially, with up to 3 seconds per query and a 10-second monotonic aggregate probe budget per tool. Remaining targets stay visible as budget-exhausted unknowns. Process cleanup and filesystem work can extend wall time; this is not an atomic filesystem freeze. A detected identity change invalidates the value, and a changed selected executable cannot retain a known selected version.
 
+## Confirmed npm Update
+
+For a selected, verified **npm-global** installation whose current status is `update available`, the native app can prepare a fresh exact update preview. Preparation re-verifies ownership, the public npm route, and the current `latest` metadata without reading or writing the update cache. The preview shows the installed and exact target versions, package, registry/tag, manager, prefix, working directory, effect, and literal argv.
+
+Cancel releases the owned operation scratch with no process. Confirm performs a fresh local scan plus complete ownership/registry/metadata and operation-root revalidation, then runs one exact-version global install with the verified manager. Lifecycle scripts may run under npm policy; Agent Lens does not sandbox them and claims no rollback or atomicity. After any launched operation the app rescans locally and verifies the resulting installation; exit zero alone is not success. stdout and stderr remain separate, bounded, and in memory.
+
+There is no update mutation CLI command. Update remains unavailable for Homebrew, standalone, ambiguous, unverified, custom-registry, prerelease, non-newer, or offline cases.
+
+Implementation and local verification evidence: [M10-C implementation](walkthroughs/M10-C-implementation.md).
+
 ## Update status limitations
 
 - **Homebrew formulae** and **npm-global** tools are checked. An npm tool is only checked when its
@@ -107,6 +117,13 @@ python3 Tests/Packaging/test_dev_app_bundle.py --app <fresh-root>/AgentLensApp-d
 `--no-parallel` keeps the real-process timing bounds meaningful. The Core/UI guard exits nonzero on a
 forbidden import and reports path and line; `--source-root` lets its fixtures inspect a disposable copy
 instead of the real `Sources/AgentLensCore`.
+
+The login-shell capture probe runs as `-l -i +m -c` so login and interactive startup still load the
+shell rc files, while interactive job control cannot make the probe stop on terminal job-control
+signals when the CLI is launched from a terminal. The suite includes a `/usr/bin/script`-backed PTY
+regression for the production capture seam in `ShellEnvironmentResolverTests`. When changing shell
+capture, run the full suite both normally and from a controlling terminal; the terminal-context
+baseline repair evidence is in [M10-C-R1](walkthroughs/M10-C-R1-baseline-repair.md).
 
 ### Default TMPDIR and the two overrides
 

@@ -167,3 +167,141 @@ private func resolverFixtureRoot() throws -> URL {
     let environmentIsDegraded = environment.isDegraded
     #expect(environmentIsDegraded, "failed shell capture must use degraded fallback")
 }
+
+// MARK: Terminal-context production-seam regression
+
+private struct BoundedFixtureProcessResult {
+    let status: Int32
+    let stdout: String
+    let stderr: String
+}
+
+private func waitForFixtureProcess(_ process: Process, budget: TimeInterval) -> Bool {
+    let deadline = Date().addingTimeInterval(budget)
+    while process.isRunning {
+        if Date() >= deadline { return false }
+        Thread.sleep(forTimeInterval: 0.02)
+    }
+    return true
+}
+
+/// Runs a bounded fixture process with file capture. This deliberately uses `/usr/bin/script`
+/// from the regression below to give the child a controlling terminal without forking inside the
+/// Swift test process.
+private func runBoundedFixtureProcess(
+    executable: String,
+    arguments: [String],
+    environment: [String: String]?,
+    captureDirectory: URL,
+    label: String,
+    budget: TimeInterval
+) throws -> BoundedFixtureProcessResult {
+    let stdoutURL = captureDirectory.appendingPathComponent("stdout-\(label)-\(UUID().uuidString).txt")
+    let stderrURL = captureDirectory.appendingPathComponent("stderr-\(label)-\(UUID().uuidString).txt")
+    FileManager.default.createFile(atPath: stdoutURL.path, contents: nil)
+    FileManager.default.createFile(atPath: stderrURL.path, contents: nil)
+
+    let process = Process()
+    process.executableURL = URL(fileURLWithPath: executable)
+    process.arguments = arguments
+    if let environment { process.environment = environment }
+    process.currentDirectoryURL = captureDirectory
+    process.standardInput = FileHandle.nullDevice
+    let outHandle = try FileHandle(forWritingTo: stdoutURL)
+    let errHandle = try FileHandle(forWritingTo: stderrURL)
+    process.standardOutput = outHandle
+    process.standardError = errHandle
+    defer {
+        try? outHandle.close()
+        try? errHandle.close()
+    }
+
+    try process.run()
+    if !waitForFixtureProcess(process, budget: budget) {
+        process.terminate()
+        if !waitForFixtureProcess(process, budget: 2) {
+            _ = kill(process.processIdentifier, SIGKILL)
+            _ = waitForFixtureProcess(process, budget: 2)
+        }
+        throw NSError(domain: "AgentLensResolverTests", code: 20, userInfo: [
+            NSLocalizedDescriptionKey: "\(executable) exceeded its \(budget)s watchdog",
+        ])
+    }
+    process.waitUntilExit()
+
+    return BoundedFixtureProcessResult(
+        status: process.terminationStatus,
+        stdout: String(decoding: try Data(contentsOf: stdoutURL), as: UTF8.self),
+        stderr: String(decoding: try Data(contentsOf: stderrURL), as: UTF8.self)
+    )
+}
+
+/// Proves the production `capture` seam is safe when the CLI itself is launched from a terminal.
+/// `/usr/bin/script` supplies the controlling terminal; the helper calls the real resolver rather
+/// than reproducing shell launch flags in the test. It must observe the exact closed fixture PATH
+/// for both supported login-shell families, without terminal job-control interaction.
+@Test func ptyProductionCaptureUsesFixturePathForSupportedLoginShells() throws {
+    let root = try resolverFixtureRoot()
+    defer { try? FileManager.default.removeItem(at: root) }
+    let home = root.appendingPathComponent("home", isDirectory: true)
+    let zdot = root.appendingPathComponent("zdot", isDirectory: true)
+    let bin = root.appendingPathComponent("fixture-bin", isDirectory: true)
+    for directory in [home, zdot, bin] {
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+    }
+
+    let expectedPath = ([bin.path] + ["/usr/bin", "/bin"]).joined(separator: ":")
+    let payload = Data("export PATH='\(expectedPath)'\n".utf8)
+    try payload.write(to: zdot.appendingPathComponent(".zshrc"))
+    try payload.write(to: home.appendingPathComponent(".bash_profile"))
+
+    let source = root.appendingPathComponent("pty-capture-probe.swift")
+    let helper = root.appendingPathComponent("pty-capture-probe")
+    let helperSource = #"""
+    import AgentLensCore
+    import Darwin
+
+    let shell = CommandLine.arguments[1]
+    let outcome = ShellEnvironmentResolver.capture(shellPath: shell)
+    let environment = ShellEnvironmentResolver.buildEnvironment(shellPath: shell, outcome: outcome)
+    print("tty=\(isatty(0))")
+    print("degraded=\(environment.isDegraded)")
+    print("path=\(environment.pathJoined)")
+    """#
+    try Data(helperSource.utf8).write(to: source)
+
+    let products = try agentLensCoreProducts()
+    let compile = try runBoundedFixtureProcess(
+        executable: "/usr/bin/swiftc",
+        arguments: agentLensCoreCompileArguments(for: products) + [source.path, "-o", helper.path],
+        environment: nil,
+        captureDirectory: root,
+        label: "pty-capture-compile",
+        budget: 60
+    )
+    #expect(compile.status == 0, "PTY helper compilation failed: \(compile.stderr)")
+    guard compile.status == 0 else { return }
+
+    for shell in ["/bin/zsh", "/bin/bash"] {
+        let shellName = (shell as NSString).lastPathComponent
+        let result = try runBoundedFixtureProcess(
+            executable: "/usr/bin/script",
+            arguments: ["-q", "/dev/null", helper.path, shell],
+            environment: ["HOME": home.path, "ZDOTDIR": zdot.path, "PATH": "/usr/bin:/bin"],
+            captureDirectory: root,
+            label: "pty-capture-\(shellName)",
+            budget: 15
+        )
+        #expect(result.status == 0, "\(shell) PTY helper exited \(result.status): \(result.stderr)")
+        let normalized = result.stdout
+            .replacingOccurrences(of: "\r\n", with: "\n")
+            .replacingOccurrences(of: "\r", with: "\n")
+        let lines = normalized.split(separator: "\n", omittingEmptySubsequences: false).map(String.init)
+        #expect(lines.contains(where: { $0.hasSuffix("tty=1") }),
+                "\(shell) did not observe a controlling terminal: \(result.stdout)")
+        #expect(lines.contains("degraded=false"),
+                "\(shell) capture degraded in PTY: \(result.stdout)")
+        #expect(lines.contains("path=\(expectedPath)"),
+                "\(shell) fixture PATH missing or not an exact line: \(result.stdout)")
+    }
+}

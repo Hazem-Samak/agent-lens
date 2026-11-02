@@ -1317,7 +1317,7 @@ private let emptyOutdated = #"{"formulae":[],"casks":[]}"#
         guard fileManager.isExecutableFile(atPath: shell) else { throw isolationBlocker() }
         let result = try runCaptured(
             executable: sandboxExec,
-            arguments: ["-p", profile, shell, "-l", "-i", "-c", "/usr/bin/printf '%s\\n' \"$PATH\""],
+            arguments: ["-p", profile, shell, "-l", "-i", "+m", "-c", "/usr/bin/printf '%s\\n' \"$PATH\""],
             environment: ["HOME": home.path, "ZDOTDIR": zdotdir.path, "PATH": "/usr/bin:/bin"],
             captureDirectory: home,
             label: "login-shell-\((shell as NSString).lastPathComponent)",

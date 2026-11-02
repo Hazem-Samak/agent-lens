@@ -1,0 +1,35 @@
+◇ Test run started.
+↳ Testing Library Version: 2084
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Test ptyProductionCaptureUsesFixturePathForSupportedLoginShells() started.
+core-probe: layout=aggregate root=/private/tmp/agent-lens-m10c-acceptance.TcBGo0/parent/default-suite-explicit/out/Products/Debug module=/private/tmp/agent-lens-m10c-acceptance.TcBGo0/parent/default-suite-explicit/out/Products/Debug objects=1 compiler=/usr/bin/swiftc
+✘ Test ptyProductionCaptureUsesFixturePathForSupportedLoginShells() recorded an issue at ShellEnvironmentResolverTests.swift:297:9: Expectation failed: !result.stdout.contains("degraded=true")
+↳ /bin/zsh capture degraded in PTY: ^Dtty=1
+  degraded=true
+  path=/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin
+  
+↳ !result.stdout.contains("degraded=true") → true
+↳   result.stdout.contains("degraded=true") → false
+↳     result.stdout → "^Dtty=1
+      degraded=true
+      path=/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin
+      "
+✘ Test ptyProductionCaptureUsesFixturePathForSupportedLoginShells() recorded an issue at ShellEnvironmentResolverTests.swift:298:9: Expectation failed: result.stdout.contains("path=\(expectedPath)")
+↳ /bin/zsh fixture PATH missing: ^Dtty=1
+  degraded=true
+  path=/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin
+  
+↳ result.stdout.contains("path=\(expectedPath)") → false
+↳   result.stdout → "^Dtty=1
+    degraded=true
+    path=/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin
+    "
+↳   "path=\(expectedPath)" → "path=/var/folders/tf/jsdyxcts6y72fs98s7wl3dfm0000gn/T/agentlens-resolver-881397B4-88BB-48E5-90D4-FA20EA4FCDF8/fixture-bin:/usr/bin:/bin"
+✘ Test ptyProductionCaptureUsesFixturePathForSupportedLoginShells() failed after 3.637 seconds with 2 issues.
+↳ /// Proves the production `capture` seam is safe when the CLI itself is launched from a terminal.
+↳ /// `/usr/bin/script` supplies the controlling terminal; the helper calls the real resolver rather
+↳ /// than reproducing shell launch flags in the test. It must observe the exact closed fixture PATH
+↳ /// for both supported login-shell families, without terminal job-control interaction.
+✘ Test run with 1 test in 0 suites failed after 3.638 seconds with 2 issues.
+Note: Some test targets reported failures:
+  - AgentLensCoreTests (Swift Testing)

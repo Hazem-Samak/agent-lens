@@ -1,0 +1,74 @@
+[
+  {
+    "gate": "rev-targeted-pty-regression",
+    "argv": [
+      "swift",
+      "test",
+      "--build-system",
+      "swiftbuild",
+      "--scratch-path",
+      "/private/tmp/agent-lens-m10c-acceptance.TcBGo0/parent/default-suite-explicit",
+      "--no-parallel",
+      "-Xswiftc",
+      "-load-plugin-library",
+      "-Xswiftc",
+      "/Library/Developer/CommandLineTools/usr/lib/swift/host/plugins/testing/libTestingMacros.dylib",
+      "--filter",
+      "ptyProductionCaptureUsesFixturePathForSupportedLoginShells"
+    ],
+    "exit": 0,
+    "timed_out": false,
+    "elapsed": 3.741,
+    "stdout": "/private/tmp/agent-lens-m10c-acceptance.TcBGo0/parent/rev-targeted-pty-regression.stdout",
+    "stderr": "/private/tmp/agent-lens-m10c-acceptance.TcBGo0/parent/rev-targeted-pty-regression.stderr"
+  },
+  {
+    "gate": "rev-suite-notty",
+    "argv": [
+      "swift",
+      "test",
+      "--build-system",
+      "swiftbuild",
+      "--scratch-path",
+      "/private/tmp/agent-lens-m10c-acceptance.TcBGo0/parent/default-suite-explicit",
+      "--no-parallel",
+      "-Xswiftc",
+      "-load-plugin-library",
+      "-Xswiftc",
+      "/Library/Developer/CommandLineTools/usr/lib/swift/host/plugins/testing/libTestingMacros.dylib"
+    ],
+    "exit": 0,
+    "timed_out": false,
+    "elapsed": 75.176,
+    "stdout": "/private/tmp/agent-lens-m10c-acceptance.TcBGo0/parent/rev-suite-notty.stdout",
+    "stderr": "/private/tmp/agent-lens-m10c-acceptance.TcBGo0/parent/rev-suite-notty.stderr"
+  },
+  {
+    "gate": "rev-suite-pty",
+    "argv": [
+      "/usr/bin/script",
+      "-q",
+      "/dev/null",
+      "/bin/sh",
+      "/private/tmp/agent-lens-m10c-acceptance.TcBGo0/parent/revision_suite_pty.sh"
+    ],
+    "exit": 0,
+    "timed_out": false,
+    "elapsed": 71.297,
+    "stdout": "/private/tmp/agent-lens-m10c-acceptance.TcBGo0/parent/rev-suite-pty.stdout",
+    "stderr": "/private/tmp/agent-lens-m10c-acceptance.TcBGo0/parent/rev-suite-pty.stderr"
+  },
+  {
+    "gate": "rev-diff-check",
+    "argv": [
+      "git",
+      "diff",
+      "--check"
+    ],
+    "exit": 0,
+    "timed_out": false,
+    "elapsed": 0.022,
+    "stdout": "/private/tmp/agent-lens-m10c-acceptance.TcBGo0/parent/rev-diff-check.stdout",
+    "stderr": "/private/tmp/agent-lens-m10c-acceptance.TcBGo0/parent/rev-diff-check.stderr"
+  }
+]

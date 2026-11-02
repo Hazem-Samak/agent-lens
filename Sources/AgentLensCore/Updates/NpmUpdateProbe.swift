@@ -90,6 +90,15 @@ enum NpmMetadataSemantics {
 /// The only accepted public npm registry base, with a trailing slash (the normalized form).
 private let acceptedRegistry = NpmMetadataSemantics.acceptedRegistry
 
+/// Resolves a captured login-shell `TMPDIR` for the M10-C operation's owned scratch context.
+/// A missing value keeps the historical Foundation fallback; an explicit value is validated by
+/// `NpmScratchBase` by the operation before any process starts. M10-B `run` does not use this
+/// helper, so Check/Refresh defaults remain unchanged.
+func capturedTemporaryDirectory(_ environment: ShellEnvironment) -> URL? {
+    guard let value = environment.raw["TMPDIR"], value.hasPrefix("/") else { return nil }
+    return URL(fileURLWithPath: value, isDirectory: true)
+}
+
 /// npm metadata query timeout, seconds.
 private let npmMetadataTimeout: TimeInterval = 20
 /// npm registry config query timeout, seconds.
@@ -108,7 +117,7 @@ private let npmVolatileEnvironmentKeys: Set<String> = [
 ]
 
 /// Strictly parsed `npm view @latest` output: one flat object with the three measured keys.
-private struct NpmViewOutput: Equatable, Sendable {
+struct NpmViewOutput: Equatable, Sendable {
     let name: String
     let version: String
     let distTagsLatest: String
@@ -172,7 +181,7 @@ private func normalizeAndValidateRegistry(_ value: String) -> String? {
 }
 
 /// The scope component of an npm package name, when it is scoped (`@scope/name`).
-private func scopeOf(_ packageName: String) -> String? {
+func scopeOf(_ packageName: String) -> String? {
     let components = packageName.split(separator: "/", omittingEmptySubsequences: false)
     guard components.count == 2, let first = components.first, first.hasPrefix("@") else {
         return nil
@@ -315,7 +324,7 @@ private func metadataArguments(
 /// case-insensitive npm cache/log/notifier duplicates, and setting canonical values to this
 /// invocation's owned scratch root. Inherited registry/scope/userconfig/globalconfig/prefix
 /// settings and auth are preserved; only cache/log/update-notifier are overridden.
-private func npmEnvironment(
+func npmEnvironment(
     raw: [String: String],
     cacheRoot: String
 ) -> [String: String] {
@@ -418,6 +427,16 @@ struct NpmScratchRoot: Equatable, Sendable {
     /// itself already passed validation. Returns nil when the child cannot be created, cannot be
     /// set to 0700, is not a directory owned by this process, or is not physically a direct child
     /// of the validated base. Every such case is a hard stop BEFORE any npm command is launched.
+    func isLive() -> Bool {
+        var info = Darwin.stat()
+        return Darwin.lstat(physicalPath, &info) == 0
+            && FileIdentityObserver.isDirectory(info.st_mode)
+            && info.st_uid == getuid()
+            && info.st_dev == device
+            && info.st_ino == inode
+            && NpmScratchBase.physicalPath(of: physicalPath) == physicalPath
+    }
+
     static func claim(base: NpmScratchBase) -> NpmScratchRoot? {
         let child = base.lexicalURL
             .appendingPathComponent(UUID().uuidString, isDirectory: true)
@@ -570,7 +589,182 @@ private func npmSelectionPair(_ diagnostic: ToolPathDiagnostic) -> (entry: Strin
     return (candidate.entryPath, target)
 }
 
+/// A fresh, cache-free npm update observation shared by preparation and confirmation. Every field
+/// is internal: the complete proof and raw environment never reach the app or a persistence layer.
+struct NpmFreshObservation: Sendable {
+    let definition: DetectorDefinition
+    let diagnostic: ToolPathDiagnostic
+    let selectedEntryPath: String
+    let selectedTarget: String
+    let installedVersion: Version
+    let manager: ObservedExecutable
+    let installation: VerifiedInstallation
+    let proof: NpmOwnershipProbe.NpmOwnershipProof
+    let registry: String
+    let scopeRegistry: String?
+    let scope: String?
+    let metadata: NpmViewOutput
+    let npmVersion: String?
+}
+
+enum NpmFreshObservationResult: Sendable {
+    case success(NpmFreshObservation)
+    case unavailable(UnknownReason)
+}
+
 public enum NpmUpdateProbe {
+
+    /// One fresh, cache-free observation at the same ownership/routing/metadata rules used by the
+    /// read-only M10-B probe. It never reads or writes either update cache.
+    static func observeFresh(
+        definition: DetectorDefinition,
+        diagnostic: ToolPathDiagnostic,
+        environment: ShellEnvironment,
+        runner: UpdateCommandRunner,
+        currentDirectory: String,
+        uptime: @escaping @Sendable () -> UInt64,
+        stageDeadline: UInt64,
+        npmScratchBaseURL: URL? = nil
+    ) async -> NpmFreshObservationResult {
+        let installed = diagnostic.detectedTool.version.map(Version.init)
+        guard let selection = npmSelectionPair(diagnostic) else {
+            return .unavailable(.identityUnverified)
+        }
+        guard let observedSelection = FileIdentityObserver.observeExecutable(
+            entryPath: selection.entry
+        ), observedSelection.canonicalTarget == selection.target else {
+            return .unavailable(.identityUnverified)
+        }
+        guard let localVersion = installed, !localVersion.text.isEmpty else {
+            return .unavailable(.installedVersionUnavailable)
+        }
+        guard let manager = NpmOwnershipProbe.resolveNpmManager(
+            environment: environment, currentDirectory: currentDirectory
+        ) else {
+            return .unavailable(.managerUnavailable)
+        }
+        let scratchBase: URL
+        if let npmScratchBaseURL {
+            scratchBase = npmScratchBaseURL
+        } else if let captured = capturedTemporaryDirectory(environment) {
+            scratchBase = captured
+        } else {
+            scratchBase = FileManager.default.temporaryDirectory
+        }
+        let ledger = NpmScratchCleanupLedger()
+
+        guard uptime() < stageDeadline, !Task.isCancelled else {
+            return .unavailable(Task.isCancelled ? .probeFailed : .budgetExhausted)
+        }
+        guard let ownershipScratch = createScratchRoot(baseURL: scratchBase) else {
+            return .unavailable(.probeFailed)
+        }
+        let initialOwnership = await verifyOwnership(
+            definition: definition, selection: observedSelection, manager: manager,
+            baseEnvironment: environment, scratchRoot: ownershipScratch, runner: runner
+        )
+        _ = removeScratchRoot(ownershipScratch, ledger: ledger)
+        let installation: VerifiedInstallation
+        let proof: NpmOwnershipProbe.NpmOwnershipProof
+        switch initialOwnership {
+        case .refused(let reason), .failed(let reason):
+            return .unavailable(reason)
+        case .verified(let value, let valueProof):
+            installation = value
+            proof = valueProof
+        }
+        let npmPackage = installation.packageName
+        guard !npmPackage.isEmpty else { return .unavailable(.identityUnverified) }
+        guard uptime() < stageDeadline, !Task.isCancelled else {
+            return .unavailable(Task.isCancelled ? .probeFailed : .budgetExhausted)
+        }
+        let route = await registryRoute(
+            packageName: npmPackage, environment: environment, manager: manager,
+            scratchBase: scratchBase, ledger: ledger, runner: runner, uptime: uptime,
+            stageDeadline: stageDeadline
+        )
+        switch route {
+        case .refused(let reason): return .unavailable(reason)
+        case .basePublic, .scoped: break
+        }
+        guard uptime() < stageDeadline, !Task.isCancelled else {
+            return .unavailable(Task.isCancelled ? .probeFailed : .budgetExhausted)
+        }
+        let view = await metadataView(
+            packageName: npmPackage, route: route, environment: environment, manager: manager,
+            scratchBase: scratchBase, ledger: ledger, runner: runner, uptime: uptime,
+            stageDeadline: stageDeadline
+        )
+        let metadata: NpmViewOutput
+        switch view {
+        case .failure(let reason): return .unavailable(reason)
+        case .success(let value): metadata = value
+        }
+        var npmVersionText: String?
+        if !Task.isCancelled, uptime() < stageDeadline {
+            npmVersionText = await npmVersion(
+                environment: environment, manager: manager, scratchBase: scratchBase,
+                ledger: ledger, runner: runner
+            )
+        }
+        guard uptime() < stageDeadline, !Task.isCancelled else {
+            return .unavailable(Task.isCancelled ? .probeFailed : .budgetExhausted)
+        }
+        guard let finalScratch = createScratchRoot(baseURL: scratchBase) else {
+            return .unavailable(.probeFailed)
+        }
+        let finalOwnership = await verifyOwnership(
+            definition: definition, selection: observedSelection, manager: manager,
+            baseEnvironment: environment, scratchRoot: finalScratch, runner: runner
+        )
+        _ = removeScratchRoot(finalScratch, ledger: ledger)
+        let finalProof: NpmOwnershipProbe.NpmOwnershipProof
+        switch finalOwnership {
+        case .refused(let reason), .failed(let reason):
+            return .unavailable(reason)
+        case .verified(let finalInstallation, let valueProof):
+            guard finalInstallation.managerRoot == installation.managerRoot,
+                  finalInstallation.installationRoot == installation.installationRoot,
+                  finalInstallation.packageName == installation.packageName,
+                  valueProof == proof
+            else { return .unavailable(.identityUnverified) }
+            finalProof = valueProof
+        }
+        guard uptime() < stageDeadline, !Task.isCancelled else {
+            return .unavailable(Task.isCancelled ? .probeFailed : .budgetExhausted)
+        }
+        let finalRoute = await registryRoute(
+            packageName: npmPackage, environment: environment, manager: manager,
+            scratchBase: scratchBase, ledger: ledger, runner: runner, uptime: uptime,
+            stageDeadline: stageDeadline
+        )
+        guard finalRoute == route else { return .unavailable(.identityUnverified) }
+        guard finalProof.revalidate() == nil else { return .unavailable(.identityUnverified) }
+        guard !ledger.hasFailures else { return .unavailable(.probeFailed) }
+
+        let scope = scopeOf(npmPackage)
+        let scopeRegistry: String?
+        if case .scoped(_, let value) = route {
+            scopeRegistry = value
+        } else {
+            scopeRegistry = nil
+        }
+        return .success(NpmFreshObservation(
+            definition: definition,
+            diagnostic: diagnostic,
+            selectedEntryPath: selection.entry,
+            selectedTarget: selection.target,
+            installedVersion: localVersion,
+            manager: manager,
+            installation: installation,
+            proof: finalProof,
+            registry: acceptedRegistry,
+            scopeRegistry: scopeRegistry,
+            scope: scope,
+            metadata: metadata,
+            npmVersion: npmVersionText
+        ))
+    }
 
     /// Runs the bounded npm latest-version probe for one verified subject. Returns a
     /// `ToolUpdateResult` with npm-specific fields and provenance. All process work uses the

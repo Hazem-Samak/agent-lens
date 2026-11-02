@@ -2,7 +2,9 @@
 
 Planning revision: 2026-10-28. Original plan: 2026-10-22.
 
-This revision supersedes the previous **future execution order**, not completed work or acceptance evidence. M0–M9 remain delivered as recorded; M10-A and M10-B remain technically accepted only on `codex/m10-npm-management`. The accepted M10-B implementation is `72ffb1e`. M10-C is next, M10 as a whole is not accepted, and no PR, `main` merge, or public release has occurred. See [M10-B acceptance](walkthroughs/M10-B-acceptance.md).
+Execution update: 2026-11-02. M10-C implementation and independent local acceptance are complete after the separately accepted [R1 baseline repair](walkthroughs/M10-C-R1-baseline-repair.md). Both selected reviewers passed. Owner-authorized feature-branch Git delivery and exact-SHA hosted CI are the remaining acceptance gate; see the [implementation evidence](walkthroughs/M10-C-implementation.md).
+
+This revision supersedes the previous **future execution order**, not completed work or acceptance evidence. M0–M9 remain delivered as recorded; M10-A and M10-B remain technically accepted only on `codex/m10-npm-management`. The accepted M10-B implementation is `72ffb1e`. M10-C is locally verified, with hosted acceptance pending; M10 as a whole is not accepted, and no PR, `main` merge, or public release has occurred. See [M10-B acceptance](walkthroughs/M10-B-acceptance.md).
 
 Authority: [product scope](AGENT_LENS_SCOPE.md), [settled decisions](DECISIONS.md), and [milestone status](briefs/README.md). Historical briefs and walkthroughs are immutable evidence; this file is the living plan.
 
@@ -40,7 +42,7 @@ The app diagnoses first and manages second. It is not a generic package manager,
 |---|---|---|
 | M0–M9 | Discovery, PATH diagnostics, native foundation, path actions, verified details | Delivered as recorded; M8 keyboard check remains open |
 | M10-A/B | Clean CI and verified npm latest metadata | Accepted on the M10 feature branch |
-| M10-C/D | npm Update, Uninstall, and combined safety acceptance | Next; not started by this plan |
+| M10-C/D | npm Update, Uninstall, and combined safety acceptance | C locally verified with both independent reviews passed; exact-SHA hosted CI pending; D remains planned |
 | M12 | Original catalogue plus complete native diagnostic workflow | Revised early-value checkpoint |
 | M15 | All scoped manager capabilities delivered | Feature capability checkpoint |
 | M17 | Feature-complete unsigned app with retention and companion CLI | Release-engineering entry point |
@@ -55,7 +57,7 @@ Work one milestone and one phase at a time. Do not start a dependent milestone u
 
 ### M10 — npm management end to end
 
-**Status:** A and B technically accepted on the feature branch. **M10-C is the immediate next phase.**
+**Status:** A and B technically accepted on the feature branch. **M10-C implementation, independent reviews, and local acceptance passed; exact-SHA hosted CI is pending.**
 
 **User result:** an ownership-verified npm tool such as Codex can show a real latest-version result, then Update or Uninstall through a visible confirmation and result workflow.
 
@@ -217,4 +219,4 @@ The user approves product tradeoffs, UI, expenses, credentials, publication, and
 
 ## 8. Immediate next action
 
-Prepare and preflight the bounded **M10-C npm Update** brief on the accepted M10-B baseline. Do not start M11 until M10-D and the combined M10 gate pass. Do not begin product implementation merely because this roadmap revision exists.
+Complete owner-authorized feature-branch Git delivery and exact-SHA hosted CI for the locally verified **M10-C npm Update** candidate, then record acceptance. M10-D and the combined M10 gate remain separate; do not start M11 before they pass. No `main` integration or release is authorized by this status.

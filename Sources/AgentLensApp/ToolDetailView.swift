@@ -9,9 +9,12 @@ public struct ToolDetailView: View {
     public let updateFailure: InventoryViewModel.Failure?
     public let isVerifyingOwnership: Bool
     public let isCancellingOwnership: Bool
+    public let isPreparingUpdate: Bool
+    public let isExecutingUpdate: Bool
     public let isBusy: Bool
     public let onVerifyOwnership: @MainActor () -> Void
     public let onCancelOwnership: @MainActor () -> Void
+    public let onPrepareUpdate: @MainActor () -> Void
 
     public init(
         entry: InventoryEntry?,
@@ -20,9 +23,12 @@ public struct ToolDetailView: View {
         updateFailure: InventoryViewModel.Failure?,
         isVerifyingOwnership: Bool = false,
         isCancellingOwnership: Bool = false,
+        isPreparingUpdate: Bool = false,
+        isExecutingUpdate: Bool = false,
         isBusy: Bool = false,
         onVerifyOwnership: @escaping @MainActor () -> Void = {},
-        onCancelOwnership: @escaping @MainActor () -> Void = {}
+        onCancelOwnership: @escaping @MainActor () -> Void = {},
+        onPrepareUpdate: @escaping @MainActor () -> Void = {}
     ) {
         self.entry = entry
         self.isDegradedEnvironment = isDegradedEnvironment
@@ -30,9 +36,12 @@ public struct ToolDetailView: View {
         self.updateFailure = updateFailure
         self.isVerifyingOwnership = isVerifyingOwnership
         self.isCancellingOwnership = isCancellingOwnership
+        self.isPreparingUpdate = isPreparingUpdate
+        self.isExecutingUpdate = isExecutingUpdate
         self.isBusy = isBusy
         self.onVerifyOwnership = onVerifyOwnership
         self.onCancelOwnership = onCancelOwnership
+        self.onPrepareUpdate = onPrepareUpdate
     }
 
     public var body: some View {
@@ -448,6 +457,18 @@ public struct ToolDetailView: View {
                 Text("Not checked")
                     .font(.subheadline)
                     .foregroundColor(.secondary)
+            }
+
+            if case .updateAvailable = entry.updateStatus,
+               entry.update?.npmPackage != nil
+            {
+                Button {
+                    onPrepareUpdate()
+                } label: {
+                    Label(isPreparingUpdate ? "Preparing Update…" : "Prepare Update…",
+                          systemImage: "arrow.down.circle")
+                }
+                .disabled(isBusy)
             }
         }
     }

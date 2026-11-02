@@ -831,3 +831,270 @@ extension InventoryViewModel {
     /// The install states in published order — a compact read for the registry-order assertions.
     var installStates: [InstallState] { entries.map(\.installState) }
 }
+// MARK: M10-C cancellation/state regression
+
+private func vmWriteCodex(_ url: URL, version: String) throws {
+    try FileManager.default.createDirectory(
+        at: url.deletingLastPathComponent(), withIntermediateDirectories: true
+    )
+    try Data("#!/bin/sh\necho 'codex \(version)'\n".utf8).write(to: url)
+    try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: url.path)
+}
+
+private final class VMGate: @unchecked Sendable {
+    private let lock = NSLock()
+    private var continuation: CheckedContinuation<Void, Never>?
+    private var open = false
+    private var waiting = false
+    var isWaiting: Bool { lock.lock(); defer { lock.unlock() }; return waiting }
+    func wait() async {
+        await withCheckedContinuation { continuation in
+            lock.lock()
+            if open { lock.unlock(); continuation.resume(); return }
+            waiting = true
+            self.continuation = continuation
+            lock.unlock()
+        }
+    }
+    func release() {
+        lock.lock()
+        open = true
+        waiting = false
+        let continuation = self.continuation
+        self.continuation = nil
+        lock.unlock()
+        continuation?.resume()
+    }
+}
+
+private final class VMNpmRunner: UpdateCommandRunner, @unchecked Sendable {
+    let prefix: String
+    let root: String
+    let gate: VMGate
+    private let lock = NSLock()
+    private var blockOnPrefix = false
+    var blockNextPrefix: Bool {
+        get { lock.lock(); defer { lock.unlock() }; return blockOnPrefix }
+        set { lock.lock(); blockOnPrefix = newValue; lock.unlock() }
+    }
+    init(prefix: String, root: String, gate: VMGate) {
+        self.prefix = prefix; self.root = root; self.gate = gate
+    }
+    private func takeBlock() -> Bool {
+        lock.lock(); defer { lock.unlock() }
+        let value = blockOnPrefix
+        blockOnPrefix = false
+        return value
+    }
+
+    func run(executablePath: String, arguments: [String],
+             environment: [String: String], timeout: TimeInterval) async -> CommandOutcome {
+        if arguments.contains("prefix") {
+            if takeBlock() { await gate.wait() }
+            return .success(Data((prefix + "\n").utf8))
+        }
+        if arguments.contains("root") { return .success(Data((root + "\n").utf8)) }
+        if arguments.contains("view") {
+            return .success(Data("{\"name\":\"@openai/codex\",\"version\":\"2.0.0\",\"dist-tags.latest\":\"2.0.0\"}".utf8))
+        }
+        if arguments.contains("--version") { return .success(Data("10.9.8\n".utf8)) }
+        if arguments.contains(where: { $0.hasSuffix(":registry") }) {
+            return .success(Data("undefined\n".utf8))
+        }
+        if arguments.contains("registry") {
+            return .success(Data("https://registry.npmjs.org/\n".utf8))
+        }
+        return .failure(.spawnFailure)
+    }
+}
+
+@MainActor
+@Test func cancellingAnInFlightUpdatePreparationClearsTheBusySlotAndAllowsALaterAction() async throws {
+    let root = try appSupportScratchRoot("m10c-vm-cancel")
+    defer { try? FileManager.default.removeItem(at: root) }
+    let prefix = root.appendingPathComponent("prefix", isDirectory: true)
+    let globalRoot = prefix.appendingPathComponent("lib/node_modules", isDirectory: true)
+    let managerDir = root.appendingPathComponent("manager-bin", isDirectory: true)
+    let aliasDir = root.appendingPathComponent("alias-bin", isDirectory: true)
+    let packageRoot = globalRoot.appendingPathComponent("@openai/codex", isDirectory: true)
+    let target = packageRoot.appendingPathComponent("bin/codex")
+    try writeFixtureExecutable(managerDir.appendingPathComponent("npm"))
+    try vmWriteCodex(target, version: "1.0.0")
+    try Data("{\"name\":\"@openai/codex\",\"version\":\"1.0.0\",\"bin\":{\"codex\":\"bin/codex\"}}".utf8)
+        .write(to: packageRoot.appendingPathComponent("package.json"))
+    try FileManager.default.createDirectory(at: prefix.appendingPathComponent("bin"), withIntermediateDirectories: true)
+    try FileManager.default.createSymbolicLink(
+        atPath: prefix.appendingPathComponent("bin/codex").path,
+        withDestinationPath: target.path
+    )
+    try FileManager.default.createDirectory(at: aliasDir, withIntermediateDirectories: true)
+    let alias = aliasDir.appendingPathComponent("codex")
+    try FileManager.default.createSymbolicLink(atPath: alias.path, withDestinationPath: target.path)
+    let path = [managerDir.path, aliasDir.path].joined(separator: ":")
+    let environment = ShellEnvironment(
+        shellPath: "/bin/zsh", pathEntries: [managerDir.path, aliasDir.path],
+        pathJoined: path, raw: ["PATH": path, "HOME": "/synthetic/home"], isDegraded: false
+    )
+    let definitionData = Data("""
+    {"schemaVersion":2,"detectors":[{"id":"codex-id","displayName":"Codex","executableName":"codex","category":"aiAgent","packages":[{"manager":"npm","name":"@openai/codex"}],"versionQuery":{"arguments":["--version"],"stream":"stdout","line":"first"}}]}
+    """.utf8)
+    let definition = try DetectorRegistry.validate(data: definitionData)[0]
+    let gate = VMGate()
+    let runner = VMNpmRunner(prefix: prefix.path, root: globalRoot.path, gate: gate)
+    let scratch = root.appendingPathComponent("scratch", isDirectory: true)
+    let operationBase = root.appendingPathComponent("operation-base", isDirectory: true)
+    try FileManager.default.createDirectory(at: scratch, withIntermediateDirectories: true)
+    try FileManager.default.createDirectory(
+        at: operationBase, withIntermediateDirectories: false,
+        attributes: [.posixPermissions: 0o700]
+    )
+    let source = SessionEnvironmentSource(
+        resolve: { environment }, loginShellPath: { "/bin/sh" },
+        capture: { _ in ShellEnvironmentResolver.CaptureOutcome(dump: environment.raw, timedOut: false) },
+        build: { _, _ in environment }
+    )
+    let service = InventoryService(
+        environment: SessionEnvironmentProvider(source: source),
+        registry: { [definition] },
+        scanner: { detector, env, cwd in
+            PathDiagnosticsScanner.scan(detector: detector, environment: env, currentDirectory: cwd)
+        },
+        updateRunner: runner,
+        operationRunner: ProcessOperationCommandRunner(),
+        operationGate: OperationExecutionGate(),
+        operationRootBaseURL: operationBase,
+        updateCacheURL: root.appendingPathComponent("cache.json"),
+        npmScratchBaseURL: scratch,
+        currentDirectory: root.path,
+        clock: fixedClock()
+    )
+    let viewModel = InventoryViewModel(service: service)
+    await viewModel.launch()
+    await viewModel.checkForUpdates()
+    #expect(viewModel.updateAvailableCount == 1)
+    runner.blockNextPrefix = true
+    let prepare = Task { await viewModel.prepareSelectedUpdate() }
+    let deadline = Date().addingTimeInterval(3)
+    while !(viewModel.isBusy && viewModel.isPreparingUpdate) && Date() < deadline {
+        try await Task.sleep(nanoseconds: 5_000_000)
+    }
+    viewModel.searchText = "x"
+    gate.release()
+    await prepare.value
+    #expect(!viewModel.isBusy)
+    #expect(!viewModel.isPreparingUpdate)
+    #expect(viewModel.updatePreparation == nil)
+    await viewModel.rescan()
+    #expect(!viewModel.isBusy)
+    #expect(viewModel.phase == .ready)
+}
+
+private final class VMGatedOperationRunner: OperationCommandRunner, @unchecked Sendable {
+    let gate: VMGate
+    let target: URL
+    let packageRoot: URL
+    init(gate: VMGate, target: URL, packageRoot: URL) {
+        self.gate = gate; self.target = target; self.packageRoot = packageRoot
+    }
+    func run(executablePath: String, arguments: [String], environment: [String: String],
+             currentDirectory: String, timeout: TimeInterval) async -> OperationCommandResult {
+        await gate.wait()
+        try? Data("#!/bin/sh\necho 'codex 2.0.0'\n".utf8).write(to: target)
+        try? Data("{\"name\":\"@openai/codex\",\"version\":\"2.0.0\",\"bin\":{\"codex\":\"bin/codex\"}}".utf8)
+            .write(to: packageRoot.appendingPathComponent("package.json"))
+        return OperationCommandResult(
+            stdout: Data("changed 1 package\n".utf8), stderr: Data(),
+            stdoutTruncated: false, stderrTruncated: false,
+            exitStatus: 0, processStarted: true,
+            timedOut: false, cancelled: false, cleanupWarning: false
+        )
+    }
+}
+
+@MainActor
+@Test func invalidationDuringExecutingUpdatePreservesOutcomeAndWholeSnapshot() async throws {
+    let root = try appSupportScratchRoot("m10c-vm-executing-invalidation")
+    defer { try? FileManager.default.removeItem(at: root) }
+    let prefix = root.appendingPathComponent("prefix", isDirectory: true)
+    let globalRoot = prefix.appendingPathComponent("lib/node_modules", isDirectory: true)
+    let managerDir = root.appendingPathComponent("manager-bin", isDirectory: true)
+    let aliasDir = root.appendingPathComponent("alias-bin", isDirectory: true)
+    let packageRoot = globalRoot.appendingPathComponent("@openai/codex", isDirectory: true)
+    let target = packageRoot.appendingPathComponent("bin/codex")
+    try writeFixtureExecutable(managerDir.appendingPathComponent("npm"))
+    try vmWriteCodex(target, version: "1.0.0")
+    try Data("{\"name\":\"@openai/codex\",\"version\":\"1.0.0\",\"bin\":{\"codex\":\"bin/codex\"}}".utf8)
+        .write(to: packageRoot.appendingPathComponent("package.json"))
+    try FileManager.default.createDirectory(at: prefix.appendingPathComponent("bin"), withIntermediateDirectories: true)
+    try FileManager.default.createSymbolicLink(
+        atPath: prefix.appendingPathComponent("bin/codex").path,
+        withDestinationPath: target.path
+    )
+    try FileManager.default.createDirectory(at: aliasDir, withIntermediateDirectories: true)
+    let alias = aliasDir.appendingPathComponent("codex")
+    try FileManager.default.createSymbolicLink(atPath: alias.path, withDestinationPath: target.path)
+    let path = [managerDir.path, aliasDir.path].joined(separator: ":")
+    let environment = ShellEnvironment(
+        shellPath: "/bin/zsh", pathEntries: [managerDir.path, aliasDir.path],
+        pathJoined: path, raw: ["PATH": path, "HOME": "/synthetic/home"], isDegraded: false
+    )
+    let definitionData = Data("""
+    {"schemaVersion":2,"detectors":[{"id":"codex-id","displayName":"Codex","executableName":"codex","category":"aiAgent","packages":[{"manager":"npm","name":"@openai/codex"}],"versionQuery":{"arguments":["--version"],"stream":"stdout","line":"first"}}]}
+    """.utf8)
+    let definition = try DetectorRegistry.validate(data: definitionData)[0]
+    let updateGate = VMGate()
+    let updateRunner = VMNpmRunner(prefix: prefix.path, root: globalRoot.path, gate: VMGate())
+    let operationRunner = VMGatedOperationRunner(gate: updateGate, target: target, packageRoot: packageRoot)
+    let scratch = root.appendingPathComponent("scratch", isDirectory: true)
+    let operationBase = root.appendingPathComponent("operation-base", isDirectory: true)
+    try FileManager.default.createDirectory(at: scratch, withIntermediateDirectories: true)
+    try FileManager.default.createDirectory(
+        at: operationBase, withIntermediateDirectories: false,
+        attributes: [.posixPermissions: 0o700]
+    )
+    let source = SessionEnvironmentSource(
+        resolve: { environment }, loginShellPath: { "/bin/sh" },
+        capture: { _ in ShellEnvironmentResolver.CaptureOutcome(dump: environment.raw, timedOut: false) },
+        build: { _, _ in environment }
+    )
+    let service = InventoryService(
+        environment: SessionEnvironmentProvider(source: source),
+        registry: { [definition] },
+        scanner: { detector, env, cwd in
+            PathDiagnosticsScanner.scan(detector: detector, environment: env, currentDirectory: cwd)
+        },
+        updateRunner: updateRunner,
+        operationRunner: operationRunner,
+        operationGate: OperationExecutionGate(),
+        operationRootBaseURL: operationBase,
+        updateCacheURL: root.appendingPathComponent("cache.json"),
+        npmScratchBaseURL: scratch,
+        currentDirectory: root.path,
+        clock: fixedClock()
+    )
+    let viewModel = InventoryViewModel(service: service)
+    await viewModel.launch()
+    await viewModel.checkForUpdates()
+    #expect(viewModel.updateAvailableCount == 1)
+    await viewModel.prepareSelectedUpdate()
+    #expect(viewModel.updatePreparation != nil)
+    let confirm = Task { await viewModel.confirmSelectedUpdate() }
+    let deadline = Date().addingTimeInterval(3)
+    while !(viewModel.isExecutingUpdate && updateGate.isWaiting) && Date() < deadline {
+        try await Task.sleep(nanoseconds: 5_000_000)
+    }
+    #expect(viewModel.isExecutingUpdate)
+    #expect(viewModel.updatePreview != nil)
+    viewModel.searchText = "x"
+    updateGate.release()
+    await confirm.value
+    #expect(!viewModel.isBusy)
+    #expect(!viewModel.isExecutingUpdate)
+    #expect(viewModel.updateOutcome?.preview.registryID == "codex-id")
+    let published = viewModel.snapshot?.entries.first { $0.registryID == "codex-id" }
+    #expect(published?.diagnostic.detectedTool.version == "2.0.0")
+    #expect(viewModel.updatePreview != nil)
+    await viewModel.rescan()
+    #expect(!viewModel.isBusy)
+    #expect(viewModel.phase == .ready)
+}

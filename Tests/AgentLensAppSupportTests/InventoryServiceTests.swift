@@ -884,3 +884,242 @@ func makeService(
         clock: clock
     )
 }
+// MARK: M10-C operation boundary
+
+@Test func updatePreparationRefusesAnEntryWithoutAVerifiedUpdateStatus() async throws {
+    let root = try appSupportScratchRoot("m10c-prepare-neutral")
+    defer { try? FileManager.default.removeItem(at: root) }
+    let bin = root.appendingPathComponent("bin", isDirectory: true)
+    try writeFixtureExecutable(bin.appendingPathComponent("alpha"))
+    let data = registryJSON([
+        RegistryRow(id: "alpha-id", displayName: "Alpha", executableName: "alpha"),
+    ])
+    let service = makeService(
+        registryData: data,
+        pathEntries: [bin.path],
+        cacheURL: root.appendingPathComponent("cache.json"),
+        currentDirectory: root.path
+    )
+    let snapshot = try await service.localSnapshot()
+    let entry = try #require(snapshot.entries.first)
+    let result = await service.prepareUpdate(for: entry)
+    guard case .unavailable(let reason) = result else {
+        Issue.record("expected neutral preparation")
+        return
+    }
+    #expect(reason == .notUpdateAvailable)
+}
+
+// MARK: M10-C post-launch reconciliation boundary
+
+private func m10cServiceFixtureRoot(_ label: String) throws -> URL {
+    let root = try appSupportScratchRoot("m10c-\(label)")
+    return root
+}
+
+private func m10cWriteExecutable(_ url: URL, contents: String = "#!/bin/sh\necho 'fixture 1.0.0'\nexit 0\n") throws {
+    try FileManager.default.createDirectory(
+        at: url.deletingLastPathComponent(), withIntermediateDirectories: true
+    )
+    try Data(contents.utf8).write(to: url)
+    try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: url.path)
+}
+
+private final class M10CNpmRunner: UpdateCommandRunner, @unchecked Sendable {
+    let prefix: String
+    let root: String
+    let target: String
+    private let lock = NSLock()
+    private var calls: [[String]] = []
+    init(prefix: String, root: String, target: String) {
+        self.prefix = prefix; self.root = root; self.target = target
+    }
+    var invocations: [[String]] { lock.lock(); defer { lock.unlock() }; return calls }
+    private func note(_ arguments: [String]) { lock.lock(); calls.append(arguments); lock.unlock() }
+    func run(executablePath: String, arguments: [String],
+             environment: [String: String], timeout: TimeInterval) async -> CommandOutcome {
+        note(arguments)
+        if arguments.contains("prefix") { return .success(Data((prefix + "\n").utf8)) }
+        if arguments.contains("root") { return .success(Data((root + "\n").utf8)) }
+        if arguments.contains("view") {
+            return .success(Data("{\"name\":\"@openai/codex\",\"version\":\"\(target)\",\"dist-tags.latest\":\"\(target)\"}".utf8))
+        }
+        if arguments.contains("--version") { return .success(Data("10.9.8\n".utf8)) }
+        if arguments.contains(where: { $0.hasSuffix(":registry") }) {
+            return .success(Data("undefined\n".utf8))
+        }
+        if arguments.contains("registry") {
+            return .success(Data("https://registry.npmjs.org/\n".utf8))
+        }
+        return .failure(.spawnFailure)
+    }
+}
+
+private final class M10CSuccessfulOperationRunner: OperationCommandRunner, @unchecked Sendable {
+    let prefix: String
+    init(prefix: String) { self.prefix = prefix }
+    func run(executablePath: String, arguments: [String], environment: [String: String],
+             currentDirectory: String, timeout: TimeInterval) async -> OperationCommandResult {
+        let packageRoot = URL(fileURLWithPath: prefix, isDirectory: true)
+            .appendingPathComponent("lib/node_modules/@openai/codex", isDirectory: true)
+        try? FileManager.default.createDirectory(at: packageRoot, withIntermediateDirectories: true)
+        try? Data("{\"name\":\"@openai/codex\",\"version\":\"2.0.0\",\"bin\":{\"codex\":\"bin/codex\"}}".utf8)
+            .write(to: packageRoot.appendingPathComponent("package.json"))
+        try? m10cWriteExecutable(
+            packageRoot.appendingPathComponent("bin/codex"),
+            contents: "#!/bin/sh\necho 'codex-cli 2.0.0'\n"
+        )
+        return OperationCommandResult(
+            stdout: Data("installed\n".utf8), stderr: Data(),
+            stdoutTruncated: false, stderrTruncated: false,
+            exitStatus: 0, processStarted: true,
+            timedOut: false, cancelled: false, cleanupWarning: false
+        )
+    }
+}
+
+@Test func failedPostLaunchRescanCannotLeaveASuccessfulOutcome() async throws {
+    let root = try m10cServiceFixtureRoot("rescan-uncertain")
+    defer { try? FileManager.default.removeItem(at: root) }
+    let prefix = root.appendingPathComponent("prefix", isDirectory: true)
+    let globalRoot = prefix.appendingPathComponent("lib/node_modules", isDirectory: true)
+    let managerDir = root.appendingPathComponent("manager-bin", isDirectory: true)
+    let aliasDir = root.appendingPathComponent("alias-bin", isDirectory: true)
+    let packageRoot = globalRoot.appendingPathComponent("@openai/codex", isDirectory: true)
+    let target = packageRoot.appendingPathComponent("bin/codex")
+    try m10cWriteExecutable(managerDir.appendingPathComponent("npm"))
+    try m10cWriteExecutable(target, contents: "#!/bin/sh\necho 'codex-cli 1.0.0'\n")
+    try Data("{\"name\":\"@openai/codex\",\"version\":\"1.0.0\",\"bin\":{\"codex\":\"bin/codex\"}}".utf8)
+        .write(to: packageRoot.appendingPathComponent("package.json"))
+    try FileManager.default.createDirectory(at: prefix.appendingPathComponent("bin"), withIntermediateDirectories: true)
+    let prefixAlias = prefix.appendingPathComponent("bin/codex")
+    try FileManager.default.createSymbolicLink(atPath: prefixAlias.path, withDestinationPath: target.path)
+    try FileManager.default.createDirectory(at: aliasDir, withIntermediateDirectories: true)
+    let alias = aliasDir.appendingPathComponent("codex")
+    try FileManager.default.createSymbolicLink(atPath: alias.path, withDestinationPath: target.path)
+    let joinedPath = [managerDir.path, aliasDir.path].joined(separator: ":")
+    let environment = ShellEnvironment(
+        shellPath: "/bin/zsh", pathEntries: [managerDir.path, aliasDir.path],
+        pathJoined: joinedPath, raw: ["PATH": joinedPath, "HOME": "/synthetic/home"],
+        isDegraded: false
+    )
+    let definitionData = Data("""
+    {"schemaVersion":2,"detectors":[{"id":"codex-id","displayName":"Codex","executableName":"codex","category":"aiAgent","packages":[{"manager":"npm","name":"@openai/codex"}],"versionQuery":{"arguments":["--version"],"stream":"stdout","line":"first"}}]}
+    """.utf8)
+    let definitions = try DetectorRegistry.validate(data: definitionData)
+    let definition = definitions[0]
+    let diagnostic = PathDiagnosticsScanner.scan(
+        detector: definition.makeDetector(), environment: environment, currentDirectory: root.path
+    )
+    let updateRunner = M10CNpmRunner(prefix: prefix.path, root: globalRoot.path, target: "2.0.0")
+    let operationBase = root.appendingPathComponent("operation-base", isDirectory: true)
+    try FileManager.default.createDirectory(
+        at: operationBase, withIntermediateDirectories: false,
+        attributes: [.posixPermissions: 0o700]
+    )
+    guard case .ready(let preparation) = await NpmUpdateOperation.prepare(
+        definition: definition, diagnostic: diagnostic, environment: environment,
+        currentDirectory: root.path, runner: updateRunner,
+        operationRootBaseURL: operationBase
+    ) else {
+        Issue.record("expected preparation")
+        return
+    }
+    let source = SessionEnvironmentSource(
+        resolve: { environment }, loginShellPath: { "/bin/sh" },
+        capture: { _ in ShellEnvironmentResolver.CaptureOutcome(dump: environment.raw, timedOut: false) },
+        build: { _, _ in environment }
+    )
+    let service = InventoryService(
+        environment: SessionEnvironmentProvider(source: source),
+        registry: { throw NSError(domain: "M10CRescan", code: 1) },
+        scanner: { detector, env, cwd in
+            PathDiagnosticsScanner.scan(detector: detector, environment: env, currentDirectory: cwd)
+        },
+        updateRunner: updateRunner,
+        operationRunner: M10CSuccessfulOperationRunner(prefix: prefix.path),
+        operationGate: OperationExecutionGate(),
+        operationRootBaseURL: operationBase,
+        updateCacheURL: root.appendingPathComponent("cache.json"),
+        npmScratchBaseURL: root.appendingPathComponent("scratch", isDirectory: true),
+        currentDirectory: root.path,
+        clock: fixedClock()
+    )
+    let result = await service.executeUpdate(preparation)
+    #expect(result.outcome.processStarted)
+    #expect(result.outcome.state == .uncertain)
+    #expect(result.outcome.stdoutText == "installed\n")
+    #expect(result.snapshot == nil)
+}
+
+private struct FixedDiagnosticScanner: DiagnosticScannerFactory {
+    let diagnostic: ToolPathDiagnostic
+    func makeScanner() -> @Sendable (ToolDetector, ShellEnvironment, String) -> ToolPathDiagnostic {
+        { _, _, _ in diagnostic }
+    }
+}
+
+@Test func updatePreparationRefusesWhenFreshLocalSelectionTargetChanged() async throws {
+    let root = try appSupportScratchRoot("m10c-stale-prepare")
+    defer { try? FileManager.default.removeItem(at: root) }
+    let oldBin = root.appendingPathComponent("old-bin", isDirectory: true)
+    let newBin = root.appendingPathComponent("new-bin", isDirectory: true)
+    try writeFixtureExecutable(oldBin.appendingPathComponent("alpha"))
+    try Data("#!/bin/sh\necho 'alpha 1.0.0'\n".utf8).write(to: oldBin.appendingPathComponent("alpha"))
+    try FileManager.default.setAttributes(
+        [.posixPermissions: 0o755], ofItemAtPath: oldBin.appendingPathComponent("alpha").path
+    )
+    try writeFixtureExecutable(newBin.appendingPathComponent("alpha"))
+    try Data("#!/bin/sh\necho 'alpha 1.0.0'\n".utf8).write(to: newBin.appendingPathComponent("alpha"))
+    try FileManager.default.setAttributes(
+        [.posixPermissions: 0o755], ofItemAtPath: newBin.appendingPathComponent("alpha").path
+    )
+    let data = registryJSON([RegistryRow(id: "alpha-id", displayName: "Alpha", executableName: "alpha")])
+    let definitions = try DetectorRegistry.validate(data: data)
+    let definition = definitions[0]
+    let oldEnvironment = ShellEnvironment(
+        shellPath: "/bin/zsh", pathEntries: [oldBin.path], pathJoined: oldBin.path,
+        raw: ["PATH": oldBin.path], isDegraded: false
+    )
+    let newEnvironment = ShellEnvironment(
+        shellPath: "/bin/zsh", pathEntries: [newBin.path], pathJoined: newBin.path,
+        raw: ["PATH": newBin.path], isDegraded: false
+    )
+    let oldDiagnostic = PathDiagnosticsScanner.scan(
+        detector: definition.makeDetector(), environment: oldEnvironment,
+        currentDirectory: root.path
+    )
+    let newDiagnostic = PathDiagnosticsScanner.scan(
+        detector: definition.makeDetector(), environment: newEnvironment,
+        currentDirectory: root.path
+    )
+    let update = ToolUpdateResult(
+        registryID: "alpha-id", displayName: "Alpha", diagnosticIndex: 0,
+        diagnostic: oldDiagnostic, localVersion: "1.0.0",
+        selectedEntryPath: oldDiagnostic.detectedTool.entryPath,
+        selectedTarget: oldDiagnostic.detectedTool.resolvedPath,
+        selectedKegVersion: nil, managerEntryPath: nil, managerTarget: nil,
+        managerFingerprint: nil, managerCellar: nil, formulaStem: nil,
+        fullFormulaName: nil, npmPackage: "@openai/codex",
+        npmRegistry: "https://registry.npmjs.org/", npmTag: "latest",
+        npmVersion: "10.9.8",
+        status: .updateAvailable(installed: Version("1.0.0"), latest: Version("2.0.0")),
+        provenance: .freshProbe(observedAt: Date(timeIntervalSince1970: 0))
+    )
+    let entry = InventoryEntry(
+        definition: definition, diagnostic: oldDiagnostic, update: update, ownership: nil
+    )
+    let service = makeService(
+        registryData: data,
+        environment: oldEnvironment,
+        cacheURL: root.appendingPathComponent("cache.json"),
+        currentDirectory: root.path,
+        scanner: FixedDiagnosticScanner(diagnostic: newDiagnostic)
+    )
+    let result = await service.prepareUpdate(for: entry)
+    guard case .unavailable(let reason) = result else {
+        Issue.record("changed fresh target must refuse preparation")
+        return
+    }
+    #expect(reason == .identityUnverified)
+}

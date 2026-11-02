@@ -1,0 +1,7 @@
+◇ Test run started.
+↳ Testing Library Version: 2084
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Test ptyProductionCaptureUsesFixturePathForSupportedLoginShells() started.
+core-probe: layout=aggregate root=/private/tmp/agent-lens-m10c-acceptance.TcBGo0/parent/default-suite-explicit/out/Products/Debug module=/private/tmp/agent-lens-m10c-acceptance.TcBGo0/parent/default-suite-explicit/out/Products/Debug objects=1 compiler=/usr/bin/swiftc
+✔ Test ptyProductionCaptureUsesFixturePathForSupportedLoginShells() passed after 0.878 seconds.
+✔ Test run with 1 test in 0 suites passed after 0.878 seconds.
