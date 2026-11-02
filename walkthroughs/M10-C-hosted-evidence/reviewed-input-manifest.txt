@@ -1,0 +1,108 @@
+# M10-C R2 final frozen manifest (working tree; no Git staging)
+
+Baseline branch `codex/m10-npm-management`, starting commit
+`7ff71b67a665d405fe163b7908b8336d5b45e51e`. This manifest is the complete candidate source/test,
+fixture, product, and documentation map for the final helper + MainWindow lifecycle repair.
+
+## Final product binaries
+
+- `agent-lens`: `0748ac423fa48b0f1971c3392a9ce8ba134bb089a23f11da937c6334b1b6df1c`
+- `AgentLensCoreTests`: `7849d538cb51b0433c2673403ffa15c17510e5700b021392edd176996dc3bc9f`
+- `AgentLensAppSupportTests`: `626b2912efa681ccd7630a3b3a9ab69406e6c920bbdf5dd782082e9b73738dc6`
+- final debug app: `d860e9d38c67c9f81bf0c77ec668536a2bde88bcbd7c0c46293a9653ffcee544`
+
+Final gates: `parent/final-gates-run11.log`, `parent/final-gates.json`; **434 Core + 76 AppSupport
+passed in both no-TTY and PTY**, packaging 9/9, guard/build/app/diff-check exit 0. The later
+MainWindow-only repair rebuilt the app and reran guard/guard-fixtures/packaging (9/9) successfully;
+Core/Test source and binary hashes are unchanged.
+
+## Source map
+
+- Sources/AgentLensApp/AgentLensApp.swift `b7dc6d66f383598a72908ca1906d97aa5d207736f23b3cf74b051f5dcfa20d6a`
+- Sources/AgentLensApp/MainWindow.swift `d1e1b3240c00e20c24a1061df22de29434055ffdfb038c3a5b92f3a0982e0dfe`
+- Sources/AgentLensApp/ToolDetailView.swift `d39bb6099ed2099085ae26cdb3a6707d012994d56677fbd30495e3f9e2598f8d`
+- Sources/AgentLensApp/UpdateOperationView.swift `145815eb6f589e115e2565dda8e189beb037d45bb6ef73de115b488c7ea5c0b3`
+- Sources/AgentLensAppSupport/InventoryService.swift `c63b6876fb0a32413c4b04abafaa7feff433917daf6160003f4e8b48f2b32d25`
+- Sources/AgentLensAppSupport/InventoryViewModel.swift `bb90a4a313583d5b12392ed160ed963ac33e9740b4d47fc202a73d686f534b16`
+- Sources/AgentLensCore/Operations/NpmUpdateOperation.swift `45bea830419ea26d378a6fbd319902d7b383ba3cf6dad97fa85a6ecbea81d8fb`
+- Sources/AgentLensCore/Operations/OperationModels.swift `c3dbaf61c0e5633c1a67d55ca905a95d5ea6d25f6b9c9b8a859fdf5a8eba417f`
+- Sources/AgentLensCore/Operations/OperationProcessRunner.swift `156d50af2dda66a157aff4d8b55ac52960263a791afdc35ba7a76dd0b8a65243`
+- Sources/AgentLensCore/Process/BoundedProcessRunner.swift `064a71a79b23c42517000e2e0ecc1599c1be0f83c20c766c45587674dc2dcb47`
+- Sources/AgentLensCore/Updates/NpmUpdateProbe.swift `559b50f84f476da787400daecb79f3f4763dbbc2d787d53b4cfba7c07904e89d`
+
+R1 frozen source/test hashes unchanged:
+- ShellEnvironmentResolver.swift `e4154a6fb136b389f7f507346e05cbd466a57b0ef936e3ab611c14f7a0cf6284`
+- ShellEnvironmentResolverTests.swift `dd89a82201fbecc54fab66cfbb52ab1263cae7f13ef3290a2b7be362d279c945`
+- UpdateCLIIntegrationTests.swift `8cb44582314a73ec32589b8f846f91844f487dc85bc479e93e715d486bbc274f`
+
+## Tests and fixture
+
+- Tests/AgentLensCoreTests/NpmUpdateOperationTests.swift `4c3c1fc529c2e0043cc00860a2a47ed687413a75650e890bb03a0c510af42210`
+- Tests/AgentLensCoreTests/OperationProcessRunnerTests.swift `9e059c741bf0f61b3ac9a3cdc39c587acc573b312e78f3879c435775cf78ce22`
+- Tests/AgentLensAppSupportTests/InventoryServiceTests.swift `aafa34d81973f6fb1c14f25154335ab9440a4a1bcb6f973b308bef541105da87`
+- Tests/AgentLensAppSupportTests/InventoryViewModelTests.swift `ebdb2273b48c4963cad33b5e0d2c7594ea2631ac49bff51ef1fae00924833a9d`
+- Tests/Fixtures/M10C/npm_update_acceptance.py `d551ebb2b564b1e3a7e9a6354ebc5779f6651510fab721bf9a2b5c26d9e56413`
+
+## Documentation/receipts
+
+- README.md `01282ea20c7edf2433f43103326e948574d72fb6b38960cc64f3efa0a83557f7`
+- walkthroughs/M10-C-implementation.md `96872ab237e1796f85c9f6add534c0aecb67aa964649ef4bc6c21e604bde33b1`
+- briefs/M10-C-R2-acceptance-completion.md `ae031f9cdc9424beb8b9313482a777273708b19a46ebe0a9e53b502c5355f410`
+- worker/AC08-red-attestation.md `6f6b1adc8ebbd0452484a29de75486ab5ce8d6cec22bbfdf7c341e48da384826`
+- No Git staging/commit/push.
+
+## Final controlled evidence
+
+Root indirection: `parent/harness-r3-controlled3-root.txt`
+(ROOT=`/private/tmp/agent-lens-m10c-acceptance.TcBGo0/m10c-impl.4CODUE/parent/harness-r3-controlled3-1793645739`).
+
+- Core success: `controlled-result.json` — succeeded, 1.0.0→2.0.0, ownershipVerified=true.
+- Six actual failure scenarios with the final fixture: root indirection
+  `parent/harness-r3-controlled5-root.txt` → `controlled-failures.json`. Permission setup resets a
+  valid packument first and asserts real `EACCES` (`rename` denied); each record retains raw
+  stdout/stderr, measured after-state, `noRetry=true`, invocation count 2 (one operation), and the
+  unchanged sentinel manifest.
+- Native seed: `native-seed.json` — distinct native-prefix 1.0.0 installed by real npm; real bin
+  inode/target and alias; Core prefix remains at 2.0.0.
+- Native build: `receipts/controlled-compile.json`, `receipts/controlled-native-compile.json` — both
+  exit 0 under strict profile with owned HOME/CFFIXED_USER_HOME/TMPDIR/CLANG_MODULE_CACHE_PATH and
+  `-module-cache-path`; compile env/argv in `controlled-native.json`.
+- Native recipe: `controlled-native-recipe.txt` (executable, env -i, starts registry, waits, launches,
+  recorded-PID cleanup); close recipe `controlled-native-close-recipe.txt`.
+- Native full flow: `native-result.json` — 2.0.0, registry stopped/joined, empty operation base,
+  owned root, original public base/scope guard receipt; `controlled-native-argv.jsonl`.
+- Active close: `active-close-green.txt` — delayed child 4006 and app 3824 gone, operation base empty,
+  same direct `window?.close()` trigger.
+- Prepared-preview close: `prepared-preview-green-final.txt` — prepared sheet held an operation-base
+  child; after direct close app 4127 gone and operation base empty.
+- Registry receipt: `registry-receipt.json`; native registry stop receipt `native-registry.json`.
+- Strict profile: `ordinary-app.sb`.
+
+## Final public evidence
+
+Root indirection: `parent/harness-r3-public6-root.txt`
+(ROOT=`/private/tmp/agent-lens-m10c-acceptance.TcBGo0/m10c-impl.4CODUE/parent/harness-r3-public6-1793645851`).
+
+- `PREPARE-PUBLIC OK old=0.165.0 latest=0.166.0 strict-older=yes`
+- `VERIFY-PUBLIC OK sentinels=2 sandboxed=yes`
+- profile SHA-256 `f59d4ee042bef4d69be4457454ace129e163c2da5d0993db45ff9a04cab6f5c5`
+- `ordinary-app-recipe.txt` — executable env -i clean recipe, owned HOME/ZDOTDIR/TMPDIR/CFFIXED and npm
+  config.
+- `public-final-result.txt` — final app public Check/Prepare/Confirm 0.165.0→0.166.0, exit 0; result
+  and post-update CLI verify.
+- `idle-close.txt` — final ordinary app Cmd-W close; app gone.
+
+## Prior red/old evidence
+
+- Active delayed-child direct-close red: the retained `close-app.err/.out` files are zero bytes and
+  are not cited as raw. Truthful attestation (not raw process output) is
+  `worker/AC08-red-attestation.md`, quoting the worker report: app PID 86953, window 5412, child
+  87296 ppid 1, root `parent/harness-r2-controlled34-1793633662`.
+- Old 2c1 prepared-close trial released its operation root because will-close cleanup won; no new red
+  is claimed from it. The new MainWindow gate covers the measured prepared-sheet state.
+
+## Remaining blockers
+
+- AC14 hosted exact-SHA CI: external/unauthorized.
+- Independent Perch/Qoder re-pin against this manifest.
+- Repeated termination coalescing implemented but not separately runtime-measured.

@@ -1,0 +1,16 @@
+Test Suite 'Selected tests' started at 2026-11-02 20:32:54.355.
+Test Suite 'AgentLensPackageTests.xctest' started at 2026-11-02 20:32:54.357.
+Test Suite 'AgentLensPackageTests.xctest' passed at 2026-11-02 20:32:54.357.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'Selected tests' passed at 2026-11-02 20:32:54.357.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.002) seconds
+◇ Test run started.
+↳ Testing Library Version: 1501
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Test sandboxDeniesAllAccessToTheRealAgentLensCache() started.
+isolation-probe selected_root=/var/folders/y3/p6x0rn5562l5qyxy7x6jqrsc0000gn/T/agentlens-m6-cli-isolation-A32C9E75-D908-4746-8322-5B2BE3076168
+isolation-probe physical_root=/private/var/folders/y3/p6x0rn5562l5qyxy7x6jqrsc0000gn/T/agentlens-m6-cli-isolation-A32C9E75-D908-4746-8322-5B2BE3076168
+isolation-probe scratch_override_present=false
+isolation-probe inherited_TMPDIR=/var/folders/y3/p6x0rn5562l5qyxy7x6jqrsc0000gn/T/
+✔ Test sandboxDeniesAllAccessToTheRealAgentLensCache() passed after 0.375 seconds.
+✔ Test run with 1 test in 0 suites passed after 0.376 seconds.

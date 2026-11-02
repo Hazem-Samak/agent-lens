@@ -1,14 +1,17 @@
 # M10-C — confirmed npm Update implementation
 
-Status: **candidate implementation, uncommitted, locally verified, not accepted**. M10-C remains
-blocked on independent review/acceptance and hosted AC14; M10-D is out of scope.
+Status: **technically accepted on the feature branch**, implementation commit
+[`fff287d79884bf2163642dfa6ef3543da5682565`](https://github.com/Hazem-Samak/agent-lens/commit/fff287d79884bf2163642dfa6ef3543da5682565).
+Both independent reviews, coordinator local acceptance, and exact-SHA hosted AC14 passed.
+M10-D, combined M10 acceptance, user visual approval, `main` integration, and release remain separate.
 
 - Branch: `codex/m10-npm-management`
 - Starting commit: `7ff71b67a665d405fe163b7908b8336d5b45e51e`
 - Starting content includes the accepted uncommitted R1 baseline repair.
 - Writer: River Pi, provider `river`, model `deepseek-ai/DeepSeek-V4.1-Flash-1017`, thinking `max`.
 - Evidence root: `/private/tmp/agent-lens-m10c-acceptance.TcBGo0/m10c-impl.4CODUE`.
-- No Git staging, commit, push, or publication was performed.
+- The owner separately authorized feature-branch commit/push to complete hosted AC14; no `main`
+  merge, PR, or app release was performed.
 
 ## Implemented surface
 
@@ -177,11 +180,12 @@ fixture.
 | AC11 controlled native host | PASS | Reproducible fixture compiles shipping views against injected service; exact PID/window-bound screenshots/AX, clean recipes, transport guard, actual npm-created native bin, successful full journey, and registry stop/join retained. |
 | AC12 actual app/public npm | PASS | Final app public Check → Prepare → Confirm `0.165.0 → 0.166.0` exit 0; receipt `public-final-result.txt`; idle close and post-update CLI parity verified under strict profile. |
 | AC13 isolation/scope | PASS | Final public6 strict profile denies writes outside the owned child and personal-home reads; preview/result show E-root working directory; both sentinels manifest-identical; controlled fixture verifies sentinels, actual npm bin, lifecycle/dependency markers, empty owned cache sentinel, registry PID/stop/join. |
-| AC14 regression/hosted | PARTIAL | Local build/all suites (434+76, no-TTY and PTY), app, packaging, guard, diff-check pass. Exact-SHA hosted CI remains external/unauthorized. |
+| AC14 regression/hosted | PASS | Local434 Core+76 AppSupport in both contexts; hosted run41519177534 attempt1 passed all7 gates on exact implementation SHA, native macros,510 combined Swift/guard21/packaging9; all510 local event identities and469 accepted R1 identities retained, zero skips/failures. |
 
 ## Limitations / stop conditions
 
-- AC14 hosted exact-SHA CI remains external.
+- AC14 passed on the exact implementation commit; all 33 raw hosted receipts are retained in
+  [`M10-C-hosted-evidence`](M10-C-hosted-evidence/summary.txt), not only the seven-day GitHub artifact.
 - Independent Perch (`glm-5.3-flash-starter`, max) and Qoder (`Qwen3.8-Max`, xhigh) both issued
   SOURCE + LOCAL-EVIDENCE PASS with no remaining material findings on reviewed manifest
   `0741a703bfc0609933c6701643d48081c8c7d28d6f211c309501d711a037cfeb`. The coordinator
@@ -190,9 +194,9 @@ fixture.
 - `.npmrc` and the AgentLens personal cache are absent in the controlled home; literal denial is not
   overclaimed.
 - At this pre-delivery local freeze, no Git staging, commit, push, or publication was performed.
-  Git delivery and hosted exact-SHA CI require separate owner authorization.
+  The owner subsequently authorized feature-branch Git delivery and exact-SHA hosted CI, now passed.
 
-## Touched paths (candidate)
+## Touched paths (reviewed input)
 
 See `worker/R2-final-manifest-final.txt` for the reviewed source/test/product hash map and
 `worker/R2-final-evidence-final.md` for the worker evidence index. The coordinator's documentation-only
@@ -240,6 +244,41 @@ processes were cleaned. The speculative per-callback-reply finding was withdrawn
 [AppKit termination contract](https://developer.apple.com/documentation/appkit/nsapplication/terminate(_:));
 no extra latch reset, force-exit, or abandoned detached work was added.
 
-Both selected reviewers cleared the final source/local evidence; exact-SHA hosted CI is the
-remaining external acceptance gate. This local verification neither accepts M10 as a whole nor
-authorizes M10-D, merge, release, or publication.
+Both selected reviewers cleared the final source/local evidence; exact-SHA hosted CI subsequently
+passed as recorded below. M10-C is technically accepted on the feature branch. This neither accepts
+M10 as a whole nor authorizes M10-D implementation, merge, release, or app publication.
+
+## Exact-SHA hosted acceptance and delivery
+
+Owner-authorized implementation commit:
+[`fff287d79884bf2163642dfa6ef3543da5682565`](https://github.com/Hazem-Samak/agent-lens/commit/fff287d79884bf2163642dfa6ef3543da5682565),
+pushed only to `codex/m10-npm-management`.
+[CI run41519177534](https://github.com/Hazem-Samak/agent-lens/actions/runs/41519177534), **attempt1**,
+passed on precisely that commit. All seven gates have producer exit0 and verification exit0:
+
+| Gate | Observed result |
+|---|---|
+| Core/UI import boundary | Pass |
+| Guard behavior fixtures | 21 passed, zero skips |
+| Fresh package build | Pass |
+| Native-macro isolation capability | 1 passed, zero skips |
+| Full Swift suite | 510 combined tests passed, zero skips/failures |
+| Fresh debug app builder | Pass |
+| Original packaging checks | 9 passed, zero skips |
+
+Observed runner: macOS15.8.2 arm64, Xcode26.3 (17C529), Apple Swift6.2.4. Native Swift Testing macro
+discovery passed; the local load-plugin fallback was not used. The hosted combined510 summary is
+not represented as separate hosted target counts. The coordinator compared both starts and passes
+against all510 local events with multiplicity; all469 accepted R1 events remain present.
+
+The artifact's ZIP SHA-256 matches GitHub's digest:
+`a7d72e1a326eccc186081d92d55a18431b7df6243b123ee4296b44a0e461e9b2`.
+Each extracted file was independently checked against the digest-verified ZIP. All33 raw artifact
+files, metadata, coordinator verification, local event multiset, reviewed input manifest, and unedited
+final Perch/Qoder captures are retained in [`M10-C-hosted-evidence`](M10-C-hosted-evidence/SHA256.json).
+The reviewed manifest is the pre-coordinator-documentation input; its source/test blobs match the
+implementation commit exactly. Subsequent acceptance/status/evidence changes are documentation-only.
+
+Unrelated `.perch/`, original workspace memory, and generated Python bytecode were excluded from
+Git delivery. The original user memory hash remains unchanged. No dependency, CI workflow,
+packaging-script, frozen brief, `main`, or release change was included.

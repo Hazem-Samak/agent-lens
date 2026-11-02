@@ -1,0 +1,12 @@
+gate summary (passed / failed / NOT RUN)
+
+- guard: passed; producer_exit=0 verification_exit=0 elapsed=0.204s
+- guard-fixtures: passed; producer_exit=0 verification_exit=0 elapsed=2.052s cases=21 skipped=0
+- swift-build: passed; producer_exit=0 verification_exit=0 elapsed=33.283s
+- isolation-gate: passed; producer_exit=0 verification_exit=0 elapsed=48.366s cases=[1] skipped=0 summaries=1 matched=[isolation>=1(saw 1)]
+- full-test-suite: passed; producer_exit=0 verification_exit=0 elapsed=75.961s cases=[510] skipped=0 summaries=1 matched=[combined(Core+AppSupport)>=406(saw 510)]
+- build-dev-app: passed; producer_exit=0 verification_exit=0 elapsed=21.042s
+- packaging: passed; producer_exit=0 verification_exit=0 elapsed=0.575s cases=9 skipped=0
+
+aggregate_gate_elapsed_seconds: 181.483
+registry/schema/query coverage is asserted by PASSED test events that must appear in the full-test-suite streams: bundledDefaultDetectorsIsValidWithThreeTools, unknownKeysAreRejectedAtRootDefinitionFixturePackageAndQueryLevels, makeDetectorUsesRegistryArgumentsInTheProductionPath.
