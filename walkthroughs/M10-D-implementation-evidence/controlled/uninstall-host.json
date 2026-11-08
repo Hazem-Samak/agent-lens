@@ -1,0 +1,32 @@
+{
+  "argv": [
+    "/usr/bin/sandbox-exec",
+    "-f",
+    "/private/tmp/agent-lens-m10d-acceptance.47587/final-controlled/ordinary-app.sb",
+    "/private/tmp/agent-lens-m10d-acceptance.47587/final-controlled/uninstall-host",
+    "/private/tmp/agent-lens-m10d-acceptance.47587/final-controlled/manager-bin/npm",
+    "/private/tmp/agent-lens-m10d-acceptance.47587/final-controlled/prefix",
+    "/private/tmp/agent-lens-m10d-acceptance.47587/final-controlled",
+    "/private/tmp/agent-lens-m10d-acceptance.47587/final-controlled/alias-bin/codex",
+    "/private/tmp/agent-lens-m10d-acceptance.47587/final-controlled/result.json",
+    "/private/tmp/agent-lens-m10d-acceptance.47587/final-controlled/argv.jsonl",
+    "/private/tmp/agent-lens-m10d-acceptance.47587/final-controlled/operation-base"
+  ],
+  "cwd": "/private/tmp/agent-lens-m10d-acceptance.47587/final-controlled",
+  "end": 1794131351.173888,
+  "exit": 0,
+  "original_argv": [
+    "/private/tmp/agent-lens-m10d-acceptance.47587/final-controlled/uninstall-host",
+    "/private/tmp/agent-lens-m10d-acceptance.47587/final-controlled/manager-bin/npm",
+    "/private/tmp/agent-lens-m10d-acceptance.47587/final-controlled/prefix",
+    "/private/tmp/agent-lens-m10d-acceptance.47587/final-controlled",
+    "/private/tmp/agent-lens-m10d-acceptance.47587/final-controlled/alias-bin/codex",
+    "/private/tmp/agent-lens-m10d-acceptance.47587/final-controlled/result.json",
+    "/private/tmp/agent-lens-m10d-acceptance.47587/final-controlled/argv.jsonl",
+    "/private/tmp/agent-lens-m10d-acceptance.47587/final-controlled/operation-base"
+  ],
+  "sandbox_profile": "/private/tmp/agent-lens-m10d-acceptance.47587/final-controlled/ordinary-app.sb",
+  "start": 1794131350.3174322,
+  "stderr": "/private/tmp/agent-lens-m10d-acceptance.47587/final-controlled/receipts/uninstall-host.stderr",
+  "stdout": "/private/tmp/agent-lens-m10d-acceptance.47587/final-controlled/receipts/uninstall-host.stdout"
+}

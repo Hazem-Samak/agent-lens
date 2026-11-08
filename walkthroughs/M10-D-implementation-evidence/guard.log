@@ -1,0 +1,2 @@
+core-ui-import-guard: 32 Swift file(s) under Sources/AgentLensCore; no SwiftUI/AppKit imports
+guard_exit=0

@@ -4,7 +4,7 @@ A macOS-native utility that tells you **which AI CLI tools are actually installe
 
 This repository surfaces the diagnostic that no existing tool answers: when multiple copies of an AI CLI exist on your machine, which one wins — and why. See `AGENT_LENS_SCOPE.md` for the full scope and `DECISIONS.md` for settled design decisions.
 
-The [complete application roadmap](ROADMAP.md) maps the remaining work through manager-backed Update/Uninstall, broader tool support, the finished native interface, and signed distribution. **M9 is technically accepted, user-UI-approved, and delivered to `main` (feature commit `eb4f586`, integrated milestone tip `1ac22c4`).** No public app release was published. M10-A (clean CI and fixture portability) is technically accepted on `codex/m10-npm-management`; M10-B is [technically accepted on the feature branch](walkthroughs/M10-B-acceptance.md) at `72ffb1e`, after independent River DeepSeek approval and all seven exact-SHA hosted gates. M10-C through M19 remain planned. M10 as a whole is not complete.
+The [complete application roadmap](ROADMAP.md) maps the remaining work through manager-backed Update/Uninstall, broader tool support, the finished native interface, and signed distribution. **M9 is technically accepted, user-UI-approved, and delivered to `main` (feature commit `eb4f586`, integrated milestone tip `1ac22c4`).** No public app release was published. M10-A (clean CI and fixture portability) is technically accepted on `codex/m10-npm-management`; M10-B is [technically accepted on the feature branch](walkthroughs/M10-B-acceptance.md) at `72ffb1e`; M10-C is [accepted](walkthroughs/M10-C-implementation.md) at `fff287d`; M10-D implementation and combined npm acceptance are recorded locally and remain subject to independent review and hosted CI at the delivery commit. M10 as a whole is not accepted, and M11–M19 remain planned.
 
 ## Build and open the development app
 
@@ -61,6 +61,18 @@ Cancel releases the owned operation scratch with no process. Confirm performs a 
 There is no update mutation CLI command. Update remains unavailable for Homebrew, standalone, ambiguous, unverified, custom-registry, prerelease, non-newer, or offline cases.
 
 Implementation and local verification evidence: [M10-C implementation](walkthroughs/M10-C-implementation.md).
+
+## Confirmed npm Uninstall
+
+For a selected npm-global installation with a current **Verify Installation** result, the native app can prepare an exact uninstall preview. Preparation repeats full live ownership verification; the displayed verification result is never authority. The preview shows the package, verified prefix and installation root, the locally tool-reported version (or `unavailable`), the public-registry pins, working directory, effect, and literal argv. It does not query latest metadata and does not read or write either update cache.
+
+Cancel releases the owned operation scratch with no process. Confirm repeats a fresh local scan and complete ownership/proof/operation-root comparison, then runs one literal global `npm uninstall` with the verified manager and prefix. npm v7+ does not run uninstall lifecycle scripts; Agent Lens adds no script-policy override. Dependency directories, caches, configuration, logs, and other installations outside the verified package are not intentionally targeted and may remain. Removal may leave a dangling alias residue or reveal another PATH winner; both are reported.
+
+After any launched removal the app rescans locally. Exit zero alone is not success: the exact recorded package directory must be observed absent and the selected target released, with no failed observation. A replacement directory, unreadable prefix, still-live target, nonzero exit, timeout, or cancellation is never reported as clean removal. The destructive sheet keeps Cancel as the default action; closing the window or quitting cancels and joins a launched operation and performs bounded reconciliation.
+
+Uninstall shares one mutation gate with Update; Update and Uninstall cannot run concurrently. There is no uninstall mutation CLI command. Uninstall remains unavailable for Homebrew, cask, pip/uv, standalone, ambiguous, unverified, or unprotected-source cases.
+
+Implementation and local verification evidence: [M10-D implementation](walkthroughs/M10-D-implementation.md).
 
 ## Update status limitations
 

@@ -989,6 +989,101 @@ private final class VMNpmRunner: UpdateCommandRunner, @unchecked Sendable {
     #expect(viewModel.phase == .ready)
 }
 
+private final class VMRemovingOperationRunner: OperationCommandRunner, @unchecked Sendable {
+    let packageRoot: URL
+    let prefixBin: URL
+    init(packageRoot: URL, prefixBin: URL) {
+        self.packageRoot = packageRoot
+        self.prefixBin = prefixBin
+    }
+    func run(executablePath: String, arguments: [String], environment: [String: String],
+             currentDirectory: String, timeout: TimeInterval) async -> OperationCommandResult {
+        try? FileManager.default.removeItem(at: prefixBin.appendingPathComponent("codex"))
+        try? FileManager.default.removeItem(at: packageRoot)
+        return OperationCommandResult(
+            stdout: Data("removed\n".utf8), stderr: Data(),
+            stdoutTruncated: false, stderrTruncated: false,
+            exitStatus: 0, processStarted: true,
+            timedOut: false, cancelled: false, cleanupWarning: false
+        )
+    }
+}
+
+@MainActor
+@Test func failedPostUninstallRescanClearsOwnershipAndDisarmsUninstall() async throws {
+    let root = try appSupportScratchRoot("m10d-vm-ownership-clear")
+    defer { try? FileManager.default.removeItem(at: root) }
+    let prefix = root.appendingPathComponent("prefix", isDirectory: true)
+    let globalRoot = prefix.appendingPathComponent("lib/node_modules", isDirectory: true)
+    let managerDir = root.appendingPathComponent("manager-bin", isDirectory: true)
+    let aliasDir = root.appendingPathComponent("alias-bin", isDirectory: true)
+    let packageRoot = globalRoot.appendingPathComponent("@openai/codex", isDirectory: true)
+    let target = packageRoot.appendingPathComponent("bin/codex")
+    try writeFixtureExecutable(managerDir.appendingPathComponent("npm"))
+    try vmWriteCodex(target, version: "1.0.0")
+    try Data("{\"name\":\"@openai/codex\",\"version\":\"1.0.0\",\"bin\":{\"codex\":\"bin/codex\"}}".utf8)
+        .write(to: packageRoot.appendingPathComponent("package.json"))
+    let prefixBin = prefix.appendingPathComponent("bin", isDirectory: true)
+    try FileManager.default.createDirectory(at: prefixBin, withIntermediateDirectories: true)
+    try FileManager.default.createSymbolicLink(
+        atPath: prefixBin.appendingPathComponent("codex").path,
+        withDestinationPath: target.path
+    )
+    try FileManager.default.createDirectory(at: aliasDir, withIntermediateDirectories: true)
+    let alias = aliasDir.appendingPathComponent("codex")
+    try FileManager.default.createSymbolicLink(atPath: alias.path, withDestinationPath: target.path)
+    let path = [managerDir.path, aliasDir.path].joined(separator: ":")
+    let environment = ShellEnvironment(
+        shellPath: "/bin/zsh", pathEntries: [managerDir.path, aliasDir.path],
+        pathJoined: path, raw: ["PATH": path, "HOME": "/synthetic/home"], isDegraded: false
+    )
+    let data = Data("""
+    {"schemaVersion":2,"detectors":[{"id":"codex-id","displayName":"Codex","executableName":"codex","category":"aiAgent","packages":[{"manager":"npm","name":"@openai/codex"}],"versionQuery":{"arguments":["--version"],"stream":"stdout","line":"first"}}]}
+    """.utf8)
+    let loader = ScriptedRegistryLoader(payloads: [data, data])
+    let definition = try DetectorRegistry.validate(data: data)[0]
+    let scratch = root.appendingPathComponent("scratch", isDirectory: true)
+    let operationBase = root.appendingPathComponent("operation-base", isDirectory: true)
+    try FileManager.default.createDirectory(
+        at: operationBase, withIntermediateDirectories: false,
+        attributes: [.posixPermissions: 0o700]
+    )
+    let source = SessionEnvironmentSource(
+        resolve: { environment }, loginShellPath: { "/bin/sh" },
+        capture: { _ in ShellEnvironmentResolver.CaptureOutcome(dump: environment.raw, timedOut: false) },
+        build: { _, _ in environment }
+    )
+    let service = InventoryService(
+        environment: SessionEnvironmentProvider(source: source),
+        registry: { try loader.load() },
+        scanner: { detector, env, cwd in
+            PathDiagnosticsScanner.scan(detector: detector, environment: env, currentDirectory: cwd)
+        },
+        updateRunner: VMNpmRunner(prefix: prefix.path, root: globalRoot.path, gate: VMGate()),
+        operationRunner: VMRemovingOperationRunner(packageRoot: packageRoot, prefixBin: prefixBin),
+        operationGate: OperationExecutionGate(),
+        operationRootBaseURL: operationBase,
+        updateCacheURL: root.appendingPathComponent("cache.json"),
+        npmScratchBaseURL: scratch,
+        currentDirectory: root.path,
+        clock: fixedClock()
+    )
+    _ = definition
+    let viewModel = InventoryViewModel(service: service)
+    await viewModel.launch()
+    await viewModel.verifySelectedInstallation()
+    #expect(viewModel.selectedEntry?.ownership?.verifiedInstallation != nil)
+    await viewModel.prepareSelectedUninstall()
+    #expect(viewModel.uninstallPreparation != nil)
+    await viewModel.confirmSelectedUninstall()
+    #expect(viewModel.uninstallOutcome?.processStarted == true)
+    #expect(viewModel.snapshot?.entries.first { $0.registryID == "codex-id" }?.ownership == nil)
+    viewModel.dismissUninstall()
+    await viewModel.prepareSelectedUninstall()
+    #expect(viewModel.uninstallPreparation == nil)
+    #expect(!viewModel.isUninstallSheetPresented)
+}
+
 private final class VMGatedOperationRunner: OperationCommandRunner, @unchecked Sendable {
     let gate: VMGate
     let target: URL

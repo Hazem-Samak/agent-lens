@@ -68,11 +68,15 @@ public struct MainWindow: View {
         .onAppear {
             if _lifecycleToken.wrappedValue == nil {
                 _lifecycleToken.wrappedValue = AppLifecycleGate.shared.register(
-                    shouldWait: { model.isBusy || activeActionTask != nil || model.isUpdateSheetPresented },
+                    shouldWait: {
+                        model.isBusy || activeActionTask != nil
+                            || model.isUpdateSheetPresented || model.isUninstallSheetPresented
+                    },
                     cancelAndJoin: {
                         cancelActiveAction()
                         await model.cancel()
                         await model.cancelUpdate()
+                        await model.cancelUninstall()
                     }
                 )
             }
@@ -105,14 +109,41 @@ public struct MainWindow: View {
             )
             .interactiveDismissDisabled(model.isExecutingUpdate)
         }
+        .sheet(isPresented: uninstallSheetBinding, onDismiss: {
+            model.dismissUninstall()
+        }) {
+            UninstallOperationView(
+                preview: model.uninstallPreview ?? model.uninstallPreparation?.preview,
+                outcome: model.uninstallOutcome,
+                unavailable: model.uninstallUnavailableReason,
+                isExecuting: model.isExecutingUninstall,
+                isCancelling: model.isCancelling,
+                onConfirm: {
+                    runAction {
+                        await model.confirmSelectedUninstall()
+                    }
+                },
+                onCancel: {
+                    Task { @MainActor in
+                        await model.cancelUninstall()
+                    }
+                },
+                onDismiss: {
+                    model.dismissUninstall()
+                }
+            )
+            .interactiveDismissDisabled(model.isExecutingUninstall)
+        }
         .background(WindowCloseObserver(onClose: {
             cancelActiveAction()
             await model.cancelUpdate()
+            await model.cancelUninstall()
         }))
         .onDisappear {
             cancelActiveAction()
             Task { @MainActor in
                 await model.cancelUpdate()
+                await model.cancelUninstall()
             }
         }
     }
@@ -133,7 +164,8 @@ public struct MainWindow: View {
 
     private func cancelCurrentAction() {
         guard model.isBusy || activeActionTask != nil else { return }
-        if model.phase == .verifyingOwnership || model.isPreparingUpdate || model.isExecutingUpdate {
+        if model.phase == .verifyingOwnership || model.isPreparingUpdate || model.isExecutingUpdate
+            || model.isPreparingUninstall || model.isExecutingUninstall {
             // These actions report `Cancelling` immediately through the model, then let owned
             // bounded cleanup finish; do not bypass that state by only cancelling the action task.
             Task { @MainActor in
@@ -216,6 +248,8 @@ public struct MainWindow: View {
                 isCancellingOwnership: model.isCancelling,
                 isPreparingUpdate: model.isPreparingUpdate,
                 isExecutingUpdate: model.isExecutingUpdate,
+                isPreparingUninstall: model.isPreparingUninstall,
+                isExecutingUninstall: model.isExecutingUninstall,
                 isBusy: model.isBusy,
                 onVerifyOwnership: {
                     runAction {
@@ -228,6 +262,11 @@ public struct MainWindow: View {
                 onPrepareUpdate: {
                     runAction {
                         await model.prepareSelectedUpdate()
+                    }
+                },
+                onPrepareUninstall: {
+                    runAction {
+                        await model.prepareSelectedUninstall()
                     }
                 }
             )
@@ -249,11 +288,22 @@ public struct MainWindow: View {
         )
     }
 
+    private var uninstallSheetBinding: Binding<Bool> {
+        Binding(
+            get: { model.isUninstallSheetPresented },
+            set: { presented in
+                if !presented { model.dismissUninstall() }
+            }
+        )
+    }
+
     // MARK: - Toolbar
 
     private var busyLabel: String {
         if model.isPreparingUpdate { return model.isCancelling ? "Cancelling…" : "Preparing Update…" }
         if model.isExecutingUpdate { return model.isCancelling ? "Cancelling…" : "Updating…" }
+        if model.isPreparingUninstall { return model.isCancelling ? "Cancelling…" : "Preparing Uninstall…" }
+        if model.isExecutingUninstall { return model.isCancelling ? "Cancelling…" : "Uninstalling…" }
         return switch model.phase {
         case .verifyingOwnership:
             model.isCancelling ? "Cancelling…" : "Verifying…"

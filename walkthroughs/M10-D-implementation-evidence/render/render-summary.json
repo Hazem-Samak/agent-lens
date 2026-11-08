@@ -1,0 +1,32 @@
+{
+  "previewBytes": 296604,
+  "result": {
+    "observationFailed": false,
+    "packageDirectoryAbsent": true,
+    "previewArguments": [
+      "--cache",
+      "/private/tmp/agent-lens-m10d-acceptance.47587/render-sheet3/operation-base/D4301832-C1C4-4E42-8766-F8E1127B38B4",
+      "--logs-dir",
+      "/private/tmp/agent-lens-m10d-acceptance.47587/render-sheet3/operation-base/D4301832-C1C4-4E42-8766-F8E1127B38B4",
+      "--no-update-notifier",
+      "uninstall",
+      "@openai/codex",
+      "--global",
+      "--prefix",
+      "/tmp/agent-lens-m10d-acceptance.47587/render-sheet3/prefix",
+      "--registry=https://registry.npmjs.org/",
+      "--@openai:registry=https://registry.npmjs.org/",
+      "--no-audit",
+      "--no-fund",
+      "--package-lock=false",
+      "--no-save",
+      "--fetch-retries=0",
+      "--fetch-timeout=30000"
+    ],
+    "selectedEntryResidue": true,
+    "selectedTargetReleased": true,
+    "state": "succeeded"
+  },
+  "resultBytes": 139238,
+  "sentinelUnchanged": true
+}

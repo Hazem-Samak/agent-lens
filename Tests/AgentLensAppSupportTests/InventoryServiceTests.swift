@@ -8,7 +8,7 @@
 // This file also holds the scratch/filesystem helpers shared with SessionEnvironmentProviderTests
 // (same test target).
 
-import AgentLensCore
+@testable import AgentLensCore
 import Foundation
 import Testing
 @testable import AgentLensAppSupport
@@ -1122,4 +1122,138 @@ private struct FixedDiagnosticScanner: DiagnosticScannerFactory {
         return
     }
     #expect(reason == .identityUnverified)
+}
+
+// MARK: M10-D uninstall boundary
+
+private final class M10DUninstallOperationRunner: OperationCommandRunner, @unchecked Sendable {
+    let packageRoot: String
+    let prefixBin: String
+    let executableName: String
+    init(packageRoot: String, prefixBin: String, executableName: String) {
+        self.packageRoot = packageRoot
+        self.prefixBin = prefixBin
+        self.executableName = executableName
+    }
+    func run(
+        executablePath: String,
+        arguments: [String],
+        environment: [String: String],
+        currentDirectory: String,
+        timeout: TimeInterval
+    ) async -> OperationCommandResult {
+        try? FileManager.default.removeItem(atPath: packageRoot)
+        try? FileManager.default.removeItem(
+            atPath: URL(fileURLWithPath: prefixBin).appendingPathComponent(executableName).path
+        )
+        return OperationCommandResult(
+            stdout: Data("removed\n".utf8), stderr: Data(),
+            stdoutTruncated: false, stderrTruncated: false,
+            exitStatus: 0, processStarted: true,
+            timedOut: false, cancelled: false, cleanupWarning: false
+        )
+    }
+}
+
+@Test func uninstallPreparationAndExecutionPublishTheFreshRemovalDelta() async throws {
+    let root = try appSupportScratchRoot("m10d-uninstall-boundary")
+    defer { try? FileManager.default.removeItem(at: root) }
+    let prefix = root.appendingPathComponent("prefix", isDirectory: true)
+    let globalRoot = prefix.appendingPathComponent("lib/node_modules", isDirectory: true)
+    let managerDir = root.appendingPathComponent("manager-bin", isDirectory: true)
+    let aliasDir = root.appendingPathComponent("alias-bin", isDirectory: true)
+    let packageRoot = globalRoot.appendingPathComponent("@openai/codex", isDirectory: true)
+    let target = packageRoot.appendingPathComponent("bin/codex")
+    try m10cWriteExecutable(managerDir.appendingPathComponent("npm"))
+    try m10cWriteExecutable(target, contents: "#!/bin/sh\necho 'codex-cli 1.0.0'\n")
+    try Data("{\"name\":\"@openai/codex\",\"version\":\"1.0.0\",\"bin\":{\"codex\":\"bin/codex\"}}".utf8)
+        .write(to: packageRoot.appendingPathComponent("package.json"))
+    let prefixBin = prefix.appendingPathComponent("bin", isDirectory: true)
+    try FileManager.default.createDirectory(at: prefixBin, withIntermediateDirectories: true)
+    try FileManager.default.createSymbolicLink(
+        atPath: prefixBin.appendingPathComponent("codex").path,
+        withDestinationPath: target.path
+    )
+    try FileManager.default.createDirectory(at: aliasDir, withIntermediateDirectories: true)
+    let alias = aliasDir.appendingPathComponent("codex")
+    try FileManager.default.createSymbolicLink(atPath: alias.path, withDestinationPath: target.path)
+    let joinedPath = [managerDir.path, aliasDir.path].joined(separator: ":")
+    let environment = ShellEnvironment(
+        shellPath: "/bin/zsh", pathEntries: [managerDir.path, aliasDir.path],
+        pathJoined: joinedPath, raw: ["PATH": joinedPath, "HOME": "/synthetic/home"],
+        isDegraded: false
+    )
+    let definitionData = Data("""
+    {"schemaVersion":2,"detectors":[{"id":"codex-id","displayName":"Codex","executableName":"codex","category":"aiAgent","packages":[{"manager":"npm","name":"@openai/codex"}],"versionQuery":{"arguments":["--version"],"stream":"stdout","line":"first"}}]}
+    """.utf8)
+    let definition = try DetectorRegistry.validate(data: definitionData)[0]
+    let diagnostic = PathDiagnosticsScanner.scan(
+        detector: definition.makeDetector(), environment: environment, currentDirectory: root.path
+    )
+    let selection = try #require(FileIdentityObserver.observeExecutable(entryPath: alias.path))
+    let manager = try #require(FileIdentityObserver.observeExecutable(entryPath: managerDir.appendingPathComponent("npm").path))
+    let ownership = InstallationOwnershipResult(
+        registryID: "codex-id",
+        observedSelectedEntry: selection.entryPath,
+        observedSelectedTarget: selection.canonicalTarget,
+        observedAt: Date(timeIntervalSince1970: 0),
+        outcome: .verified(VerifiedInstallation(
+            manager: .npm,
+            packageName: "@openai/codex",
+            managerEntryPath: manager.entryPath,
+            managerTarget: manager.canonicalTarget,
+            managerFingerprint: manager.fingerprint,
+            managerRoot: prefix.path,
+            installationRoot: packageRoot.path,
+            selection: InstallationSelectionIdentity(
+                entryPath: selection.entryPath,
+                canonicalTarget: selection.canonicalTarget,
+                fingerprint: selection.fingerprint
+            )
+        ))
+    )
+    let entry = InventoryEntry(
+        definition: definition, diagnostic: diagnostic, update: nil, ownership: ownership
+    )
+    let operationBase = root.appendingPathComponent("operation-base", isDirectory: true)
+    try FileManager.default.createDirectory(
+        at: operationBase, withIntermediateDirectories: false,
+        attributes: [.posixPermissions: 0o700]
+    )
+    let source = SessionEnvironmentSource(
+        resolve: { environment }, loginShellPath: { "/bin/sh" },
+        capture: { _ in ShellEnvironmentResolver.CaptureOutcome(dump: environment.raw, timedOut: false) },
+        build: { _, _ in environment }
+    )
+    let service = InventoryService(
+        environment: SessionEnvironmentProvider(source: source),
+        registry: { [definition] },
+        scanner: { detector, env, cwd in
+            PathDiagnosticsScanner.scan(detector: detector, environment: env, currentDirectory: cwd)
+        },
+        updateRunner: M10CNpmRunner(prefix: prefix.path, root: globalRoot.path, target: "2.0.0"),
+        operationRunner: M10DUninstallOperationRunner(
+            packageRoot: packageRoot.path,
+            prefixBin: prefixBin.path,
+            executableName: "codex"
+        ),
+        operationGate: OperationExecutionGate(),
+        operationRootBaseURL: operationBase,
+        updateCacheURL: root.appendingPathComponent("cache.json"),
+        npmScratchBaseURL: root.appendingPathComponent("scratch", isDirectory: true),
+        currentDirectory: root.path,
+        clock: fixedClock()
+    )
+    let prepared = await service.prepareUninstall(for: entry)
+    guard case .ready(let preparation) = prepared else {
+        Issue.record("expected uninstall preparation")
+        return
+    }
+    #expect(preparation.preview.packageName == "@openai/codex")
+    let result = await service.executeUninstall(preparation)
+    #expect(result.outcome.state == .succeeded)
+    #expect(result.outcome.processStarted)
+    #expect(result.outcome.reconciliation?.packageDirectoryAbsent == true)
+    #expect(result.outcome.reconciliation?.selectedTargetReleased == true)
+    #expect(result.snapshot?.entries.first?.installState == .notInstalled)
 }

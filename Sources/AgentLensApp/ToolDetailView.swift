@@ -11,10 +11,13 @@ public struct ToolDetailView: View {
     public let isCancellingOwnership: Bool
     public let isPreparingUpdate: Bool
     public let isExecutingUpdate: Bool
+    public let isPreparingUninstall: Bool
+    public let isExecutingUninstall: Bool
     public let isBusy: Bool
     public let onVerifyOwnership: @MainActor () -> Void
     public let onCancelOwnership: @MainActor () -> Void
     public let onPrepareUpdate: @MainActor () -> Void
+    public let onPrepareUninstall: @MainActor () -> Void
 
     public init(
         entry: InventoryEntry?,
@@ -25,10 +28,13 @@ public struct ToolDetailView: View {
         isCancellingOwnership: Bool = false,
         isPreparingUpdate: Bool = false,
         isExecutingUpdate: Bool = false,
+        isPreparingUninstall: Bool = false,
+        isExecutingUninstall: Bool = false,
         isBusy: Bool = false,
         onVerifyOwnership: @escaping @MainActor () -> Void = {},
         onCancelOwnership: @escaping @MainActor () -> Void = {},
-        onPrepareUpdate: @escaping @MainActor () -> Void = {}
+        onPrepareUpdate: @escaping @MainActor () -> Void = {},
+        onPrepareUninstall: @escaping @MainActor () -> Void = {}
     ) {
         self.entry = entry
         self.isDegradedEnvironment = isDegradedEnvironment
@@ -38,10 +44,13 @@ public struct ToolDetailView: View {
         self.isCancellingOwnership = isCancellingOwnership
         self.isPreparingUpdate = isPreparingUpdate
         self.isExecutingUpdate = isExecutingUpdate
+        self.isPreparingUninstall = isPreparingUninstall
+        self.isExecutingUninstall = isExecutingUninstall
         self.isBusy = isBusy
         self.onVerifyOwnership = onVerifyOwnership
         self.onCancelOwnership = onCancelOwnership
         self.onPrepareUpdate = onPrepareUpdate
+        self.onPrepareUninstall = onPrepareUninstall
     }
 
     public var body: some View {
@@ -83,6 +92,11 @@ public struct ToolDetailView: View {
                 Divider()
 
                 ownershipSection(entry)
+
+                if hasDeclaredNpmPackage(entry) {
+                    Divider()
+                    managementSection(entry)
+                }
 
                 Divider()
 
@@ -246,6 +260,49 @@ public struct ToolDetailView: View {
             true
         case .notInstalled, .inconsistent:
             false
+        }
+    }
+
+    // MARK: Management
+
+    private func hasDeclaredNpmPackage(_ entry: InventoryEntry) -> Bool {
+        entry.definition.packages.contains { $0.manager == .npm }
+    }
+
+    private static func hasSelectedInstallation(_ entry: InventoryEntry) -> Bool {
+        switch entry.diagnostic.selection {
+        case .winner, .offPath: true
+        case .notInstalled, .inconsistent: false
+        }
+    }
+
+    @ViewBuilder
+    private func managementSection(_ entry: InventoryEntry) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Manage")
+                .font(.headline)
+            if let verified = entry.ownership?.verifiedInstallation,
+               verified.manager == .npm,
+               Self.hasSelectedInstallation(entry)
+            {
+                Text("Verified npm-global package: \(verified.packageName)")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                Button(role: .destructive) {
+                    onPrepareUninstall()
+                } label: {
+                    Label(isPreparingUninstall ? "Preparing Uninstall…" : "Uninstall…",
+                          systemImage: "trash")
+                }
+                .disabled(isBusy)
+                Text("Prepares an exact preview first. Confirmation, output and the post-removal PATH delta are shown before anything is removed.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            } else {
+                Text("Verify Installation to enable Uninstall for this npm package.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
         }
     }
 

@@ -50,9 +50,14 @@ to state that npm does not run uninstall lifecycle scripts and that Agent Lens a
 override.
 
 Because the requested OpenCode route did not return a complete verdict, mcode and agy were started as
-read-only fallback plan reviews. Their status is recorded in the evidence folder; implementation
-must not represent a timed-out review as a PASS. Plan freeze proceeded on the owner's explicit
-"don't stop unless you finish" instruction, with the limitation disclosed.
+read-only fallback plan reviews. mcode (`minimax/MiniMax-M3.1-Flash`, `xhigh`) returned **BLOCK**
+with four blocking findings: nil removal observations conflated absence with unreadability; ownership
+stayed armed after a launched removal whose rescan failed; the acceptance matrix omitted removal
+edge cases; and AC11's BLOCKED wording was ambiguous. The full review is retained at
+`M10-D-planning-evidence/mcode-plan-review.txt`; corrections are frozen in
+[`briefs/M10-D-R1-review-corrections.md`](../briefs/M10-D-R1-review-corrections.md). agy did not
+return a plan verdict before being stopped. The OpenCode timeout is disclosed; no timed-out review
+is represented as a PASS.
 
 ### P2 — revision after independent findings
 
@@ -63,11 +68,14 @@ must not represent a timed-out review as a PASS. Plan freeze proceeded on the ow
 - Re-ran structural checks: sequential D01–D07 and AC01–AC13 rows, balanced code fences, no
   production `--dry-run`/`--force`/`--ignore-scripts`, and baseline ancestry.
 
-## Freeze
+## Freeze and later revision
 
-The brief was committed and frozen before product implementation was committed. Implementation
-started in the working tree after plan freeze; the product commit is separate and must cite this
-planning record. Planning freeze does not attest any implementation, native, runtime, or hosted gate.
+The base brief was committed and frozen at `3d6129d` before product implementation was committed.
+mcode's plan review returned **BLOCK**; the accepted corrections were separately frozen in
+[`briefs/M10-D-R1-review-corrections.md`](../briefs/M10-D-R1-review-corrections.md) at `46778d2`.
+Implementation started in the working tree after plan freeze; the product commit is separate and
+must cite these planning records. Planning freeze does not attest any implementation, native,
+runtime, or hosted gate.
 
 ## Evidence
 

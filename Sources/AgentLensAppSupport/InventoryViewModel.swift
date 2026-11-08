@@ -76,7 +76,9 @@ public final class InventoryViewModel {
     /// every UI action observe one mutually exclusive operation owner.
     private var updatePipeline: Task<Void, Never>?
     private var updateGeneration: UInt64 = 0
-    private var isTearingDownUpdate = false
+    private var uninstallPipeline: Task<Void, Never>?
+    private var uninstallGeneration: UInt64 = 0
+    private var isTearingDownMutation = false
 
     // MARK: Published state
 
@@ -123,6 +125,12 @@ public final class InventoryViewModel {
     /// A typed refusal from preparation, retained for the native presentation.
     public private(set) var updateUnavailableReason: NpmUpdateUnavailableReason?
 
+    /// The pending Uninstall preview and opaque authorization evidence.
+    public private(set) var uninstallPreparation: NpmUninstallPreparation?
+    public private(set) var uninstallPreview: NpmUninstallPreview?
+    public private(set) var uninstallOutcome: NpmUninstallOutcome?
+    public private(set) var uninstallUnavailableReason: NpmUninstallUnavailableReason?
+
     public init(service: InventoryService) {
         self.service = service
     }
@@ -144,8 +152,10 @@ public final class InventoryViewModel {
     /// The documented degraded-environment warning (M2/D-005), never inferred from PATH text.
     public var isDegradedEnvironment: Bool { snapshot?.isDegradedEnvironment ?? false }
 
-    /// True while an action owns the pipeline; the window disables conflicting controls with it.
-    public var isBusy: Bool { activePipeline != nil || updatePipeline != nil }
+    /// True while an action owns a pipeline; the window disables conflicting controls with it.
+    public var isBusy: Bool {
+        activePipeline != nil || updatePipeline != nil || uninstallPipeline != nil
+    }
 
     /// True while the confirmation sheet has something to present.
     public var isUpdateSheetPresented: Bool {
@@ -153,8 +163,17 @@ public final class InventoryViewModel {
             || updateUnavailableReason != nil
     }
 
+    /// True while the Uninstall sheet has something to present. Update and Uninstall share one
+    /// mutation slot, so at most one of the two sheets can be presented.
+    public var isUninstallSheetPresented: Bool {
+        uninstallPreview != nil || uninstallPreparation != nil || uninstallOutcome != nil
+            || uninstallUnavailableReason != nil
+    }
+
     public private(set) var isPreparingUpdate: Bool = false
     public private(set) var isExecutingUpdate: Bool = false
+    public private(set) var isPreparingUninstall: Bool = false
+    public private(set) var isExecutingUninstall: Bool = false
 
     /// The entries the window lists: the full snapshot filtered by search text, in registry order.
     /// Nothing is re-associated after filtering — each entry carries its own definition, diagnostic,
@@ -228,7 +247,7 @@ public final class InventoryViewModel {
     /// its observed target identity are unchanged.
     public func verifySelectedInstallation() async {
         invalidatePendingUpdate()
-        guard activePipeline == nil, updatePipeline == nil else { return }
+        guard activePipeline == nil, updatePipeline == nil, uninstallPipeline == nil else { return }
         guard let entry = selectedEntry,
               Self.observedSelection(entry.diagnostic) != nil
         else { return }
@@ -286,7 +305,7 @@ public final class InventoryViewModel {
     /// selection/filter/scan/check/refresh/verify action invalidates it without mutation.
     public func prepareSelectedUpdate() async {
         invalidatePendingUpdate()
-        guard activePipeline == nil, updatePipeline == nil else { return }
+        guard activePipeline == nil, updatePipeline == nil, uninstallPipeline == nil else { return }
         guard let entry = selectedEntry,
               case .updateAvailable = entry.updateStatus,
               entry.update?.npmPackage != nil
@@ -346,7 +365,8 @@ public final class InventoryViewModel {
     /// Consumes the pending preparation and executes the one confirmed mutation. The service
     /// returns a fresh local snapshot after Core's mandatory reconciliation.
     public func confirmSelectedUpdate() async {
-        guard activePipeline == nil, updatePipeline == nil,
+        guard activePipeline == nil, updatePipeline == nil, uninstallPipeline == nil,
+              uninstallPreparation == nil,
               let preparation = updatePreparation
         else { return }
         updateGeneration &+= 1
@@ -428,44 +448,223 @@ public final class InventoryViewModel {
         updatePreview = nil
     }
 
+    /// Freshly prepares the selected npm Uninstall. Eligibility is gated by a current verified npm
+    /// ownership observation; Core repeats full live verification and never trusts it.
+    public func prepareSelectedUninstall() async {
+        invalidatePendingUpdate()
+        guard activePipeline == nil, updatePipeline == nil, uninstallPipeline == nil else { return }
+        guard let entry = selectedEntry,
+              let verified = entry.ownership?.verifiedInstallation,
+              verified.manager == .npm,
+              Self.observedSelection(entry.diagnostic) != nil
+        else { return }
+
+        uninstallGeneration &+= 1
+        let generation = uninstallGeneration
+        let registryID = entry.registryID
+        let observed = Self.observedSelection(entry.diagnostic)
+        uninstallOutcome = nil
+        uninstallUnavailableReason = nil
+        uninstallPreview = nil
+        isCancelling = false
+        isPreparingUninstall = true
+        let service = self.service
+        let pipeline = Task { @MainActor [weak self] in
+            guard let self else { return }
+            let result = await service.prepareUninstall(for: entry)
+            guard generation == self.uninstallGeneration,
+                  !Task.isCancelled,
+                  self.selectedRegistryID == registryID,
+                  self.selectedEntry?.registryID == registryID,
+                  let current = self.selectedEntry,
+                  Self.observedSelection(current.diagnostic) == observed
+            else {
+                if case .ready(let preparation) = result { _ = service.cancelUninstall(preparation) }
+                return
+            }
+            switch result {
+            case .ready(let preparation):
+                self.uninstallPreparation = preparation
+                self.uninstallPreview = preparation.preview
+            case .unavailable(let reason):
+                self.uninstallUnavailableReason = reason
+            }
+        }
+        uninstallPipeline = pipeline
+        await withTaskCancellationHandler {
+            await pipeline.value
+        } onCancel: {
+            pipeline.cancel()
+        }
+        if generation == self.uninstallGeneration {
+            uninstallPipeline = nil
+            isPreparingUninstall = false
+        }
+        if generation == self.uninstallGeneration, isCancelling {
+            if let preparation = uninstallPreparation {
+                _ = service.cancelUninstall(preparation)
+                uninstallPreparation = nil
+            }
+            phase = snapshot == nil ? .idle : .localReady
+            isCancelling = false
+        }
+    }
+
+    /// Consumes the pending Uninstall preparation and executes the one confirmed removal.
+    public func confirmSelectedUninstall() async {
+        guard activePipeline == nil, updatePipeline == nil, uninstallPipeline == nil,
+              updatePreparation == nil,
+              let preparation = uninstallPreparation
+        else { return }
+        uninstallGeneration &+= 1
+        let generation = uninstallGeneration
+        let registryID = preparation.preview.registryID
+        uninstallPreparation = nil
+        uninstallOutcome = nil
+        uninstallUnavailableReason = nil
+        isCancelling = false
+        isExecutingUninstall = true
+        let service = self.service
+        let pipeline = Task { @MainActor [weak self] in
+            guard let self else { return }
+            let result = await service.executeUninstall(preparation)
+            guard generation == self.uninstallGeneration else { return }
+            self.uninstallOutcome = result.outcome
+            if let snapshot = result.snapshot {
+                self.publish(snapshot, updateFailure: nil)
+            } else if result.outcome.processStarted {
+                // A launched removal must not leave the destructive action armed when the
+                // post-launch rescan failed or was cancelled. Clear only this entry's observation.
+                self.clearOwnership(for: registryID)
+            }
+            self.isExecutingUninstall = false
+            self.isCancelling = false
+        }
+        uninstallPipeline = pipeline
+        await withTaskCancellationHandler {
+            await pipeline.value
+        } onCancel: {
+            pipeline.cancel()
+        }
+        if generation == self.uninstallGeneration {
+            uninstallPipeline = nil
+            isExecutingUninstall = false
+        }
+        if generation == self.uninstallGeneration, isCancelling {
+            phase = snapshot == nil ? .idle : .localReady
+            isCancelling = false
+        }
+    }
+
+    /// Cancels a pending Uninstall preview with zero mutation, or interrupts and joins a launched
+    /// operation.
+    public func cancelUninstall() async {
+        if let pipeline = uninstallPipeline {
+            isCancelling = true
+            pipeline.cancel()
+            await pipeline.value
+            if pipeline.isCancelled || Task.isCancelled {
+                if isPreparingUninstall, let preparation = uninstallPreparation {
+                    _ = service.cancelUninstall(preparation)
+                    uninstallPreparation = nil
+                }
+                if isPreparingUninstall { phase = snapshot == nil ? .idle : .localReady }
+                if isPreparingUninstall { uninstallPreview = nil }
+                isPreparingUninstall = false
+                isCancelling = false
+            }
+            return
+        }
+        if let preparation = uninstallPreparation {
+            _ = service.cancelUninstall(preparation)
+            uninstallPreparation = nil
+        }
+        uninstallOutcome = nil
+        uninstallUnavailableReason = nil
+        uninstallPreview = nil
+        if phase == .ready || phase == .localReady { phase = snapshot == nil ? .idle : .ready }
+        isCancelling = false
+    }
+
+    /// Closes the native Uninstall sheet. A pending preview is released; an executing operation is
+    /// cancelled and joins through `cancelUninstall`.
+    public func dismissUninstall() {
+        if uninstallPipeline != nil {
+            Task { @MainActor in await self.cancelUninstall() }
+            return
+        }
+        if let preparation = uninstallPreparation {
+            _ = service.cancelUninstall(preparation)
+            uninstallPreparation = nil
+        }
+        uninstallOutcome = nil
+        uninstallUnavailableReason = nil
+        uninstallPreview = nil
+    }
+
     /// Invalidates a pending preview on any competing selection/filter/scan/check/refresh/verify.
     private func invalidatePendingUpdate() {
-        if isTearingDownUpdate { return }
+        if isTearingDownMutation { return }
         // A launched mutation is not a pending preview. Its outcome is bound to its own registry
         // ID and its snapshot is the whole-inventory reconciliation, so a competing selection or
         // filter must not cancel it or discard those facts. The busy slot still blocks new actions
         // until this pipeline joins; teardown is only for an unconsumed preparation.
-        if isExecutingUpdate { return }
-        if let pipeline = updatePipeline {
-            updateGeneration &+= 1
-            isTearingDownUpdate = true
-            isCancelling = true
-            pipeline.cancel()
-            updatePreparation = nil
+        if isExecutingUpdate || isExecutingUninstall { return }
+        let update = updatePipeline
+        let uninstall = uninstallPipeline
+        guard update != nil || uninstall != nil else {
+            if let preparation = updatePreparation {
+                _ = service.cancelUpdate(preparation)
+                updatePreparation = nil
+            }
+            if let preparation = uninstallPreparation {
+                _ = service.cancelUninstall(preparation)
+                uninstallPreparation = nil
+            }
             updateOutcome = nil
             updateUnavailableReason = nil
             updatePreview = nil
-            updatePipeline = Task { @MainActor [weak self] in
-                await pipeline.value
-                guard let self else { return }
-                // No new update pipeline can be installed while isBusy is true, so this teardown
-                // owns the slot and may clear it unconditionally after the old task is joined.
-                self.updatePipeline = nil
-                self.isTearingDownUpdate = false
-                self.isPreparingUpdate = false
-                self.isExecutingUpdate = false
-                self.isCancelling = false
-                self.phase = self.snapshot == nil ? .idle : .localReady
-            }
+            uninstallOutcome = nil
+            uninstallUnavailableReason = nil
+            uninstallPreview = nil
             return
         }
+        updateGeneration &+= 1
+        uninstallGeneration &+= 1
+        isTearingDownMutation = true
+        isCancelling = true
+        update?.cancel()
+        uninstall?.cancel()
         if let preparation = updatePreparation {
             _ = service.cancelUpdate(preparation)
             updatePreparation = nil
         }
+        if let preparation = uninstallPreparation {
+            _ = service.cancelUninstall(preparation)
+            uninstallPreparation = nil
+        }
         updateOutcome = nil
         updateUnavailableReason = nil
         updatePreview = nil
+        uninstallOutcome = nil
+        uninstallUnavailableReason = nil
+        uninstallPreview = nil
+        // Keep one joined teardown task in the update slot so no new mutation can install while
+        // either old pipeline is still finishing its bounded cleanup.
+        uninstallPipeline = nil
+        updatePipeline = Task { @MainActor [weak self] in
+            await update?.value
+            await uninstall?.value
+            guard let self else { return }
+            self.updatePipeline = nil
+            self.isTearingDownMutation = false
+            self.isPreparingUpdate = false
+            self.isExecutingUpdate = false
+            self.isPreparingUninstall = false
+            self.isExecutingUninstall = false
+            self.isCancelling = false
+            self.phase = self.snapshot == nil ? .idle : .localReady
+        }
     }
 
     // MARK: The pipeline
@@ -480,7 +679,7 @@ public final class InventoryViewModel {
     /// window. Cancellation itself is not a failure state — the caller's own task carries it.
     private func run(isInitialLaunch: Bool, isRescan: Bool, updateMode: UpdateProbeMode?) async {
         invalidatePendingUpdate()
-        guard activePipeline == nil, updatePipeline == nil else { return }
+        guard activePipeline == nil, updatePipeline == nil, uninstallPipeline == nil else { return }
 
         generation &+= 1
         let generation = generation
@@ -554,6 +753,10 @@ public final class InventoryViewModel {
     public func cancel() async {
         if updatePipeline != nil {
             await cancelUpdate()
+            return
+        }
+        if uninstallPipeline != nil {
+            await cancelUninstall()
             return
         }
         guard let pipeline = activePipeline else { return }
@@ -660,6 +863,26 @@ public final class InventoryViewModel {
                 diagnostic: entry.diagnostic,
                 update: entry.update,
                 ownership: result
+            )
+        }
+        self.snapshot = InventorySnapshot(
+            entries: entries,
+            isDegradedEnvironment: snapshot.isDegradedEnvironment
+        )
+        reconcileSelection()
+    }
+
+    /// Clears one entry's ownership observation without changing its local facts. Used after a
+    /// launched removal whose reconciliation could not publish a fresh snapshot.
+    private func clearOwnership(for registryID: String) {
+        guard let snapshot else { return }
+        let entries = snapshot.entries.map { entry in
+            guard entry.registryID == registryID else { return entry }
+            return InventoryEntry(
+                definition: entry.definition,
+                diagnostic: entry.diagnostic,
+                update: entry.update,
+                ownership: nil
             )
         }
         self.snapshot = InventorySnapshot(

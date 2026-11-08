@@ -1,0 +1,36 @@
+{
+  "argv": [
+    "/usr/bin/sandbox-exec",
+    "-f",
+    "/private/tmp/agent-lens-m10d-acceptance.47587/final-combined/ordinary-app.sb",
+    "/private/tmp/agent-lens-m10d-acceptance.47587/final-combined/combined-host",
+    "/private/tmp/agent-lens-m10d-acceptance.47587/final-combined/manager-bin/npm",
+    "/private/tmp/agent-lens-m10d-acceptance.47587/final-combined/prefix",
+    "/private/tmp/agent-lens-m10d-acceptance.47587/final-combined",
+    "/private/tmp/agent-lens-m10d-acceptance.47587/final-combined/alias-bin/codex",
+    "http://127.0.0.1:59197/",
+    "/private/tmp/agent-lens-m10d-acceptance.47587/final-combined/update-argv.jsonl",
+    "/private/tmp/agent-lens-m10d-acceptance.47587/final-combined/uninstall-argv.jsonl",
+    "/private/tmp/agent-lens-m10d-acceptance.47587/final-combined/combined-result.json",
+    "/private/tmp/agent-lens-m10d-acceptance.47587/final-combined/operation-base"
+  ],
+  "cwd": "/private/tmp/agent-lens-m10d-acceptance.47587/final-combined",
+  "end": 1794131371.625451,
+  "exit": 0,
+  "original_argv": [
+    "/private/tmp/agent-lens-m10d-acceptance.47587/final-combined/combined-host",
+    "/private/tmp/agent-lens-m10d-acceptance.47587/final-combined/manager-bin/npm",
+    "/private/tmp/agent-lens-m10d-acceptance.47587/final-combined/prefix",
+    "/private/tmp/agent-lens-m10d-acceptance.47587/final-combined",
+    "/private/tmp/agent-lens-m10d-acceptance.47587/final-combined/alias-bin/codex",
+    "http://127.0.0.1:59197/",
+    "/private/tmp/agent-lens-m10d-acceptance.47587/final-combined/update-argv.jsonl",
+    "/private/tmp/agent-lens-m10d-acceptance.47587/final-combined/uninstall-argv.jsonl",
+    "/private/tmp/agent-lens-m10d-acceptance.47587/final-combined/combined-result.json",
+    "/private/tmp/agent-lens-m10d-acceptance.47587/final-combined/operation-base"
+  ],
+  "sandbox_profile": "/private/tmp/agent-lens-m10d-acceptance.47587/final-combined/ordinary-app.sb",
+  "start": 1794131370.232676,
+  "stderr": "/private/tmp/agent-lens-m10d-acceptance.47587/final-combined/receipts/combined-host.stderr",
+  "stdout": "/private/tmp/agent-lens-m10d-acceptance.47587/final-combined/receipts/combined-host.stdout"
+}

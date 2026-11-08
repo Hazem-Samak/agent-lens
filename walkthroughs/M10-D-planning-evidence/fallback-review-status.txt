@@ -1,3 +1,5 @@
-agy fallback log bytes: 0
-captured_at: 2026-11-08T09:33:02Z
-mcode returned BLOCK with four blocking plan/code findings; corrections frozen in briefs/M10-D-R1-review-corrections.md.
+captured_at: 2026-11-08T11:40:00Z
+opencode: two time-boxed invocations stalled before a complete verdict; partial transcript retained.
+opencode material finding: npm v7+ does not run uninstall lifecycle scripts; verified and corrected.
+mcode: complete BLOCK verdict; four blocking findings; corrections frozen in briefs/M10-D-R1-review-corrections.md.
+agy: started read-only; no output before timeout; stopped; no verdict claimed.
