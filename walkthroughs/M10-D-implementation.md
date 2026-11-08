@@ -8,6 +8,8 @@ review corrections are frozen in [`briefs/M10-D-R1-review-corrections.md`](../br
 
 - Branch: `codex/m10-npm-management`.
 - Base: `4b828c7` (M10-C accepted) plus the frozen M10-D plan/R1 documentation commits.
+- Implementation candidate: `406b18e405b51f05f20c1ef7a226eafa2db54e41`, pushed only to
+  `codex/m10-npm-management`; PR #1 is open against `main` for the whole M10 stage.
 - Writer: the orchestrator (owner-authorized D-014 exception). Independent read-only reviews:
   mcode `minimax/MiniMax-M3.1-Flash` at `xhigh` (plan review BLOCK and implementation review BLOCK),
   agy `gemini-3.8-flash-high` at `high` (implementation review; status recorded in evidence).
@@ -135,8 +137,16 @@ or manual receipt before final acceptance.
 - mcode implementation review BLOCK: B1 matrix rows addressed by Core/AppSupport tests and the
   controlled/combined/public receipts above; B2 ownership-clear ViewModel test added; B3 controlled
   host now asserts residue/observation; B4 public service evidence added, native UI blocked as above.
-- agy implementation review: status recorded in the evidence folder; no verdict is claimed until a
-  complete transcript exists.
+- agy implementation review: static **BLOCK**. B1 cited `repo` as undefined in the render scenario;
+  that was a stale read — the render scenario defines `repo` and ran successfully (`RENDER OK`).
+  B2 is the genuine TCC native click-through limitation above. Its non-blocking update-confirm
+  generation guard and busy-gate cleanup warning were corrected. Full transcript:
+  [agy static review](M10-D-implementation-evidence/reviews/agy-static-review.txt).
+- Hosted CI run `42469754358` on `406b18e` failed exactly one test:
+  `cancellingAfterSpawnInterruptsAndReconcilesWithoutOrphan` observed `.uncertain` instead of
+  `.interrupted` because the process exited during the TERM grace period without the runner's
+  cancellation flag being set. The operation now treats a cancelled caller after launch as
+  interrupted (`Task.isCancelled`); the targeted test passes locally. CI must rerun on the fixed SHA.
 
 ## Limitations
 
@@ -144,4 +154,5 @@ or manual receipt before final acceptance.
   rerun is required before acceptance can claim AC09/AC11 UI behavior.
 - Controlled registry evidence uses loopback substitution for update; uninstall executes with public
   pins and makes no registry request.
-- No hosted CI has run on this candidate yet; no merge, PR, or release is authorized here.
+- Hosted CI failed on `406b18e` at the cancellation test; the local fix is committed and the exact-SHA
+  rerun is pending. No merge, PR merge, or release is authorized here.

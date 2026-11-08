@@ -188,12 +188,15 @@ public enum NpmUninstallOperation {
     ) async -> NpmUninstallOutcome {
         let preview = preparation.preview
         guard await gate.acquire() else {
+            let wasConsumed = preparation.isConsumed
             let cleanupOK = preparation.releaseUnconsumed()
             return noProcessOutcome(
                 preview: preview,
                 state: .cancelled,
-                message: "Another mutation owns the operation gate; this preparation was released.",
-                cleanupOK: cleanupOK
+                message: wasConsumed
+                    ? "The preparation was already consumed by another execution."
+                    : "Another mutation owns the operation gate; this preparation was released.",
+                cleanupOK: wasConsumed ? true : cleanupOK
             )
         }
         guard let plan = preparation.claim() else {
@@ -379,6 +382,7 @@ public enum NpmUninstallOperation {
 
         let interrupted = processResult.cancelled || processResult.timedOut
             || processResult.stdoutTruncated || processResult.stderrTruncated
+            || Task.isCancelled
         let state: OperationState
         if let reconciliation {
             if interrupted {

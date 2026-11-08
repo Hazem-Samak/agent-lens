@@ -380,6 +380,7 @@ public final class InventoryViewModel {
         let pipeline = Task { @MainActor [weak self] in
             guard let self else { return }
             let result = await service.executeUpdate(preparation)
+            guard generation == self.updateGeneration else { return }
             self.updateOutcome = result.outcome
             if let snapshot = result.snapshot {
                 self.publish(snapshot, updateFailure: nil)
