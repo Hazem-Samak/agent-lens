@@ -1,0 +1,118 @@
+[
+  {
+    "label": "npm10",
+    "case": "version",
+    "args": [
+      "--version"
+    ],
+    "exit": 0,
+    "stdout": "10.9.8\n",
+    "stderr": ""
+  },
+  {
+    "label": "npm10",
+    "case": "env-base",
+    "args": [
+      "config",
+      "get",
+      "registry",
+      "--global"
+    ],
+    "exit": 0,
+    "stdout": "https://custom.invalid/\n",
+    "stderr": ""
+  },
+  {
+    "label": "npm10",
+    "case": "env-scope",
+    "args": [
+      "config",
+      "get",
+      "@openai:registry",
+      "--global"
+    ],
+    "exit": 0,
+    "stdout": "https://scope.invalid/\n",
+    "stderr": ""
+  },
+  {
+    "label": "npm10",
+    "case": "public-shape",
+    "args": [
+      "view",
+      "@openai/codex@latest",
+      "name",
+      "version",
+      "dist-tags.latest",
+      "--json",
+      "--global",
+      "--registry=https://registry.npmjs.org/",
+      "--@openai:registry=https://registry.npmjs.org/",
+      "--prefer-online",
+      "--offline=false",
+      "--fetch-retries=0",
+      "--fetch-timeout=10000"
+    ],
+    "exit": 0,
+    "stdout": "{\n  \"name\": \"@openai/codex\",\n  \"version\": \"0.164.0\",\n  \"dist-tags.latest\": \"0.164.0\"\n}\n",
+    "stderr": ""
+  },
+  {
+    "label": "npm11",
+    "case": "version",
+    "args": [
+      "--version"
+    ],
+    "exit": 0,
+    "stdout": "11.20.0\n",
+    "stderr": ""
+  },
+  {
+    "label": "npm11",
+    "case": "env-base",
+    "args": [
+      "config",
+      "get",
+      "registry",
+      "--global"
+    ],
+    "exit": 0,
+    "stdout": "https://custom.invalid/\n",
+    "stderr": ""
+  },
+  {
+    "label": "npm11",
+    "case": "env-scope",
+    "args": [
+      "config",
+      "get",
+      "@openai:registry",
+      "--global"
+    ],
+    "exit": 0,
+    "stdout": "https://scope.invalid/\n",
+    "stderr": ""
+  },
+  {
+    "label": "npm11",
+    "case": "public-shape",
+    "args": [
+      "view",
+      "@openai/codex@latest",
+      "name",
+      "version",
+      "dist-tags.latest",
+      "--json",
+      "--global",
+      "--registry=https://registry.npmjs.org/",
+      "--@openai:registry=https://registry.npmjs.org/",
+      "--prefer-online",
+      "--offline=false",
+      "--fetch-retries=0",
+      "--fetch-timeout=10000"
+    ],
+    "exit": 0,
+    "stdout": "{\n  \"name\": \"@openai/codex\",\n  \"version\": \"0.164.0\",\n  \"dist-tags.latest\": \"0.164.0\"\n}\n",
+    "stderr": ""
+  }
+]

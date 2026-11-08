@@ -1,0 +1,6 @@
+gate: swift-build
+argv: ["swift", "build", "--scratch-path", "/Users/runner/work/_temp/agent-lens-m10a.KTfxQ3"]
+cwd: /Users/runner/work/agent-lens/agent-lens
+started_epoch: 1793125184
+elapsed_seconds: 28.920
+producer_exit: 0

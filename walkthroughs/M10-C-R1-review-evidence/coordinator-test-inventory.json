@@ -1,0 +1,14 @@
+{
+  "baseline_started": 468,
+  "tty_started": 469,
+  "tty_passed": 469,
+  "detached_started": 469,
+  "detached_passed": 469,
+  "missing_baseline": {},
+  "added": {
+    "ptyProductionCaptureUsesFixturePathForSupportedLoginShells()": 1
+  },
+  "tty_unpassed": {},
+  "detached_unpassed": {},
+  "inventories_match": true
+}

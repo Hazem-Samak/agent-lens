@@ -1,0 +1,69 @@
+{
+  "app": "/private/tmp/agent-lens-m10d-acceptance.47587/native-app/AgentLensApp-debug.app",
+  "home": "/private/tmp/agent-lens-m10d-acceptance.47587/public-native/home",
+  "latest": "0.167.0",
+  "node_dir": "<home>/.hermes/node/bin",
+  "npm": "<home>/.hermes/node/lib/node_modules/npm/bin/npm-cli.js",
+  "old": "0.165.0",
+  "old_is_strictly_older": true,
+  "ownership": {
+    "created": "2026-11-08T13:41:47Z",
+    "device": 16777232,
+    "inode": 72137088,
+    "owner_uid": 501,
+    "root": "/private/tmp/agent-lens-m10d-acceptance.47587/public-native"
+  },
+  "prefix": "/private/tmp/agent-lens-m10d-acceptance.47587/public-native/prefix",
+  "profile": "/private/tmp/agent-lens-m10d-acceptance.47587/public-native/ordinary-app.sb",
+  "profile_sha256": "242fa2d372b211f637d081e07aff163ab5acf0867b8217344dc454a8d2810e74",
+  "root": "/private/tmp/agent-lens-m10d-acceptance.47587/public-native",
+  "sentinels": [
+    {
+      "device": 16777232,
+      "inode": 72138262,
+      "mode": 33261,
+      "mtime_ns": 1794145363781864684,
+      "path": "unrelated-package/bin/tool",
+      "sha256": "e30c9b50556a7c16f2d29337d74040aee6b1ce4e1cebb2a06d724ff595a0bd8d",
+      "size": 41
+    },
+    {
+      "device": 16777232,
+      "inode": 72138263,
+      "mode": 33188,
+      "mtime_ns": 1794145363781950850,
+      "path": "unrelated-package/marker.txt",
+      "sha256": "a91d313e779739bbd30d1b34a9970757843ea832736d6872b2e7dfae8ab1b724",
+      "size": 35
+    },
+    {
+      "device": 16777232,
+      "inode": 72138261,
+      "mode": 33188,
+      "mtime_ns": 1794145363781792767,
+      "path": "unrelated-package/package.json",
+      "sha256": "05af89b0cdc750791c561aa115295a964ea968e43f3346c807ea22ad4d838a94",
+      "size": 93
+    },
+    {
+      "device": 16777232,
+      "inode": 72138264,
+      "mode": 33261,
+      "mtime_ns": 1794145363782014642,
+      "path": "unrelated-prefix/bin/unrelated-tool",
+      "sha256": "4f390b9fbdd93fc417b823b89b384c2269d4de4b9087132725798e141e5040c5",
+      "size": 40
+    },
+    {
+      "device": 16777232,
+      "inode": 72138265,
+      "mode": 33188,
+      "mtime_ns": 1794145363782097100,
+      "path": "unrelated-prefix/marker.txt",
+      "sha256": "8b078522564a7cc7b354da213fe7268ea34da380dc25352108c5dc9978656332",
+      "size": 34
+    }
+  ],
+  "versions_checked": 207,
+  "zdot": "/private/tmp/agent-lens-m10d-acceptance.47587/public-native/zdot"
+}

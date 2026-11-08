@@ -1,0 +1,6 @@
+SUPERSEDED — kept only as pre-grant history.
+
+Before the owner granted Accessibility, System Events returned `assistive access (-25211)`, the AX
+driver saw no elements, and `screencapture` could not create an image. After the grant, the ordinary
+app click-through passed and is recorded in `native/native-actions.txt` with preview/result
+screenshots. No limitation is claimed at the accepted candidate.

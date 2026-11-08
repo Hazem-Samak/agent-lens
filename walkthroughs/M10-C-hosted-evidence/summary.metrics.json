@@ -1,0 +1,68 @@
+{
+  "gates": [
+    {
+      "gate": "guard",
+      "state": "passed",
+      "producer_exit": 0,
+      "verification_exit": 0,
+      "elapsed_seconds": 0.204,
+      "counts": null,
+      "verification_problems": []
+    },
+    {
+      "gate": "guard-fixtures",
+      "state": "passed",
+      "producer_exit": 0,
+      "verification_exit": 0,
+      "elapsed_seconds": 2.052,
+      "counts": "cases=21 skipped=0",
+      "verification_problems": []
+    },
+    {
+      "gate": "swift-build",
+      "state": "passed",
+      "producer_exit": 0,
+      "verification_exit": 0,
+      "elapsed_seconds": 33.283,
+      "counts": null,
+      "verification_problems": []
+    },
+    {
+      "gate": "isolation-gate",
+      "state": "passed",
+      "producer_exit": 0,
+      "verification_exit": 0,
+      "elapsed_seconds": 48.366,
+      "counts": "cases=[1] skipped=0 summaries=1 matched=[isolation>=1(saw 1)]",
+      "verification_problems": []
+    },
+    {
+      "gate": "full-test-suite",
+      "state": "passed",
+      "producer_exit": 0,
+      "verification_exit": 0,
+      "elapsed_seconds": 75.961,
+      "counts": "cases=[510] skipped=0 summaries=1 matched=[combined(Core+AppSupport)>=406(saw 510)]",
+      "verification_problems": []
+    },
+    {
+      "gate": "build-dev-app",
+      "state": "passed",
+      "producer_exit": 0,
+      "verification_exit": 0,
+      "elapsed_seconds": 21.042,
+      "counts": null,
+      "verification_problems": []
+    },
+    {
+      "gate": "packaging",
+      "state": "passed",
+      "producer_exit": 0,
+      "verification_exit": 0,
+      "elapsed_seconds": 0.575,
+      "counts": "cases=9 skipped=0",
+      "verification_problems": []
+    }
+  ],
+  "aggregate_elapsed_seconds": 181.483
+}

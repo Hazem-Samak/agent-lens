@@ -1,0 +1,42 @@
+{
+  "argv": [
+    "/usr/bin/sandbox-exec",
+    "-f",
+    "/private/tmp/agent-lens-m10d-acceptance.47587/public-native/ordinary-app.sb",
+    "<home>/.hermes/node/lib/node_modules/npm/bin/npm-cli.js",
+    "install",
+    "@openai/codex@0.165.0",
+    "--global",
+    "--prefix",
+    "/private/tmp/agent-lens-m10d-acceptance.47587/public-native/prefix",
+    "--registry=https://registry.npmjs.org/",
+    "--no-audit",
+    "--no-fund",
+    "--package-lock=false",
+    "--no-save",
+    "--fetch-retries=0",
+    "--fetch-timeout=30000"
+  ],
+  "cwd": "/private/tmp/agent-lens-m10d-acceptance.47587/public-native",
+  "end": 1794145363.780782,
+  "exit": 0,
+  "original_argv": [
+    "<home>/.hermes/node/lib/node_modules/npm/bin/npm-cli.js",
+    "install",
+    "@openai/codex@0.165.0",
+    "--global",
+    "--prefix",
+    "/private/tmp/agent-lens-m10d-acceptance.47587/public-native/prefix",
+    "--registry=https://registry.npmjs.org/",
+    "--no-audit",
+    "--no-fund",
+    "--package-lock=false",
+    "--no-save",
+    "--fetch-retries=0",
+    "--fetch-timeout=30000"
+  ],
+  "sandbox_profile": "/private/tmp/agent-lens-m10d-acceptance.47587/public-native/ordinary-app.sb",
+  "start": 1794145309.160945,
+  "stderr": "/private/tmp/agent-lens-m10d-acceptance.47587/public-native/receipts/public-install-old.stderr",
+  "stdout": "/private/tmp/agent-lens-m10d-acceptance.47587/public-native/receipts/public-install-old.stdout"
+}

@@ -1,0 +1,155 @@
+[0/1] Planning build
+Building for debugging...
+[0/6] Write sources
+[0/7] /Users/runner/work/_temp/agent-lens-m10a.8qIIev/arm64-apple-macosx/debug/AgentLensPackageTests.derived/runner.swift
+[3/11] Write sources
+[4/11] Write swift-version-1977FEB4D2752686.txt
+[6/29] Compiling AgentLensCoreTests CLIFixtureIsolation.swift
+[7/29] Compiling AgentLensCoreTests CLIFixtureIsolationTests.swift
+[8/29] Emitting module AgentLensAppSupportTests
+[9/29] Compiling AgentLensCoreTests AgentLensCoreTests.swift
+[10/29] Compiling AgentLensCoreTests BundledRegistryResourceTests.swift
+[11/31] Compiling AgentLensAppSupportTests PathActionTests.swift
+[12/31] Compiling AgentLensAppSupportTests SessionEnvironmentProviderTests.swift
+[13/31] Emitting module AgentLensCoreTests
+[20/38] Compiling AgentLensCoreTests ExecutableIdentityTests.swift
+[21/38] Compiling AgentLensCoreTests HomebrewUpdateProbeTests.swift
+[22/38] Compiling AgentLensCoreTests InstallationOwnershipTests.swift
+/Users/runner/work/agent-lens/agent-lens/Tests/AgentLensCoreTests/ShellEnvironmentResolverTests.swift:149:30: warning: '#require(_:_:)' is redundant because 'outcome.dump' never equals 'nil' (from macro 'require')
+147 |     let outcome = ShellEnvironmentResolver.capture(shellPath: "/bin/sh", script: script)
+148 |     #expect(!outcome.timedOut)
+149 |     let dump = try? #require(outcome.dump)
+    |                              `- warning: '#require(_:_:)' is redundant because 'outcome.dump' never equals 'nil' (from macro 'require')
+150 |     #expect(dump?["PATH"] != nil)
+151 |     #expect(dump?["HOME"] != nil)
+[23/38] Compiling AgentLensCoreTests InstallationVersionObservationTests.swift
+/Users/runner/work/agent-lens/agent-lens/Tests/AgentLensCoreTests/ShellEnvironmentResolverTests.swift:149:30: warning: '#require(_:_:)' is redundant because 'outcome.dump' never equals 'nil' (from macro 'require')
+147 |     let outcome = ShellEnvironmentResolver.capture(shellPath: "/bin/sh", script: script)
+148 |     #expect(!outcome.timedOut)
+149 |     let dump = try? #require(outcome.dump)
+    |                              `- warning: '#require(_:_:)' is redundant because 'outcome.dump' never equals 'nil' (from macro 'require')
+150 |     #expect(dump?["PATH"] != nil)
+151 |     #expect(dump?["HOME"] != nil)
+[24/38] Compiling AgentLensCoreTests NpmUpdateMetadataCacheTests.swift
+/Users/runner/work/agent-lens/agent-lens/Tests/AgentLensCoreTests/ShellEnvironmentResolverTests.swift:149:30: warning: '#require(_:_:)' is redundant because 'outcome.dump' never equals 'nil' (from macro 'require')
+147 |     let outcome = ShellEnvironmentResolver.capture(shellPath: "/bin/sh", script: script)
+148 |     #expect(!outcome.timedOut)
+149 |     let dump = try? #require(outcome.dump)
+    |                              `- warning: '#require(_:_:)' is redundant because 'outcome.dump' never equals 'nil' (from macro 'require')
+150 |     #expect(dump?["PATH"] != nil)
+151 |     #expect(dump?["HOME"] != nil)
+[25/38] Compiling AgentLensCoreTests NpmUpdateOperationTests.swift
+/Users/runner/work/agent-lens/agent-lens/Tests/AgentLensCoreTests/ShellEnvironmentResolverTests.swift:149:30: warning: '#require(_:_:)' is redundant because 'outcome.dump' never equals 'nil' (from macro 'require')
+147 |     let outcome = ShellEnvironmentResolver.capture(shellPath: "/bin/sh", script: script)
+148 |     #expect(!outcome.timedOut)
+149 |     let dump = try? #require(outcome.dump)
+    |                              `- warning: '#require(_:_:)' is redundant because 'outcome.dump' never equals 'nil' (from macro 'require')
+150 |     #expect(dump?["PATH"] != nil)
+151 |     #expect(dump?["HOME"] != nil)
+[26/38] Compiling AgentLensCoreTests NpmUpdateProbeTests.swift
+/Users/runner/work/agent-lens/agent-lens/Tests/AgentLensCoreTests/ShellEnvironmentResolverTests.swift:149:30: warning: '#require(_:_:)' is redundant because 'outcome.dump' never equals 'nil' (from macro 'require')
+147 |     let outcome = ShellEnvironmentResolver.capture(shellPath: "/bin/sh", script: script)
+148 |     #expect(!outcome.timedOut)
+149 |     let dump = try? #require(outcome.dump)
+    |                              `- warning: '#require(_:_:)' is redundant because 'outcome.dump' never equals 'nil' (from macro 'require')
+150 |     #expect(dump?["PATH"] != nil)
+151 |     #expect(dump?["HOME"] != nil)
+[27/38] Compiling AgentLensCoreTests OperationProcessRunnerTests.swift
+/Users/runner/work/agent-lens/agent-lens/Tests/AgentLensCoreTests/ShellEnvironmentResolverTests.swift:149:30: warning: '#require(_:_:)' is redundant because 'outcome.dump' never equals 'nil' (from macro 'require')
+147 |     let outcome = ShellEnvironmentResolver.capture(shellPath: "/bin/sh", script: script)
+148 |     #expect(!outcome.timedOut)
+149 |     let dump = try? #require(outcome.dump)
+    |                              `- warning: '#require(_:_:)' is redundant because 'outcome.dump' never equals 'nil' (from macro 'require')
+150 |     #expect(dump?["PATH"] != nil)
+151 |     #expect(dump?["HOME"] != nil)
+[28/38] Compiling AgentLensCoreTests PathDiagnosticsTests.swift
+/Users/runner/work/agent-lens/agent-lens/Tests/AgentLensCoreTests/ShellEnvironmentResolverTests.swift:149:30: warning: '#require(_:_:)' is redundant because 'outcome.dump' never equals 'nil' (from macro 'require')
+147 |     let outcome = ShellEnvironmentResolver.capture(shellPath: "/bin/sh", script: script)
+148 |     #expect(!outcome.timedOut)
+149 |     let dump = try? #require(outcome.dump)
+    |                              `- warning: '#require(_:_:)' is redundant because 'outcome.dump' never equals 'nil' (from macro 'require')
+150 |     #expect(dump?["PATH"] != nil)
+151 |     #expect(dump?["HOME"] != nil)
+[29/38] Compiling AgentLensCoreTests ShellEnvironmentResolverTests.swift
+/Users/runner/work/agent-lens/agent-lens/Tests/AgentLensCoreTests/ShellEnvironmentResolverTests.swift:149:30: warning: '#require(_:_:)' is redundant because 'outcome.dump' never equals 'nil' (from macro 'require')
+147 |     let outcome = ShellEnvironmentResolver.capture(shellPath: "/bin/sh", script: script)
+148 |     #expect(!outcome.timedOut)
+149 |     let dump = try? #require(outcome.dump)
+    |                              `- warning: '#require(_:_:)' is redundant because 'outcome.dump' never equals 'nil' (from macro 'require')
+150 |     #expect(dump?["PATH"] != nil)
+151 |     #expect(dump?["HOME"] != nil)
+[30/38] Compiling AgentLensCoreTests ToolDetectorTests.swift
+/Users/runner/work/agent-lens/agent-lens/Tests/AgentLensCoreTests/ToolDetectorTests.swift:100:12: warning: 'init(cString:)' is deprecated: Use String(decoding: array, as: UTF8.self) instead, after truncating the null termination. [#DeprecatedDeclaration]
+  98 |     var resolved = [CChar](repeating: 0, count: Int(PATH_MAX))
+  99 |     guard realpath(url.path, &resolved) != nil else { return nil }
+ 100 |     return String(cString: resolved)
+     |            `- warning: 'init(cString:)' is deprecated: Use String(decoding: array, as: UTF8.self) instead, after truncating the null termination. [#DeprecatedDeclaration]
+ 101 | }
+ 102 | 
+
+[#DeprecatedDeclaration]: <https://docs.swift.org/compiler/documentation/diagnostics/deprecated-declaration>
+[31/38] Compiling AgentLensCoreTests UpdateCLIIntegrationTests.swift
+/Users/runner/work/agent-lens/agent-lens/Tests/AgentLensCoreTests/ToolDetectorTests.swift:100:12: warning: 'init(cString:)' is deprecated: Use String(decoding: array, as: UTF8.self) instead, after truncating the null termination. [#DeprecatedDeclaration]
+  98 |     var resolved = [CChar](repeating: 0, count: Int(PATH_MAX))
+  99 |     guard realpath(url.path, &resolved) != nil else { return nil }
+ 100 |     return String(cString: resolved)
+     |            `- warning: 'init(cString:)' is deprecated: Use String(decoding: array, as: UTF8.self) instead, after truncating the null termination. [#DeprecatedDeclaration]
+ 101 | }
+ 102 | 
+
+[#DeprecatedDeclaration]: <https://docs.swift.org/compiler/documentation/diagnostics/deprecated-declaration>
+[32/38] Compiling AgentLensCoreTests UpdateMetadataCacheTests.swift
+/Users/runner/work/agent-lens/agent-lens/Tests/AgentLensCoreTests/ToolDetectorTests.swift:100:12: warning: 'init(cString:)' is deprecated: Use String(decoding: array, as: UTF8.self) instead, after truncating the null termination. [#DeprecatedDeclaration]
+  98 |     var resolved = [CChar](repeating: 0, count: Int(PATH_MAX))
+  99 |     guard realpath(url.path, &resolved) != nil else { return nil }
+ 100 |     return String(cString: resolved)
+     |            `- warning: 'init(cString:)' is deprecated: Use String(decoding: array, as: UTF8.self) instead, after truncating the null termination. [#DeprecatedDeclaration]
+ 101 | }
+ 102 | 
+
+[#DeprecatedDeclaration]: <https://docs.swift.org/compiler/documentation/diagnostics/deprecated-declaration>
+[33/38] Compiling AgentLensCoreTests UpdateProbeCoordinatorTests.swift
+/Users/runner/work/agent-lens/agent-lens/Tests/AgentLensCoreTests/ToolDetectorTests.swift:100:12: warning: 'init(cString:)' is deprecated: Use String(decoding: array, as: UTF8.self) instead, after truncating the null termination. [#DeprecatedDeclaration]
+  98 |     var resolved = [CChar](repeating: 0, count: Int(PATH_MAX))
+  99 |     guard realpath(url.path, &resolved) != nil else { return nil }
+ 100 |     return String(cString: resolved)
+     |            `- warning: 'init(cString:)' is deprecated: Use String(decoding: array, as: UTF8.self) instead, after truncating the null termination. [#DeprecatedDeclaration]
+ 101 | }
+ 102 | 
+
+[#DeprecatedDeclaration]: <https://docs.swift.org/compiler/documentation/diagnostics/deprecated-declaration>
+[34/38] Compiling AgentLensCoreTests VersionComparisonTests.swift
+/Users/runner/work/agent-lens/agent-lens/Tests/AgentLensCoreTests/ToolDetectorTests.swift:100:12: warning: 'init(cString:)' is deprecated: Use String(decoding: array, as: UTF8.self) instead, after truncating the null termination. [#DeprecatedDeclaration]
+  98 |     var resolved = [CChar](repeating: 0, count: Int(PATH_MAX))
+  99 |     guard realpath(url.path, &resolved) != nil else { return nil }
+ 100 |     return String(cString: resolved)
+     |            `- warning: 'init(cString:)' is deprecated: Use String(decoding: array, as: UTF8.self) instead, after truncating the null termination. [#DeprecatedDeclaration]
+ 101 | }
+ 102 | 
+
+[#DeprecatedDeclaration]: <https://docs.swift.org/compiler/documentation/diagnostics/deprecated-declaration>
+[35/38] Compiling AgentLensCoreTests VersionQuerySpecificationTests.swift
+/Users/runner/work/agent-lens/agent-lens/Tests/AgentLensCoreTests/ToolDetectorTests.swift:100:12: warning: 'init(cString:)' is deprecated: Use String(decoding: array, as: UTF8.self) instead, after truncating the null termination. [#DeprecatedDeclaration]
+  98 |     var resolved = [CChar](repeating: 0, count: Int(PATH_MAX))
+  99 |     guard realpath(url.path, &resolved) != nil else { return nil }
+ 100 |     return String(cString: resolved)
+     |            `- warning: 'init(cString:)' is deprecated: Use String(decoding: array, as: UTF8.self) instead, after truncating the null termination. [#DeprecatedDeclaration]
+ 101 | }
+ 102 | 
+
+[#DeprecatedDeclaration]: <https://docs.swift.org/compiler/documentation/diagnostics/deprecated-declaration>
+[36/38] Compiling AgentLensCoreTests VersionStatusTests.swift
+/Users/runner/work/agent-lens/agent-lens/Tests/AgentLensCoreTests/ToolDetectorTests.swift:100:12: warning: 'init(cString:)' is deprecated: Use String(decoding: array, as: UTF8.self) instead, after truncating the null termination. [#DeprecatedDeclaration]
+  98 |     var resolved = [CChar](repeating: 0, count: Int(PATH_MAX))
+  99 |     guard realpath(url.path, &resolved) != nil else { return nil }
+ 100 |     return String(cString: resolved)
+     |            `- warning: 'init(cString:)' is deprecated: Use String(decoding: array, as: UTF8.self) instead, after truncating the null termination. [#DeprecatedDeclaration]
+ 101 | }
+ 102 | 
+
+[#DeprecatedDeclaration]: <https://docs.swift.org/compiler/documentation/diagnostics/deprecated-declaration>
+[37/40] Compiling AgentLensPackageTests runner.swift
+[38/40] Emitting module AgentLensPackageTests
+[38/40] Write Objects.LinkFileList
+[39/40] Linking AgentLensPackageTests
+Build complete! (46.10s)

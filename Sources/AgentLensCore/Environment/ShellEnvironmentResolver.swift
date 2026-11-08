@@ -156,7 +156,11 @@ public enum ShellEnvironmentResolver {
 
     // MARK: Capture (M2 req. 2, 3, 4)
 
-    /// Launches `shellPath -l -i -c <script>` and captures stdout.
+    /// Launches `shellPath -l -i +m -c <script>` and captures stdout.
+    /// `+m` disables interactive job control for this noninteractive probe. The child still gets
+    /// its own process group, but it cannot attempt to become the terminal foreground group and
+    /// stop on SIGTTOU when the CLI itself is running under a controlling terminal. Login and
+    /// interactive startup (and therefore the shell's rc files) are otherwise unchanged.
     /// Output is captured only — nothing is sourced or eval'd into this process (M2 req. 4).
     /// Public parameters are for unit tests; production callers use the defaults.
     public static func capture(
@@ -166,7 +170,7 @@ public enum ShellEnvironmentResolver {
     ) -> CaptureOutcome {
         guard let result = BoundedProcessRunner.run(
             executablePath: shellPath,
-            arguments: ["-l", "-i", "-c", script],
+            arguments: ["-l", "-i", "+m", "-c", script],
             timeout: timeout
         ) else {
             return CaptureOutcome(dump: nil, timedOut: false)

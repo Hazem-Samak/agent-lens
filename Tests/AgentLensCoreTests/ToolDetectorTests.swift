@@ -46,112 +46,644 @@ private func fixtureRoot(_ label: String) throws -> URL {
     return root.resolvingSymlinksInPath()
 }
 
-func agentLensCoreProductsDirectory() throws -> URL {
-    let fileManager = FileManager.default
-    let override = ProcessInfo.processInfo.environment["AGENT_LENS_TEST_PRODUCTS"]
-    func hasCoreArtifacts(_ directory: URL) -> Bool {
-        let objectExists = fileManager.fileExists(
-            atPath: directory.appendingPathComponent("AgentLensCore.o").path
-        )
-        let moduleExists = fileManager.fileExists(
-            atPath: directory.appendingPathComponent("AgentLensCore.swiftmodule").path
-        ) || fileManager.fileExists(
-            atPath: directory.appendingPathComponent("Modules/AgentLensCore.swiftmodule").path
-        )
-        return objectExists && moduleExists
-    }
-    func isBuildProductDirectory(_ directory: URL) -> Bool {
-        let pathIsProduct = directory.pathComponents.contains("Products")
-        let pathIsSwiftPMConfiguration = ["debug", "release"].contains(
-            directory.lastPathComponent.lowercased()
-        )
-        return hasCoreArtifacts(directory) && (pathIsProduct || pathIsSwiftPMConfiguration)
+/// The test-only Core product selection: exactly the inputs a probe needs to compile and link
+/// against the Core module, derived from ONE configuration root.
+///
+/// Two real layouts exist and both are supported from the same shipping source:
+///
+/// * Swift Build (this workstation): `AgentLensCore.o` aggregate plus `AgentLensCore.swiftmodule`,
+///   both directly in the products directory.
+/// * Native SwiftPM (hosted): `Modules/AgentLensCore.swiftmodule` plus the sorted, regular
+///   `AgentLensCore.build/*.o` object vector. Measured in hosted run 40325427147: 27 objects, no
+///   aggregate at the product root.
+///
+/// Every selected input must resolve inside the one canonical configuration root. Anything that is
+/// unresolvable, incomplete, ambiguous or outside the root is refused — never filtered away in the
+/// hope that the remainder links. Nothing is copied, recompiled, merged or fabricated.
+struct AgentLensCoreProducts {
+    enum Layout: String {
+        case aggregate
+        case native
     }
 
-    if let override {
-        let directory = URL(fileURLWithPath: override, isDirectory: true).standardizedFileURL
-        if hasCoreArtifacts(directory) { return directory }
+    /// Canonical physical configuration root (both `/var` and `/private/var` spellings of the same
+    /// directory are legitimate; the physical resolution is what is recorded).
+    let configurationRoot: URL
+    /// Directory to pass to `-I` (the module's own directory).
+    let moduleSearchDirectory: URL
+    /// Exact object files to pass as literal argv, sorted by filename.
+    let objectFiles: [URL]
+    /// Explicit provenance. Never inferred from the object count: a native build with exactly one
+    /// object is still native.
+    let layout: Layout
+}
+
+/// A recognized layout: the module to import plus the objects to link.
+private struct AgentLensCoreLayout {
+    let layout: AgentLensCoreProducts.Layout
+    let module: URL
+    let objects: [URL]
+}
+
+/// The compiler every probe uses. Recorded in the diagnostic so a hosted compile choice can be
+/// correlated with the toolchain that produced it.
+private let coreProbeCompiler = "/usr/bin/swiftc"
+
+private func coreProductsError(code: Int, _ message: String) -> NSError {
+    NSError(domain: "AgentLensCoreProducts", code: code,
+            userInfo: [NSLocalizedDescriptionKey: message])
+}
+
+private func canonicalPhysicalPath(_ url: URL) -> String? {
+    var resolved = [CChar](repeating: 0, count: Int(PATH_MAX))
+    guard realpath(url.path, &resolved) != nil else { return nil }
+    return String(cString: resolved)
+}
+
+/// Error codes. Only `noLayout` permits the caller to keep climbing ancestors; every other code
+/// describes a root that IS the active configuration and is therefore terminal.
+private enum AgentLensCoreProductsError {
+    static let noLayout = 1
+    static let incompleteAggregate = 2
+    static let incompleteNative = 3
+    static let emptyNativeVector = 4
+    static let invalidOverride = 5
+    static let ambiguousLayout = 6
+    static let escape = 7
+    static let invalidObject = 8
+
+    static let terminal: Set<Int> = [
+        incompleteAggregate, incompleteNative, emptyNativeVector, invalidOverride,
+        ambiguousLayout, escape, invalidObject,
+    ]
+}
+
+/// Recognizes a complete Core layout inside `root`, or reports why the root is unusable.
+private func recognizeAgentLensCoreLayout(
+    in root: String,
+    fileManager: FileManager
+) -> Result<AgentLensCoreLayout, NSError> {
+    let aggregateObject = root + "/AgentLensCore.o"
+    let siblingModule = root + "/AgentLensCore.swiftmodule"
+    let nestedModule = root + "/Modules/AgentLensCore.swiftmodule"
+    let objectDirectory = root + "/AgentLensCore.build"
+
+    func isRegular(_ path: String) -> Bool {
+        guard let attributes = try? fileManager.attributesOfItem(atPath: path) else { return false }
+        return (attributes[.type] as? FileAttributeType) == .typeRegular
+    }
+    func isOnDisk(_ path: String) -> Bool {
+        fileManager.fileExists(atPath: path) || (try? fileManager.attributesOfItem(atPath: path)) != nil
+    }
+    func isDirectory(_ path: String) -> Bool {
+        var flag: ObjCBool = false
+        return fileManager.fileExists(atPath: path, isDirectory: &flag) && flag.boolValue
+    }
+    func isSymlink(_ path: String) -> Bool {
+        (try? fileManager.destinationOfSymbolicLink(atPath: path)) != nil
+    }
+    /// A selected input must physically resolve inside the root and name the same inode it claims.
+    func escapesRoot(_ path: String) -> Bool {
+        guard let physical = canonicalPhysicalPath(URL(fileURLWithPath: path)) else { return true }
+        return physical != path && !physical.hasPrefix(root + "/")
     }
 
-    // The SwiftPM testing helper names the active .xctest with --test-bundle-path.
-    // Prefer that over any stale shared .build product left in the package root.
-    var bundleStarts: [URL] = []
-    if let index = CommandLine.arguments.firstIndex(of: "--test-bundle-path"),
-       index + 1 < CommandLine.arguments.count {
-        bundleStarts.append(URL(fileURLWithPath: CommandLine.arguments[index + 1],
-                                isDirectory: true).standardizedFileURL)
-    }
-    if let last = CommandLine.arguments.last, last.contains(".xctest") {
-        bundleStarts.append(URL(fileURLWithPath: last, isDirectory: true).standardizedFileURL)
+    let hasAggregate = isOnDisk(aggregateObject)
+    let siblingModuleExists = isOnDisk(siblingModule)
+    let nestedModuleExists = isOnDisk(nestedModule)
+    let hasObjectDirectory = isDirectory(objectDirectory)
+
+    let aggregateSignature = hasAggregate || siblingModuleExists
+    let nativeSignature = nestedModuleExists || hasObjectDirectory
+
+    // Two complete layout signatures in ONE root is ambiguous: refuse rather than pick by
+    // precedence, because the caller cannot tell which artifacts the active build produced.
+    if aggregateSignature && nativeSignature {
+        return .failure(coreProductsError(
+            code: AgentLensCoreProductsError.ambiguousLayout,
+            "ambiguous Core layout at \(root): both the aggregate AgentLensCore.o signature and the "
+            + "native Modules/AgentLensCore.swiftmodule + AgentLensCore.build/ signature are present"
+        ))
     }
 
-    let executableDirectories = [
-        Bundle.main.executableURL?.deletingLastPathComponent().path,
-        CommandLine.arguments.first.map { URL(fileURLWithPath: $0).standardizedFileURL.deletingLastPathComponent().path }
-    ].compactMap { $0 }.map { URL(fileURLWithPath: $0, isDirectory: true).standardizedFileURL }
-    var directCandidates: [URL] = []
-    for bundleStart in bundleStarts {
-        var candidate = bundleStart
-        for _ in 0..<8 {
-            directCandidates.append(candidate)
-            let parent = candidate.deletingLastPathComponent()
-            if parent == candidate { break }
-            candidate = parent
+    // Measured Swift Build: aggregate object with the module beside it.
+    if aggregateSignature {
+        guard hasAggregate, siblingModuleExists,
+              isRegular(aggregateObject), !isSymlink(aggregateObject) else {
+            return .failure(coreProductsError(
+                code: AgentLensCoreProductsError.incompleteAggregate,
+                "incomplete aggregate Core layout at \(root): AgentLensCore.o must be a regular "
+                + "non-symlink file and AgentLensCore.swiftmodule must exist beside it"
+            ))
         }
-    }
-    for executableDirectory in executableDirectories {
-        var candidate = executableDirectory
-        for _ in 0..<8 {
-            directCandidates.append(candidate)
-            let parent = candidate.deletingLastPathComponent()
-            if parent == candidate { break }
-            candidate = parent
+        guard !escapesRoot(aggregateObject), !escapesRoot(siblingModule) else {
+            return .failure(coreProductsError(
+                code: AgentLensCoreProductsError.escape,
+                "aggregate Core inputs at \(root) resolve outside the selected configuration root"
+            ))
         }
+        return .success(AgentLensCoreLayout(
+            layout: .aggregate,
+            module: URL(fileURLWithPath: siblingModule),
+            objects: [URL(fileURLWithPath: aggregateObject)]
+        ))
     }
 
-    for candidate in directCandidates where isBuildProductDirectory(candidate) {
-        return candidate
-    }
-
-    var searchRoots: [URL] = []
-    if let override {
-        searchRoots.append(URL(fileURLWithPath: override, isDirectory: true))
-    }
-    if let scratch = ProcessInfo.processInfo.environment["AGENT_LENS_TEST_SCRATCH"] {
-        searchRoots.append(URL(fileURLWithPath: scratch, isDirectory: true).deletingLastPathComponent())
-    }
-    let packageRoot = URL(fileURLWithPath: #filePath)
-        .deletingLastPathComponent()
-        .deletingLastPathComponent()
-        .deletingLastPathComponent()
-        .standardizedFileURL
-    searchRoots.append(packageRoot.appendingPathComponent(".build", isDirectory: true))
-    searchRoots.append(packageRoot.appendingPathComponent("build", isDirectory: true))
-
-    var searchedPaths = Set<String>()
-    for root in searchRoots where searchedPaths.insert(root.path).inserted {
-        guard fileManager.fileExists(atPath: root.path),
-              let enumerator = fileManager.enumerator(
-                at: root,
-                includingPropertiesForKeys: [.isDirectoryKey],
-                options: [.skipsHiddenFiles]
-              )
-        else {
-            continue
+    // Measured native SwiftPM: module under Modules/, objects under AgentLensCore.build/.
+    if nativeSignature {
+        guard nestedModuleExists, hasObjectDirectory else {
+            return .failure(coreProductsError(
+                code: AgentLensCoreProductsError.incompleteNative,
+                "incomplete native Core layout at \(root): Modules/AgentLensCore.swiftmodule and "
+                + "AgentLensCore.build/ must both exist"
+            ))
         }
-        while let item = enumerator.nextObject() as? URL {
-            if isBuildProductDirectory(item) {
-                return item
+        guard !isSymlink(objectDirectory), isDirectory(objectDirectory) else {
+            return .failure(coreProductsError(
+                code: AgentLensCoreProductsError.escape,
+                "AgentLensCore.build at \(root) is not a real directory (symlinked object "
+                + "directories would let unrelated objects in)"
+            ))
+        }
+        guard !escapesRoot(nestedModule) else {
+            return .failure(coreProductsError(
+                code: AgentLensCoreProductsError.escape,
+                "Core module at \(nestedModule) resolves outside the selected configuration root \(root)"
+            ))
+        }
+        let names = (try? fileManager.contentsOfDirectory(atPath: objectDirectory)) ?? []
+        // Every `.o` in this target's own build directory is an input. Anything that is a symlink,
+        // not a regular file, or resolves outside the root makes the vector UNUSABLE: dropping it
+        // would silently link an incomplete Core.
+        let objectNames = names.filter { $0.hasSuffix(".o") }.sorted()
+        guard !objectNames.isEmpty else {
+            return .failure(coreProductsError(
+                code: AgentLensCoreProductsError.emptyNativeVector,
+                "native Core layout at \(root) has no objects in AgentLensCore.build/"
+            ))
+        }
+        for name in objectNames {
+            let path = objectDirectory + "/" + name
+            guard isRegular(path), !isSymlink(path) else {
+                return .failure(coreProductsError(
+                    code: AgentLensCoreProductsError.invalidObject,
+                    "native Core object \(path) is not a regular non-symlink file; refusing to link "
+                    + "an incomplete Core object vector"
+                ))
+            }
+            guard !escapesRoot(path) else {
+                return .failure(coreProductsError(
+                    code: AgentLensCoreProductsError.invalidObject,
+                    "native Core object \(path) resolves outside the selected configuration root \(root)"
+                ))
             }
         }
+        return .success(AgentLensCoreLayout(
+            layout: .native,
+            module: URL(fileURLWithPath: nestedModule),
+            objects: objectNames.map { URL(fileURLWithPath: objectDirectory + "/" + $0) }
+        ))
     }
 
-    throw NSError(
-        domain: "AgentLensCoreProducts",
-        code: 1,
-        userInfo: [NSLocalizedDescriptionKey: "could not locate the active AgentLensCore.o build product"]
+    return .failure(coreProductsError(
+        code: AgentLensCoreProductsError.noLayout,
+        "no AgentLensCore build products at \(root)"
+    ))
+}
+
+/// Validates an explicit `AGENT_LENS_TEST_PRODUCTS` value: it must be an absolute, NUL-free path
+/// naming an existing directory. Any invalid value fails here, before any bundle fallback.
+private func resolveProductsOverride(
+    _ override: String,
+    fileManager: FileManager
+) throws -> String {
+    guard !override.isEmpty else {
+        throw coreProductsError(
+            code: AgentLensCoreProductsError.invalidOverride,
+            "AGENT_LENS_TEST_PRODUCTS is set but empty; unset it to use active-product discovery"
+        )
+    }
+    guard !override.utf8.contains(0) else {
+        throw coreProductsError(
+            code: AgentLensCoreProductsError.invalidOverride,
+            "AGENT_LENS_TEST_PRODUCTS contains a NUL byte: \(override.debugDescription)"
+        )
+    }
+    guard override.hasPrefix("/") else {
+        throw coreProductsError(
+            code: AgentLensCoreProductsError.invalidOverride,
+            "AGENT_LENS_TEST_PRODUCTS must be an absolute path, not \(override.debugDescription) "
+            + "(a relative value would silently mean the current directory)"
+        )
+    }
+    guard let physical = canonicalPhysicalPath(URL(fileURLWithPath: override, isDirectory: true))
+    else {
+        throw coreProductsError(
+            code: AgentLensCoreProductsError.invalidOverride,
+            "AGENT_LENS_TEST_PRODUCTS does not name an existing directory: \(override)"
+        )
+    }
+    var isDirectory: ObjCBool = false
+    guard fileManager.fileExists(atPath: physical, isDirectory: &isDirectory),
+          isDirectory.boolValue else {
+        throw coreProductsError(
+            code: AgentLensCoreProductsError.invalidOverride,
+            "AGENT_LENS_TEST_PRODUCTS is not a directory: \(physical)"
+        )
+    }
+    return physical
+}
+
+/// Selects the Core products for a probe, from explicit hints only, so focused fixtures never
+/// mutate process-global environment or CWD.
+///
+/// Precedence: a present `AGENT_LENS_TEST_PRODUCTS` (VALID OR NOT — an invalid value fails before
+/// any other path is tried), then the active test bundle's own ancestry. There is deliberately no
+/// recursive package `.build`/`build` search and no CWD or scratch fallback: a stale artifact from
+/// a different build must never be picked up.
+func selectAgentLensCoreProducts(
+    environment: [String: String],
+    arguments: [String],
+    executablePath: String? = nil,
+    fileManager: FileManager = .default
+) throws -> AgentLensCoreProducts {
+    func diagnose(_ selection: AgentLensCoreProducts) {
+        FileHandle.standardError.write(Data(
+            ("core-probe: layout=\(selection.layout.rawValue) "
+             + "root=\(selection.configurationRoot.path) "
+             + "module=\(selection.moduleSearchDirectory.path) "
+             + "objects=\(selection.objectFiles.count) "
+             + "compiler=\(coreProbeCompiler)\n").utf8
+        ))
+    }
+
+    // Presence — not non-emptiness — decides: an empty or malformed value is an operator error, not
+    // a request to silently fall back to whatever bundle happens to be running.
+    if let override = environment["AGENT_LENS_TEST_PRODUCTS"] {
+        let physical = try resolveProductsOverride(override, fileManager: fileManager)
+        let layout = try recognizeAgentLensCoreLayout(in: physical, fileManager: fileManager).get()
+        let selection = AgentLensCoreProducts(
+            configurationRoot: URL(fileURLWithPath: physical, isDirectory: true),
+            moduleSearchDirectory: layout.module.deletingLastPathComponent(),
+            objectFiles: layout.objects,
+            layout: layout.layout
+        )
+        diagnose(selection)
+        return selection
+    }
+
+    // Bounded: only the named bundle and the running test executable, and only their ancestors.
+    var hints: [String] = []
+    if let index = arguments.firstIndex(of: "--test-bundle-path"), index + 1 < arguments.count {
+        hints.append(arguments[index + 1])
+    }
+    if let last = arguments.last, last.contains(".xctest") {
+        hints.append(last)
+    }
+    if let executablePath { hints.append(executablePath) }
+
+    for hint in hints {
+        // The hint itself may be a SYMLINK (an active .xctest reached through a link, or an aliased
+        // product root). Ancestry must start at the hint's PHYSICAL parent, not its lexical one:
+        // climbing the lexical path would walk into whatever directory happens to contain the link
+        // and could select a completely unrelated — yet lexically valid — product root.
+        guard let physicalHint = canonicalPhysicalPath(URL(fileURLWithPath: hint)) else { continue }
+        var candidate = URL(fileURLWithPath: physicalHint).deletingLastPathComponent()
+        for _ in 0..<8 {
+            if let physical = canonicalPhysicalPath(candidate) {
+                switch recognizeAgentLensCoreLayout(in: physical, fileManager: fileManager) {
+                case .success(let layout):
+                    let selection = AgentLensCoreProducts(
+                        configurationRoot: URL(fileURLWithPath: physical, isDirectory: true),
+                        moduleSearchDirectory: layout.module.deletingLastPathComponent(),
+                        objectFiles: layout.objects,
+                        layout: layout.layout
+                    )
+                    diagnose(selection)
+                    return selection
+                case .failure(let error):
+                    // ONLY "no layout here" may climb. A nearer root that IS a Core configuration
+                    // but is incomplete, ambiguous or escaping is terminal: falling through would
+                    // silently select a different — quite possibly stale — build.
+                    let code = (error as NSError).code
+                    if AgentLensCoreProductsError.terminal.contains(code) { throw error }
+                }
+            }
+            let parent = candidate.deletingLastPathComponent()
+            if parent.path == candidate.path { break }
+            candidate = parent
+        }
+    }
+
+    throw coreProductsError(
+        code: AgentLensCoreProductsError.noLayout,
+        "could not locate active AgentLensCore build products from "
+        + "\(hints.isEmpty ? "no bundle/executable hint" : hints.joined(separator: ", "))"
     )
 }
+
+/// Convenience for the existing test call sites: the active products with no global mutation.
+func agentLensCoreProducts() throws -> AgentLensCoreProducts {
+    try selectAgentLensCoreProducts(
+        environment: ProcessInfo.processInfo.environment,
+        arguments: CommandLine.arguments,
+        executablePath: Bundle.main.executableURL?.path
+    )
+}
+
+/// Compile-and-link arguments for a probe against the selected products.
+func agentLensCoreCompileArguments(for products: AgentLensCoreProducts) -> [String] {
+    var arguments = ["-I", products.moduleSearchDirectory.path]
+    arguments.append(contentsOf: products.objectFiles.map(\.path))
+    return arguments
+}
+
+// MARK: Core product selection (both measured layouts)
+
+/// A metadata-only fixture tree: nothing here is compiled, linked or executed.
+private func productFixtureRoot(_ label: String) throws -> URL {
+    try fixtureRoot("products-\(label)")
+}
+
+private func writeRegularFile(_ path: String, _ contents: String = "fixture") throws {
+    let directory = URL(fileURLWithPath: path).deletingLastPathComponent()
+    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+    try Data(contents.utf8).write(to: URL(fileURLWithPath: path))
+}
+
+private func makeAggregateLayout(_ root: URL) throws {
+    try writeRegularFile(root.appendingPathComponent("AgentLensCore.o").path)
+    try writeRegularFile(root.appendingPathComponent("AgentLensCore.swiftmodule").path)
+}
+
+@discardableResult
+private func makeNativeLayout(_ root: URL, objects: [String]) throws -> URL {
+    let modules = root.appendingPathComponent("Modules")
+    try writeRegularFile(modules.appendingPathComponent("AgentLensCore.swiftmodule").path)
+    let objectDirectory = root.appendingPathComponent("AgentLensCore.build")
+    for name in objects {
+        try writeRegularFile(objectDirectory.appendingPathComponent(name).path)
+    }
+    return modules
+}
+
+private func selectWithOverride(_ root: URL) throws -> AgentLensCoreProducts {
+    try selectAgentLensCoreProducts(
+        environment: ["AGENT_LENS_TEST_PRODUCTS": root.path], arguments: []
+    )
+}
+
+@Test func productSelectionRecognizesTheAggregateSwiftBuildLayout() throws {
+    let root = try productFixtureRoot("aggregate")
+    defer { try? FileManager.default.removeItem(at: root) }
+    try makeAggregateLayout(root)
+
+    let selection = try selectWithOverride(root)
+    #expect(selection.layout == .aggregate)
+    // The selection records PHYSICAL paths; compare by identity, not by spelling (`TMPDIR` is
+    // `/var/...` whose physical name is `/private/var/...`).
+    #expect(canonicalPhysicalPath(selection.moduleSearchDirectory)
+            == canonicalPhysicalPath(root))
+    #expect(selection.objectFiles.map(\.lastPathComponent) == ["AgentLensCore.o"])
+    let arguments = agentLensCoreCompileArguments(for: selection)
+    #expect(arguments.first == "-I")
+    #expect(arguments.count == 3)
+}
+
+@Test func productSelectionRecognizesTheNativeObjectVectorSortedAndTargetScoped() throws {
+    let root = try productFixtureRoot("native")
+    defer { try? FileManager.default.removeItem(at: root) }
+    let modules = try makeNativeLayout(root, objects: ["Zulu.swift.o", "Alpha.swift.o", "Middle.swift.o"])
+    // Another target's directory must never contribute objects.
+    try writeRegularFile(root.appendingPathComponent("AgentLensApp.build/App.swift.o").path)
+
+    let selection = try selectWithOverride(root)
+    #expect(selection.layout == .native)
+    #expect(canonicalPhysicalPath(selection.moduleSearchDirectory) == canonicalPhysicalPath(modules))
+    #expect(selection.objectFiles.map(\.lastPathComponent)
+            == ["Alpha.swift.o", "Middle.swift.o", "Zulu.swift.o"])
+    let arguments = agentLensCoreCompileArguments(for: selection)
+    #expect(arguments[0] == "-I")
+    #expect(canonicalPhysicalPath(URL(fileURLWithPath: arguments[1])) == canonicalPhysicalPath(modules))
+    #expect(arguments.count == 2 + 3)
+}
+
+/// A one-object native layout is still NATIVE. Deriving the label from the object count would
+/// mislabel it as the aggregate Swift Build layout.
+@Test func productSelectionLabelsAOneObjectNativeLayoutAsNative() throws {
+    let root = try productFixtureRoot("native-one")
+    defer { try? FileManager.default.removeItem(at: root) }
+    try makeNativeLayout(root, objects: ["Only.swift.o"])
+
+    let selection = try selectWithOverride(root)
+    #expect(selection.layout == .native)
+    #expect(selection.objectFiles.count == 1)
+}
+
+/// Presence of the override decides, so an empty value is an operator error — never a quiet
+/// fallback to a perfectly valid running bundle.
+@Test func productSelectionRejectsAnEmptyOverrideEvenWithAValidBundleAvailable() throws {
+    #expect(throws: (any Error).self) {
+        try selectAgentLensCoreProducts(
+            environment: ["AGENT_LENS_TEST_PRODUCTS": ""],
+            arguments: CommandLine.arguments,
+            executablePath: Bundle.main.executableURL?.path
+        )
+    }
+}
+
+@Test func productSelectionRejectsRelativeAndNULOverrides() throws {
+    for bad in ["relative/products", "products/debug", "", "/tmp/\(Character(UnicodeScalar(0)))x"] {
+        #expect(throws: (any Error).self) {
+            try selectAgentLensCoreProducts(
+                environment: ["AGENT_LENS_TEST_PRODUCTS": bad],
+                arguments: CommandLine.arguments,
+                executablePath: Bundle.main.executableURL?.path
+            )
+        }
+    }
+}
+
+/// An invalid override must fail rather than fall back — proven with a VALID bundle hint present
+/// and a valid directory sitting right next to the invalid value.
+@Test func productSelectionInvalidOverrideNeverFallsBackToAValidBundle() throws {
+    let empty = try productFixtureRoot("override-empty")
+    defer { try? FileManager.default.removeItem(at: empty) }
+    let validNeighbour = try productFixtureRoot("override-valid-neighbour")
+    defer { try? FileManager.default.removeItem(at: validNeighbour) }
+    try makeAggregateLayout(validNeighbour)
+
+    // Sanity: the bundle hint alone WOULD succeed, so a fallback would be observable.
+    let viaBundle = try selectAgentLensCoreProducts(
+        environment: [:], arguments: CommandLine.arguments,
+        executablePath: Bundle.main.executableURL?.path
+    )
+    #expect(!viaBundle.objectFiles.isEmpty)
+
+    #expect(throws: (any Error).self) {
+        try selectAgentLensCoreProducts(
+            environment: ["AGENT_LENS_TEST_PRODUCTS": empty.path],
+            arguments: CommandLine.arguments,
+            executablePath: Bundle.main.executableURL?.path
+        )
+    }
+}
+
+/// Both complete layout signatures in one root: refuse instead of picking by precedence.
+@Test func productSelectionRejectsAmbiguousDualLayoutRoot() throws {
+    let root = try productFixtureRoot("ambiguous")
+    defer { try? FileManager.default.removeItem(at: root) }
+    try makeAggregateLayout(root)
+    try makeNativeLayout(root, objects: ["Alpha.swift.o"])
+
+    #expect(throws: (any Error).self) { try selectWithOverride(root) }
+}
+
+@Test func productSelectionRejectsARecognizedButIncompleteActiveRoot() throws {
+    let root = try productFixtureRoot("incomplete")
+    defer { try? FileManager.default.removeItem(at: root) }
+    // Native-shaped module with no object directory: a partial active layout.
+    try writeRegularFile(root.appendingPathComponent("Modules/AgentLensCore.swiftmodule").path)
+
+    #expect(throws: (any Error).self) { try selectWithOverride(root) }
+}
+
+/// LOAD-BEARING: an invalid nearer active root must terminate the search even when a VALID
+/// ancestor exists. Real nested directories, one bundle hint; only the nearest root differs.
+@Test func productSelectionStopsAtAnInvalidNearerRootWithAValidAncestor() throws {
+    let outer = try productFixtureRoot("nested-ancestor")
+    defer { try? FileManager.default.removeItem(at: outer) }
+    try makeAggregateLayout(outer)   // valid ancestor products
+
+    // A nearer root holding only half of a native layout. It is reached BEFORE the valid ancestor.
+    let nearer = outer.appendingPathComponent("active")
+    try FileManager.default.createDirectory(at: nearer, withIntermediateDirectories: true)
+    let bundle = nearer.appendingPathComponent("Probe.xctest")
+    try FileManager.default.createDirectory(at: bundle, withIntermediateDirectories: true)
+
+    // With no partial nearer root, the same hint finds the VALID ancestor.
+    let ancestorOnly = try selectAgentLensCoreProducts(
+        environment: [:], arguments: ["--test-bundle-path", bundle.path], executablePath: nil
+    )
+    #expect(ancestorOnly.layout == .aggregate)
+    #expect(canonicalPhysicalPath(ancestorOnly.configurationRoot) == canonicalPhysicalPath(outer))
+
+    // Now make the nearer root a RECOGNIZED but incomplete Core configuration.
+    try writeRegularFile(nearer.appendingPathComponent("Modules/AgentLensCore.swiftmodule").path)
+
+    // The same hint must now throw: falling through would silently select the valid (possibly
+    // stale) ancestor instead.
+    #expect(throws: (any Error).self) {
+        try selectAgentLensCoreProducts(
+            environment: [:], arguments: ["--test-bundle-path", bundle.path], executablePath: nil
+        )
+    }
+}
+
+@Test func productSelectionRefusesAModuleThatEscapesTheConfigurationRoot() throws {
+    let root = try productFixtureRoot("escape")
+    defer { try? FileManager.default.removeItem(at: root) }
+    let elsewhere = try productFixtureRoot("escape-target")
+    defer { try? FileManager.default.removeItem(at: elsewhere) }
+    try writeRegularFile(elsewhere.appendingPathComponent("AgentLensCore.swiftmodule").path)
+    try writeRegularFile(root.appendingPathComponent("AgentLensCore.o").path)
+    try FileManager.default.createSymbolicLink(
+        atPath: root.appendingPathComponent("AgentLensCore.swiftmodule").path,
+        withDestinationPath: elsewhere.appendingPathComponent("AgentLensCore.swiftmodule").path
+    )
+
+    // Convenient regression: an escaping aggregate module is rejected (already measured).
+    #expect(throws: (any Error).self) { try selectWithOverride(root) }
+}
+
+/// A single bad object must invalidate the whole vector, not be silently dropped: dropping it
+/// would link an incomplete Core that still exits 0 and looks healthy.
+@Test func productSelectionRejectsAnExternalObjectSymlinkInsteadOfDroppingIt() throws {
+    let root = try productFixtureRoot("object-escape")
+    defer { try? FileManager.default.removeItem(at: root) }
+    let elsewhere = try productFixtureRoot("object-escape-target")
+    defer { try? FileManager.default.removeItem(at: elsewhere) }
+    try makeNativeLayout(root, objects: ["Good.swift.o"])
+    let external = elsewhere.appendingPathComponent("Evil.swift.o")
+    try writeRegularFile(external.path)
+    try FileManager.default.createSymbolicLink(
+        atPath: root.appendingPathComponent("AgentLensCore.build/Evil.swift.o").path,
+        withDestinationPath: external.path
+    )
+
+    #expect(throws: (any Error).self) { try selectWithOverride(root) }
+}
+
+/// A symlinked `AgentLensCore.build` would let unrelated objects in under a legitimate name.
+@Test func productSelectionRejectsASymlinkedObjectDirectory() throws {
+    let root = try productFixtureRoot("build-dir-symlink")
+    defer { try? FileManager.default.removeItem(at: root) }
+    let elsewhere = try productFixtureRoot("build-dir-target")
+    defer { try? FileManager.default.removeItem(at: elsewhere) }
+    try writeRegularFile(root.appendingPathComponent("Modules/AgentLensCore.swiftmodule").path)
+    try writeRegularFile(elsewhere.appendingPathComponent("AgentLensCore.build/Other.swift.o").path)
+    try FileManager.default.createSymbolicLink(
+        atPath: root.appendingPathComponent("AgentLensCore.build").path,
+        withDestinationPath: elsewhere.appendingPathComponent("AgentLensCore.build").path
+    )
+
+    #expect(throws: (any Error).self) { try selectWithOverride(root) }
+}
+
+/// A legitimate `/var` ↔ `/private/var` alias of the SAME directory must be accepted.
+@Test func productSelectionAcceptsAPhysicalAliasOfTheSameRoot() throws {
+    let root = try productFixtureRoot("alias")
+    defer { try? FileManager.default.removeItem(at: root) }
+    try makeAggregateLayout(root)
+
+    let alias = try fixtureRoot("products-alias-link")
+    defer { try? FileManager.default.removeItem(at: alias) }
+    let link = alias.appendingPathComponent("linked-products")
+    try FileManager.default.createSymbolicLink(atPath: link.path, withDestinationPath: root.path)
+
+    let selection = try selectWithOverride(link)
+    #expect(selection.layout == .aggregate)
+    #expect(canonicalPhysicalPath(selection.configurationRoot) == canonicalPhysicalPath(root))
+}
+
+/// LOAD-BEARING: a bundle hint that is a SYMLINK living under a DIFFERENT complete product root must
+/// resolve to the REAL bundle's own root. Resolving only the hint while climbing lexical ancestors
+/// selects whatever root physically contains the link — an unrelated build that looks perfectly valid.
+@Test func productSelectionFollowsThePhysicalBundleNotTheLexicalParentRoot() throws {
+    let actualRoot = try productFixtureRoot("physical-active")
+    defer { try? FileManager.default.removeItem(at: actualRoot) }
+    try makeAggregateLayout(actualRoot)
+    let realBundle = actualRoot.appendingPathComponent("Active.xctest")
+    try FileManager.default.createDirectory(at: realBundle, withIntermediateDirectories: true)
+
+    // A different, equally complete root that must NOT be selected.
+    let decoyRoot = try productFixtureRoot("lexical-decoy")
+    defer { try? FileManager.default.removeItem(at: decoyRoot) }
+    try makeAggregateLayout(decoyRoot)
+    let linkedBundle = decoyRoot.appendingPathComponent("Linked.xctest")
+    try FileManager.default.createSymbolicLink(atPath: linkedBundle.path, withDestinationPath: realBundle.path)
+
+    let selection = try selectAgentLensCoreProducts(
+        environment: [:], arguments: ["--test-bundle-path", linkedBundle.path], executablePath: nil
+    )
+    #expect(canonicalPhysicalPath(selection.configurationRoot) == canonicalPhysicalPath(actualRoot))
+    #expect(canonicalPhysicalPath(selection.configurationRoot) != canonicalPhysicalPath(decoyRoot))
+}
+
+@Test func productSelectionFindsTheActiveBundleAncestryWithoutCwdFallback() throws {
+    let products = try agentLensCoreProducts()
+    #expect(FileManager.default.fileExists(atPath: products.configurationRoot.path))
+    #expect(!products.objectFiles.isEmpty)
+    #expect(products.objectFiles.allSatisfy {
+        $0.path.hasPrefix(products.configurationRoot.path + "/")
+    })
+
+    // No hints at all must fail rather than fall back to any package or scratch directory.
+    #expect(throws: (any Error).self) {
+        try selectAgentLensCoreProducts(environment: [:], arguments: [], executablePath: nil)
+    }
+}
+
 
 @Test func detectorFindsExecutableOnPath() throws {
     let dir = try fixtureRoot("find")
@@ -385,7 +917,7 @@ func agentLensCoreProductsDirectory() throws -> URL {
     try FileManager.default.createDirectory(at: relativeRoot, withIntermediateDirectories: true)
     try makeExecutable(script: "printf 'relative 6.7.8\\n'", in: relativeRoot, named: "fakecli")
 
-    let products = try agentLensCoreProductsDirectory()
+    let products = try agentLensCoreProducts()
     let source = root.appendingPathComponent("relative-path-probe.swift")
     let executable = root.appendingPathComponent("relative-path-probe")
     let sourceText = """
@@ -444,9 +976,8 @@ func agentLensCoreProductsDirectory() throws -> URL {
 
     let compiler = Process()
     compiler.executableURL = URL(fileURLWithPath: "/usr/bin/swiftc")
-    compiler.arguments = [
-        "-I", products.path, source.path,
-        products.appendingPathComponent("AgentLensCore.o").path,
+    compiler.arguments = agentLensCoreCompileArguments(for: products) + [
+        source.path,
         "-o", executable.path
     ]
     compiler.currentDirectoryURL = root

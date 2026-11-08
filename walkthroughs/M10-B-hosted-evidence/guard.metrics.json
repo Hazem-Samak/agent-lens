@@ -1,0 +1,16 @@
+{
+  "gate": "guard",
+  "kind": "plain",
+  "expected_floor": null,
+  "target_floors": [],
+  "parsed": {
+    "kind": "plain"
+  },
+  "skipped": 0,
+  "producer_exit": 0,
+  "verification_exit": 0,
+  "effective_exit": 0,
+  "elapsed_seconds": 0.299,
+  "verification_problems": [],
+  "verified_at": "2026-10-27T18:19:36Z"
+}

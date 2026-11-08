@@ -1,0 +1,28 @@
+# M10-A R7 — observed hosted fixture and summary portability
+
+2026-10-26. Base89d937fadff5367671ba0022369b8f0794a1862b, branch codex/m10-npm-management. Hosted run40325427147 confirms the R6 app constructor fix: package build and early native macro/isolation gate pass. Full suite executed353/5suites, failed19 cases/64issues, zero skipped; debug app/package checks NOT RUN. Archive12650564190 digest44ebf25ffb67597f6a494eb8941bc3b4b9e9426c70533b1c4dad89e54b8179d7 verified. Preserve this red run, no retries.
+
+Three independent diagnoses:
+1. Sixteen CLI cases see no fixture tools/manager calls because the runner password database selects /bin/bash and test startup setup writes only ZDOTDIR/.zshrc. Actual debug-env shows /bin/bash and a system PATH with no fixture entry. Production must continue getpwuid, NEVER $SHELL. An owned external /bin/bash -l -i control reproduces zsh-only fixture miss and proves HOME/.bash_profile with the same export restores exact closed PATH. Do not chsh/dscl/change account/shell/product logic.
+2. Three compiled-Core subprocess cases fail artifact discovery because helpers assume aggregate AgentLensCore.o at product root. SwiftPM native has Modules/AgentLensCore.swiftmodule plus27 AgentLensCore.build/*.o, no root aggregate. External local --build-system native diagnostic build reproduced that layout; linking the current27 objects with -I Modules loaded actual bundled detector registry (3 entries). Production sources are not defective for these cases. Protected-helper amendment is being prepared; DO NOT edit those files yet.
+3. Hosted native SwiftPM emits ONE combined353 summary in5suites; local default Swift Build emits282+71 summaries. Existing verifier correctly remains red but its fixed two-summary assumption is unnecessarily backend-specific. Support observed layouts while preserving real full case totals, no skips, passed Core AND AppSupport event anchors, verdicts and producer failure.
+
+## Current worker scope — already authorized paths only
+
+Sole writer DeepSeekV4.1Flash/workbuddy/OMP, thinking high. May edit ONLY Tests/AgentLensCoreTests/UpdateCLIIntegrationTests.swift, .github/workflows/ci.yml, and append factual partial R7 note in walkthroughs/M10-A-implementation.md. All Sources, Package.swift, other tests (especially ToolDetectorTests.swift, DetectorMetadataTests.swift, UpdateProbeCoordinatorTests.swift), builder/resources/dependencies and parent docs remain frozen. No Git mutations or settings/toolchain changes.
+
+### CLI fixture repair
+
+Make writeRC accept the owned scenario HOME explicitly as well as ZDOTDIR. Write identical POSIX-compatible CLOSED PATH payload to owned ZDOTDIR/.zshrc and owned HOME/.bash_profile; preserve all fake-root and /usr/bin:/bin entries, order and literal quoting. Update all4 scenario setup calls to supply their existing owned HOME. Do not force SHELL, override real getpwuid, set a global shell or copy/read real user rc files. Keep both CLI launch sandbox profiles/environments/watchdogs, all original assertions, exact output prefixes, query counts, timing and exit/stderr checks unchanged.
+
+Add one meaningful real-process fixture regression running BOTH /bin/bash and /bin/zsh with login+interactive flags under owned HOME/ZDOTDIR, exact closed PATH and no real discovery/managers; use same writer/owned cleanup and cache-denial control. The test must observe the actual exported path, not inspect source text. This adds1 case (expected intermediate354); declare actual final inventory. Do not replace a real CLI test with this control.
+
+### CI summary repair
+
+Accept exactly one combined full-suite summary OR exactly two component summaries. In combined mode enforce total floor (intermediate354 after new case) and required PASSED events from Core registry/schema/query plus AppSupport (e.g. productionWiringUsesOnlyTheCoreLoginShellSeams, confirmed in real passed output). Do NOT label a combined count as separate observed Core/App totals. In two-summary mode retain distinct multiset target floors and total floor (intermediate283Core+71App). Missing, zero, underfloor, >2 summaries, actual skips, FAILED verdicts, missing either group anchors, unknown/unusable evidence must stay red. Isolation requires1 summary/at least1 case, unchanged.
+
+Keep producer nonzero authoritative, raw stdout/stderr and metrics/summary every gate, all7 exact commands and unsets, action pins/permissions/timeouts/native macro discovery/runner/toolchain. Do not change build backend, force TMPDIR or add a hidden fallback to make tests green. No skipped test, ||true/continue-on-error or count reduction. Protected helper repairs will add further focused cases only after human approval; floors must follow parent-observed final inventory before delivery.
+
+Run focused new shell case and external generated-verifier controls (actual failed hosted stream MUST remain red); no whole suite needed before protected helper repair. Record actual results under E/worker/r7-in-scope only. E=/private/tmp/agent-lens-m10a-impl-20261026-4_wjuwpb. Parent evidence: parent/bash-fixture-probe/receipt.json; parent/native-product-layout.json; parent/native-core-link-probe/receipt.json; parent/hosted-ci-40325427147/failure-enumeration.json and receipts/. Source/API proposals for protected helpers are NOT this dispatch authority.
+
+Coordinator R7 follow-up: admitted the focused CI-verifier failure/issue-event contradiction check after an executed counterexample accepted a synthetic summary flip over a red case. This stays within the existing receipt-parser scope; no shipping source or test assertion/budget change. Final independent41 controls preserve both raw red hosted and worker streams, and accept the actual raw parent369 stream.

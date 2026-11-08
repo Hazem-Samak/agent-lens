@@ -39,6 +39,11 @@ public enum UnknownReason: Equatable, Sendable {
     case identityUnverified
     case diagnosticInconsistent
     case newerThanKnownMetadata
+    case unsupportedRegistry
+    case unsupportedChannel
+    case budgetExhausted
+    case metadataInvalid
+    case queryTimedOut
 }
 
 public enum VersionStatus: Equatable, Sendable {

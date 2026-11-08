@@ -156,6 +156,8 @@ enum AgentLensAppEntry {
 }
 
 struct AgentLensApp: App {
+    @NSApplicationDelegateAdaptor(AgentLensTerminationDelegate.self) private var terminationDelegate
+
     var body: some Scene {
         Window("Agent Lens", id: "main") {
             MainWindow()

@@ -2,8 +2,11 @@
 //
 // Results are keyed by the registry-derived tool ID and computed in input order, never by
 // completion order. Eligibility is applied in the brief's fixed order so reasons are stable.
-// Only one manager batch runs at a time. Cancellation is checked between steps and
-// before any cache publication; a cancelled run never reports successful empty metadata.
+// The complete optional Check/Refresh stage — BOTH managers, every subject, and any cache-only
+// path — runs inside one bounded stage admission with one monotonic budget and one deadline-clipped
+// runner, so no manager from another run can overlap it. Plain/offline work never reaches admission.
+// Cancellation is checked between steps and before any cache publication; a cancelled run never
+// reports successful empty metadata.
 //
 // Association is explicit: every subject carries its registry ID and display name beside the
 // M5 diagnostic, and every result carries the selected entry plus its observed canonical target
@@ -12,7 +15,24 @@
 // text — never a stale verified claim, and never a cache write.
 
 import Darwin
+import Dispatch
 import Foundation
+
+/// Observation seam for the bounded stage-admission queue, mirroring the existing Homebrew batch
+/// hook. Internal only: it lets coordinator-level tests synchronize on a run that is waiting
+/// BEFORE admission instead of sleeping and guessing.
+enum UpdateProbeCoordinatorTestHooks {
+    @TaskLocal static var onStageAdmissionQueued: (@Sendable () -> Void)?
+
+    static func observingStageAdmissionQueue<T: Sendable>(
+        _ observer: @escaping @Sendable () -> Void,
+        operation: @Sendable () async -> T
+    ) async -> T {
+        await $onStageAdmissionQueued.withValue(observer) {
+            await operation()
+        }
+    }
+}
 
 public enum UpdateProbeMode: Equatable, Sendable {
     /// Plain scan: no cache read/write and no manager query.
@@ -31,20 +51,25 @@ public enum UpdateProvenance: Equatable, Sendable {
     case cache(observedAt: Date)
 }
 
-/// One scan subject: the registry identity carried beside the M5 diagnostic. The registry ID is
-/// the association key — never the display name and never the executable basename — so a display
-/// rename cannot detach a result from its identity, and two tools sharing a display name stay
-/// distinguishable.
+/// One scan subject: the validated registry definition carried beside the M5 diagnostic. The
+/// definition is the association source — its stable ID, never a display name and never the
+/// executable basename — so a display rename cannot detach a result from its identity, two tools
+/// sharing a display name stay distinguishable, and an ID can never disagree with its own
+/// definition.
 public struct UpdateProbeSubject: Equatable, Sendable {
-    public let registryID: String
-    public let displayName: String
+    public let definition: DetectorDefinition
     public let diagnostic: ToolPathDiagnostic
 
-    public init(registryID: String, displayName: String, diagnostic: ToolPathDiagnostic) {
-        self.registryID = registryID
-        self.displayName = displayName
+    public init(definition: DetectorDefinition, diagnostic: ToolPathDiagnostic) {
+        self.definition = definition
         self.diagnostic = diagnostic
     }
+
+    /// The stable registry identity, derived from the definition it came from.
+    public var registryID: String { definition.id }
+    /// The user-visible label, derived from the same definition — kept beside, never separate from,
+    /// the identity so the two cannot drift.
+    public var displayName: String { definition.displayName }
 }
 
 public struct ToolUpdateResult: Equatable, Sendable {
@@ -75,6 +100,14 @@ public struct ToolUpdateResult: Equatable, Sendable {
     public let formulaStem: String?
     /// The manager's verified full formula identity (`name` or `owner/tap/name`), when available.
     public let fullFormulaName: String?
+    /// npm package name (nil for Homebrew results).
+    public let npmPackage: String?
+    /// Resolved npm registry (nil for Homebrew results).
+    public let npmRegistry: String?
+    /// Dist tag queried (nil for Homebrew results).
+    public let npmTag: String?
+    /// Observed `npm --version` text (nil when unavailable or for Homebrew results).
+    public let npmVersion: String?
     public let status: VersionStatus
     public let provenance: UpdateProvenance
 
@@ -93,6 +126,10 @@ public struct ToolUpdateResult: Equatable, Sendable {
         managerCellar: String?,
         formulaStem: String?,
         fullFormulaName: String?,
+        npmPackage: String? = nil,
+        npmRegistry: String? = nil,
+        npmTag: String? = nil,
+        npmVersion: String? = nil,
         status: VersionStatus,
         provenance: UpdateProvenance
     ) {
@@ -110,6 +147,10 @@ public struct ToolUpdateResult: Equatable, Sendable {
         self.managerCellar = managerCellar
         self.formulaStem = formulaStem
         self.fullFormulaName = fullFormulaName
+        self.npmPackage = npmPackage
+        self.npmRegistry = npmRegistry
+        self.npmTag = npmTag
+        self.npmVersion = npmVersion
         self.status = status
         self.provenance = provenance
     }
@@ -150,10 +191,13 @@ public enum UpdateProbeCoordinator {
         runner: UpdateCommandRunner,
         cacheURL: URL,
         currentDirectory: String = FileManager.default.currentDirectoryPath,
-        now: @escaping @Sendable () -> Date
+        now: @escaping @Sendable () -> Date,
+        uptime: @escaping @Sendable () -> UInt64 = { DispatchTime.now().uptimeNanoseconds },
+        npmScratchBaseURL: URL? = nil
     ) async -> [ToolUpdateResult] {
         var results = [ToolUpdateResult?](repeating: nil, count: subjects.count)
         var pending: [Pending] = []
+        var npmPending: [Pending] = []
 
         // Eligibility, in the brief's fixed order, decided without any process.
         for (index, subject) in subjects.enumerated() {
@@ -168,8 +212,9 @@ public enum UpdateProbeCoordinator {
                 results[index] = neutral(subject, index, .diagnosticInconsistent, installed: localVersion)
                 continue
             }
-            guard tool.source == "brew" else {
-                let reason: UnknownReason = tool.source == "standalone" ? .noRegistry : .unsupportedSource
+            let source = tool.source
+            guard source == "brew" || source == "npm" else {
+                let reason: UnknownReason = source == "standalone" ? .noRegistry : .unsupportedSource
                 results[index] = neutral(subject, index, reason, installed: localVersion)
                 continue
             }
@@ -185,40 +230,102 @@ public enum UpdateProbeCoordinator {
             case .offline:
                 results[index] = neutral(subject, index, .networkUnavailable, installed: localVersion)
             case .checkUpdates, .refresh:
-                pending.append(Pending(
+                let entry = Pending(
                     index: index,
                     subject: subject,
                     selectedEntryPath: selection.entryPath,
                     observedTarget: selection.target,
                     localVersion: version
-                ))
+                )
+                if source == "brew" { pending.append(entry) } else { npmPending.append(entry) }
             }
         }
 
-        // Zero eligible tools means zero manager commands and zero cache reads.
+        // Plain/offline runs return here with zero admission, zero cache read/write and zero
+        // manager query: eligibility decided every subject without touching the stage gate.
+        guard !pending.isEmpty || !npmPending.isEmpty else {
+            return finalize(results, subjects)
+        }
+
+        // The manager identity is snapshotted BEFORE queueing for admission, exactly like the
+        // scan-time selection pair. Resolution launches no process and touches no cache; it is only
+        // the local PATH lookup. A snapshot taken after admission would silently bless a manager
+        // replaced while this run waited, so the pre-launch revalidation could never notice.
+        var managerIdentity: ManagerIdentity?
+        if !pending.isEmpty, let manager = HomebrewManagerResolver.resolve(
+            environment: environment,
+            currentDirectory: currentDirectory
+        ) {
+            managerIdentity = ManagerIdentity(manager: manager, fingerprint: fingerprint(of: manager))
+        }
+
+        // ONE admission for the COMPLETE optional stage — Homebrew and npm together, including a
+        // Homebrew-only or cache-only stage. A run that cannot enter the stage inside the bounded
+        // wait (or that is cancelled while waiting) reports the reason for every optional subject
+        // and launches nothing; a manager from another run can never overlap this one's npm work.
+        let gate = UpdateStageAdmissionGate.shared
+        let permitID = UUID()
+        let acquired = await gate.acquire(id: permitID, waitNanos: Self.stageAdmissionWaitNanoseconds)
+        guard acquired else {
+            let reason: UnknownReason = Task.isCancelled ? .probeFailed : .budgetExhausted
+            for entry in pending + npmPending {
+                results[entry.index] = neutral(
+                    pending: entry, reason, installed: Version(entry.localVersion)
+                )
+            }
+            // Never released here: this run holds no permit, and releasing would free the stage
+            // while another run is still inside it.
+            return finalize(results, subjects)
+        }
+
+        // The single monotonic budget starts at admission and covers every manager and every
+        // optional step: the Homebrew batch, npm ownership/config/metadata and revalidation.
+        let stageDeadline = uptime().addingReportingOverflow(Self.stageBudgetNanoseconds).partialValue
+        let clipped = DeadlineClippingRunner(
+            base: runner, deadlineNanos: stageDeadline, uptime: uptime
+        )
+
+        // Homebrew first, so slow or exhausted npm work can never evict a completed Homebrew
+        // result. Then npm subjects in registry order, inside the same admitted stage.
         if !pending.isEmpty {
-            guard let manager = HomebrewManagerResolver.resolve(
-                environment: environment,
-                currentDirectory: currentDirectory
-            ) else {
+            if let identity = managerIdentity {
+                await resolveBatch(
+                    pending: pending,
+                    managerIdentity: identity,
+                    environment: environment,
+                    runner: clipped,
+                    cache: UpdateMetadataCache(fileURL: cacheURL, now: now),
+                    mode: mode,
+                    currentDirectory: currentDirectory,
+                    now: now,
+                    uptime: uptime,
+                    stageDeadline: stageDeadline,
+                    results: &results
+                )
+            } else {
                 for entry in pending {
                     results[entry.index] = neutral(pending: entry, .managerUnavailable, installed: Version(entry.localVersion))
                 }
-                return finalize(results, subjects)
             }
-            let identity = ManagerIdentity(manager: manager, fingerprint: fingerprint(of: manager))
-            await resolveBatch(
-                pending: pending,
-                managerIdentity: identity,
+        }
+        if !npmPending.isEmpty {
+            await resolveNpmBatch(
+                pending: npmPending,
                 environment: environment,
-                runner: runner,
-                cache: UpdateMetadataCache(fileURL: cacheURL, now: now),
+                runner: clipped,
+                stageDeadline: stageDeadline,
+                cacheURL: cacheURL,
                 mode: mode,
                 currentDirectory: currentDirectory,
                 now: now,
+                uptime: uptime,
+                npmScratchBaseURL: npmScratchBaseURL,
                 results: &results
             )
         }
+        // Released exactly once, on every exit and cancellation path: both manager stages return
+        // to this point rather than leaving the admitted stage early.
+        await gate.release()
         return finalize(results, subjects)
     }
 
@@ -233,14 +340,30 @@ public enum UpdateProbeCoordinator {
         mode: UpdateProbeMode,
         currentDirectory: String,
         now: @escaping @Sendable () -> Date,
+        uptime: @escaping @Sendable () -> UInt64,
+        stageDeadline: UInt64,
         results: inout [ToolUpdateResult?]
     ) async {
         let manager = managerIdentity.manager
+        // A refusal produced by the stage's deadline-clipping runner is reported by CAUSE: the
+        // aggregate deadline exhausting maps to `budgetExhausted`, never to a generic cancelled or
+        // `probeFailed` claim (R04), and this now applies to Homebrew launches as well as npm ones.
+        let deadlineExhausted = { uptime() >= stageDeadline && !Task.isCancelled }
         let context = contextFingerprint(environment: environment, currentDirectory: currentDirectory)
         // The manager-reported Cellar is unavailable until a fresh batch. A cache hit therefore
         // restores one uniquely matching, complete stored identity for the verified selection.
 
         if mode == .checkUpdates {
+            // A cache-only Check is still an admitted stage: with the aggregate deadline gone it
+            // reports `budgetExhausted` rather than serving disk metadata (B03.4).
+            if deadlineExhausted() {
+                for entry in pending {
+                    results[entry.index] = neutral(
+                        pending: entry, .budgetExhausted, installed: Version(entry.localVersion)
+                    )
+                }
+                return
+            }
             // Cache-first: a fully valid hit for every pending tool avoids the manager entirely.
             var hits: [Int: UpdateMetadataEntry] = [:]
             for entry in pending {
@@ -318,7 +441,7 @@ public enum UpdateProbeCoordinator {
         let batch: HomebrewBatchResult
         switch outcome {
         case .failure(let error):
-            let reason = unknownReason(for: error)
+            let reason = unknownReason(for: error, stageDeadlineExhausted: deadlineExhausted())
             for entry in pending {
                 results[entry.index] = neutral(pending: entry, reason, installed: Version(entry.localVersion))
             }
@@ -436,6 +559,159 @@ public enum UpdateProbeCoordinator {
                     }
                 }
             }
+        }
+    }
+
+    // MARK: npm stage
+
+    /// The shared monotonic budget for one complete optional update stage (all subjects and BOTH
+    /// managers, including the Homebrew batch, npm ownership/config, metadata and revalidation). It
+    /// starts when stage admission is acquired. A stage that cannot finish inside it yields
+    /// `budgetExhausted` for the work it never launched — never a partial or stale verified result.
+    private static let stageBudgetNanoseconds: UInt64 = 60_000_000_000
+    /// Admission waiting is separately bounded: a run that cannot acquire the complete optional
+    /// stage inside this window reports `budgetExhausted` without launching ANY manager — Homebrew
+    /// included — and without reading or writing either metadata document.
+    private static let stageAdmissionWaitNanoseconds: UInt64 = 10_000_000_000
+
+    /// Runs the npm latest probe for every eligible npm subject after the Homebrew batch, in
+    /// registry order, inside the stage the caller already admitted.
+    ///
+    /// The caller owns admission and the one 60-second deadline, so the same deadline-clipped runner
+    /// and the injected monotonic clock reach Homebrew and every npm ownership/config/metadata step.
+    /// A slow or exhausted npm stage therefore cannot evict an already-completed Homebrew result and
+    /// cannot launch a manager after the budget has run out. Homebrew's own inner batch admission and
+    /// lock order are untouched: it nests inside this stage gate, never the reverse.
+    private static func resolveNpmBatch(
+        pending: [Pending],
+        environment: ShellEnvironment,
+        runner: UpdateCommandRunner,
+        stageDeadline: UInt64,
+        cacheURL: URL,
+        mode: UpdateProbeMode,
+        currentDirectory: String,
+        now: @escaping @Sendable () -> Date,
+        uptime: @escaping @Sendable () -> UInt64,
+        npmScratchBaseURL: URL?,
+        results: inout [ToolUpdateResult?]
+    ) async {
+        for entry in pending {
+            if Task.isCancelled {
+                results[entry.index] = neutral(
+                    pending: entry, .probeFailed, installed: Version(entry.localVersion)
+                )
+                continue
+            }
+            // Exhaustion is checked before each subject so a later npm subject launches nothing.
+            if uptime() >= stageDeadline {
+                results[entry.index] = neutral(
+                    pending: entry, .budgetExhausted, installed: Version(entry.localVersion)
+                )
+                continue
+            }
+            results[entry.index] = await NpmUpdateProbe.run(
+                definition: entry.subject.definition,
+                diagnostic: entry.subject.diagnostic,
+                environment: environment,
+                runner: runner,
+                cacheURL: cacheURL,
+                mode: mode,
+                currentDirectory: currentDirectory,
+                now: now,
+                uptime: uptime,
+                stageDeadline: stageDeadline,
+                diagnosticIndex: entry.index,
+                npmScratchBaseURL: npmScratchBaseURL
+            )
+        }
+    }
+
+    /// Grants one COMPLETE optional-stage permit at a time across simultaneous run calls and both
+    /// managers. A waiter whose bounded wait elapses, or whose task is cancelled, is resumed with
+    /// failure so the stage reports `budgetExhausted`/`probeFailed` without launching a manager.
+    private actor UpdateStageAdmissionGate {
+        static let shared = UpdateStageAdmissionGate()
+
+        private struct Waiter {
+            let id: UUID
+            let continuation: CheckedContinuation<Bool, Never>
+        }
+
+        private var occupied = false
+        private var waiters: [Waiter] = []
+
+        func acquire(id: UUID, waitNanos: UInt64) async -> Bool {
+            guard !Task.isCancelled else { return false }
+            if !occupied && waiters.isEmpty {
+                occupied = true
+                return true
+            }
+            return await withTaskCancellationHandler {
+                await withCheckedContinuation { (continuation: CheckedContinuation<Bool, Never>) in
+                    guard !Task.isCancelled else {
+                        continuation.resume(returning: false)
+                        return
+                    }
+                    waiters.append(Waiter(id: id, continuation: continuation))
+                    UpdateProbeCoordinatorTestHooks.onStageAdmissionQueued?()
+                    Task {
+                        try? await Task.sleep(nanoseconds: waitNanos)
+                        self.expire(id)
+                    }
+                }
+            } onCancel: {
+                Task { await self.expire(id) }
+            }
+        }
+
+        func release() {
+            guard !waiters.isEmpty else {
+                occupied = false
+                return
+            }
+            let next = waiters.removeFirst()
+            occupied = true
+            next.continuation.resume(returning: true)
+        }
+
+        /// Fails one waiter that is still queued. A waiter already granted has been removed, so a
+        /// stray expiry is a no-op and never revokes a live permit.
+        private func expire(_ id: UUID) {
+            guard let index = waiters.firstIndex(where: { $0.id == id }) else { return }
+            let waiter = waiters.remove(at: index)
+            waiter.continuation.resume(returning: false)
+        }
+    }
+
+    /// An `UpdateCommandRunner` wrapper that clips each nominal timeout to the remaining stage
+    /// budget and refuses to launch once the budget is exhausted. The wrapped production runner is
+    /// unchanged; only the timeout handed to it is reduced.
+    ///
+    /// The exhaustion refusal is a `.cancelled` failure. Callers must map it by CAUSE: when the
+    /// aggregate stage deadline caused the refusal (injected `uptime() >= deadline`, no task
+    /// cancellation), the reported reason is `budgetExhausted` — never a generic cancelled or
+    /// probeFailed claim. The injected `uptime` closure is read outside the base runner, so a
+    /// deadline exhausted during a response still takes effect at the next launch check.
+    private struct DeadlineClippingRunner: UpdateCommandRunner {
+        let base: UpdateCommandRunner
+        let deadlineNanos: UInt64
+        let uptime: @Sendable () -> UInt64
+
+        func run(
+            executablePath: String,
+            arguments: [String],
+            environment: [String: String],
+            timeout: TimeInterval
+        ) async -> CommandOutcome {
+            let remaining = Int64(deadlineNanos) &- Int64(uptime())
+            guard remaining > 0 else { return .failure(.cancelled) }
+            let remainingSeconds = TimeInterval(remaining) / 1_000_000_000
+            return await base.run(
+                executablePath: executablePath,
+                arguments: arguments,
+                environment: environment,
+                timeout: min(timeout, remainingSeconds)
+            )
         }
     }
 
@@ -580,11 +856,17 @@ public enum UpdateProbeCoordinator {
     }
 
     /// Opaque process failures remain honest `probeFailed` results. Only explicit typed evidence
-    /// from the runner is retained as a network-unavailable or rate-limited reason.
-    private static func unknownReason(for error: HomebrewBatchError) -> UnknownReason {
+    /// from the runner is retained as a network-unavailable or rate-limited reason. A `.cancelled`
+    /// failure the stage's clipping runner produced because the AGGREGATE deadline was already gone
+    /// is reported as `budgetExhausted` — the caller's cause, not a generic cancellation claim.
+    private static func unknownReason(
+        for error: HomebrewBatchError,
+        stageDeadlineExhausted: Bool
+    ) -> UnknownReason {
         switch error {
         case .commandFailed(.networkUnavailable): .networkUnavailable
         case .commandFailed(.rateLimited): .rateLimited
+        case .commandFailed(.cancelled) where stageDeadlineExhausted: .budgetExhausted
         default: .probeFailed
         }
     }

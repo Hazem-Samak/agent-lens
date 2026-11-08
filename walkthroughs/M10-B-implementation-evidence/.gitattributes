@@ -1,0 +1,2 @@
+# Preserve raw compiler stderr byte-for-byte, including diagnostic source-line whitespace.
+*.stderr -whitespace

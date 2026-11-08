@@ -9,9 +9,15 @@ public struct ToolDetailView: View {
     public let updateFailure: InventoryViewModel.Failure?
     public let isVerifyingOwnership: Bool
     public let isCancellingOwnership: Bool
+    public let isPreparingUpdate: Bool
+    public let isExecutingUpdate: Bool
+    public let isPreparingUninstall: Bool
+    public let isExecutingUninstall: Bool
     public let isBusy: Bool
     public let onVerifyOwnership: @MainActor () -> Void
     public let onCancelOwnership: @MainActor () -> Void
+    public let onPrepareUpdate: @MainActor () -> Void
+    public let onPrepareUninstall: @MainActor () -> Void
 
     public init(
         entry: InventoryEntry?,
@@ -20,9 +26,15 @@ public struct ToolDetailView: View {
         updateFailure: InventoryViewModel.Failure?,
         isVerifyingOwnership: Bool = false,
         isCancellingOwnership: Bool = false,
+        isPreparingUpdate: Bool = false,
+        isExecutingUpdate: Bool = false,
+        isPreparingUninstall: Bool = false,
+        isExecutingUninstall: Bool = false,
         isBusy: Bool = false,
         onVerifyOwnership: @escaping @MainActor () -> Void = {},
-        onCancelOwnership: @escaping @MainActor () -> Void = {}
+        onCancelOwnership: @escaping @MainActor () -> Void = {},
+        onPrepareUpdate: @escaping @MainActor () -> Void = {},
+        onPrepareUninstall: @escaping @MainActor () -> Void = {}
     ) {
         self.entry = entry
         self.isDegradedEnvironment = isDegradedEnvironment
@@ -30,9 +42,15 @@ public struct ToolDetailView: View {
         self.updateFailure = updateFailure
         self.isVerifyingOwnership = isVerifyingOwnership
         self.isCancellingOwnership = isCancellingOwnership
+        self.isPreparingUpdate = isPreparingUpdate
+        self.isExecutingUpdate = isExecutingUpdate
+        self.isPreparingUninstall = isPreparingUninstall
+        self.isExecutingUninstall = isExecutingUninstall
         self.isBusy = isBusy
         self.onVerifyOwnership = onVerifyOwnership
         self.onCancelOwnership = onCancelOwnership
+        self.onPrepareUpdate = onPrepareUpdate
+        self.onPrepareUninstall = onPrepareUninstall
     }
 
     public var body: some View {
@@ -74,6 +92,11 @@ public struct ToolDetailView: View {
                 Divider()
 
                 ownershipSection(entry)
+
+                if hasDeclaredNpmPackage(entry) {
+                    Divider()
+                    managementSection(entry)
+                }
 
                 Divider()
 
@@ -240,6 +263,49 @@ public struct ToolDetailView: View {
         }
     }
 
+    // MARK: Management
+
+    private func hasDeclaredNpmPackage(_ entry: InventoryEntry) -> Bool {
+        entry.definition.packages.contains { $0.manager == .npm }
+    }
+
+    private static func hasSelectedInstallation(_ entry: InventoryEntry) -> Bool {
+        switch entry.diagnostic.selection {
+        case .winner, .offPath: true
+        case .notInstalled, .inconsistent: false
+        }
+    }
+
+    @ViewBuilder
+    private func managementSection(_ entry: InventoryEntry) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Manage")
+                .font(.headline)
+            if let verified = entry.ownership?.verifiedInstallation,
+               verified.manager == .npm,
+               Self.hasSelectedInstallation(entry)
+            {
+                Text("Verified npm-global package: \(verified.packageName)")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                Button(role: .destructive) {
+                    onPrepareUninstall()
+                } label: {
+                    Label(isPreparingUninstall ? "Preparing Uninstall…" : "Uninstall…",
+                          systemImage: "trash")
+                }
+                .disabled(isBusy)
+                Text("Prepares an exact preview first. Confirmation, output and the post-removal PATH delta are shown before anything is removed.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            } else {
+                Text("Verify Installation to enable Uninstall for this npm package.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+        }
+    }
+
     // MARK: Metadata
 
     /// Registry-declared facts for the selected entry. Nothing here is cached in
@@ -387,17 +453,40 @@ public struct ToolDetailView: View {
                     }
 
                     GridRow {
-                        Text("Latest Known Homebrew Metadata")
+                        Text(update.npmPackage != nil
+                             ? "Latest Known npm Metadata"
+                             : "Latest Known Homebrew Metadata")
                             .foregroundColor(.secondary)
                         Text(latestVersionText(update.status))
                             .fontDesign(.monospaced)
+                    }
+
+                    if let package = update.npmPackage {
+                        GridRow(alignment: .top) {
+                            Text("npm Package")
+                                .foregroundColor(.secondary)
+                            Text(package)
+                                .fontDesign(.monospaced)
+                        }
+                        GridRow(alignment: .top) {
+                            Text("npm Registry / Tag")
+                                .foregroundColor(.secondary)
+                            Text("\(update.npmRegistry ?? "—") / \(update.npmTag ?? "—")")
+                                .fontDesign(.monospaced)
+                        }
+                        GridRow(alignment: .top) {
+                            Text("npm Version Observed")
+                                .foregroundColor(.secondary)
+                            Text(update.npmVersion ?? "unknown")
+                                .fontDesign(.monospaced)
+                        }
                     }
 
                     if case .unknown(_, let reason) = update.status {
                         GridRow(alignment: .top) {
                             Text("Reason")
                                 .foregroundColor(.secondary)
-                            Text(plainLanguageReason(reason))
+                            Text(plainLanguageReason(reason, npm: update.npmPackage != nil))
                                 .foregroundColor(.secondary)
                         }
                     }
@@ -411,7 +500,7 @@ public struct ToolDetailView: View {
                         }
                     }
 
-                    if let provenanceText = provenanceDescription(update.provenance) {
+                    if let provenanceText = provenanceDescription(update) {
                         GridRow(alignment: .top) {
                             Text("Provenance")
                                 .foregroundColor(.secondary)
@@ -425,6 +514,18 @@ public struct ToolDetailView: View {
                 Text("Not checked")
                     .font(.subheadline)
                     .foregroundColor(.secondary)
+            }
+
+            if case .updateAvailable = entry.updateStatus,
+               entry.update?.npmPackage != nil
+            {
+                Button {
+                    onPrepareUpdate()
+                } label: {
+                    Label(isPreparingUpdate ? "Preparing Update…" : "Prepare Update…",
+                          systemImage: "arrow.down.circle")
+                }
+                .disabled(isBusy)
             }
         }
     }
@@ -463,7 +564,7 @@ public struct ToolDetailView: View {
         }
     }
 
-    private func plainLanguageReason(_ reason: UnknownReason) -> String {
+    private func plainLanguageReason(_ reason: UnknownReason, npm: Bool = false) -> String {
         switch reason {
         case .noRegistry:
             "No registry"
@@ -484,7 +585,7 @@ public struct ToolDetailView: View {
         case .unsupportedVersion:
             "Unsupported version format"
         case .managerUnavailable:
-            "Homebrew not available on PATH"
+            npm ? "npm not available on PATH" : "Homebrew not available on PATH"
         case .managerMismatch:
             "Selected executable is not in the Homebrew Cellar"
         case .identityUnverified:
@@ -493,11 +594,32 @@ public struct ToolDetailView: View {
             "PATH diagnostics are inconsistent"
         case .newerThanKnownMetadata:
             "Installed version is newer than known metadata"
+        case .unsupportedRegistry:
+            "Unsupported registry"
+        case .unsupportedChannel:
+            "Unsupported update channel"
+        case .budgetExhausted:
+            "Update stage budget exhausted"
+        case .metadataInvalid:
+            "Invalid metadata"
+        case .queryTimedOut:
+            "Metadata query timed out"
         }
     }
 
-    private func provenanceDescription(_ provenance: UpdateProvenance) -> String? {
-        switch provenance {
+    private func provenanceDescription(_ result: ToolUpdateResult) -> String? {
+        if let package = result.npmPackage, let registry = result.npmRegistry, let tag = result.npmTag {
+            let identity = "npm package \(package), registry \(registry), tag \(tag); npm version \(result.npmVersion ?? "unknown")"
+            switch result.provenance {
+            case .none:
+                return nil
+            case .freshProbe(let observedAt):
+                return "npm metadata (\(identity)); checked at \(formatTimestamp(observedAt))"
+            case .cache(let observedAt):
+                return "npm metadata cache (\(identity)); observed at \(formatTimestamp(observedAt))"
+            }
+        }
+        switch result.provenance {
         case .none:
             return nil
         case .freshProbe(let observedAt):

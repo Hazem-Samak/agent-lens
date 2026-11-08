@@ -1,0 +1,14 @@
+{
+  "argv": [
+    "python3",
+    "scripts/build-dev-app.py",
+    "--scratch-root",
+    "/private/tmp/agent-lens-m10b-implementation-9jaujmja/parent/river-corrections/devapp",
+    "--configuration",
+    "debug"
+  ],
+  "exit": 0,
+  "seconds": 26.529791334003676,
+  "AgentLens_test_overrides": "both unset",
+  "TMPDIR": "/var/folders/tf/jsdyxcts6y72fs98s7wl3dfm0000gn/T/"
+}

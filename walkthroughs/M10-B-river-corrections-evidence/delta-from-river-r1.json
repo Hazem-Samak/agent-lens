@@ -1,0 +1,13 @@
+{
+  "changed_pinned_files": [
+    "Sources/AgentLensCore/Updates/NpmUpdateProbe.swift",
+    "Tests/AgentLensCoreTests/NpmUpdateProbeTests.swift",
+    "briefs/M10-B-R1-coordinator-corrections.md",
+    "walkthroughs/M10-B-coordinator-verification.md"
+  ],
+  "source_test_delta": [
+    "Sources/AgentLensCore/Updates/NpmUpdateProbe.swift",
+    "Tests/AgentLensCoreTests/NpmUpdateProbeTests.swift"
+  ],
+  "frozen_brief_unchanged": true
+}

@@ -1,0 +1,1101 @@
+Building for debugging...
+[1 / 5] AgentLensAppSupportTests-product
+Build complete! (0.21 secs)
+◇ Test run started.
+↳ Testing Library Version: 2084
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Test scanReportContainsRequiredStrings() started.
+✔ Test scanReportContainsRequiredStrings() passed after 0.001 seconds.
+◇ Test scanReportCountsExactlyOneTool() started.
+✔ Test scanReportCountsExactlyOneTool() passed after 0.001 seconds.
+◇ Test unknownCommandHasNonZeroSemanticsViaUsageText() started.
+✔ Test unknownCommandHasNonZeroSemanticsViaUsageText() passed after 0.001 seconds.
+◇ Test declaredAppResourceSuppliesOrderedCustomPayload() started.
+✔ Test declaredAppResourceSuppliesOrderedCustomPayload() passed after 0.003 seconds.
+◇ Test declaredStructuredBundleLayoutIsAccepted() started.
+✔ Test declaredStructuredBundleLayoutIsAccepted() passed after 0.001 seconds.
+◇ Test nonRegularRegistryFileThrowsWithoutBlocking() started.
+✔ Test nonRegularRegistryFileThrowsWithoutBlocking() passed after 0.001 seconds.
+◇ Test declaredAppResourceMatchesItsOwnBytes() started.
+✔ Test declaredAppResourceMatchesItsOwnBytes() passed after 0.001 seconds.
+◇ Test declaredAppResourceSurvivesVarPrivateAliasing() started.
+✔ Test declaredAppResourceSurvivesVarPrivateAliasing() passed after 0.001 seconds.
+◇ Test declaredAppResourceSurvivesSymlinkedAppAncestor() started.
+✔ Test declaredAppResourceSurvivesSymlinkedAppAncestor() passed after 0.001 seconds.
+◇ Test validDeclaredDecoyLoadsCompiledCorePayloadWithoutThrowing() started.
+✔ Test validDeclaredDecoyLoadsCompiledCorePayloadWithoutThrowing() passed after 0.001 seconds.
+◇ Test compiledBundleMissingWhileValidDecoyExistsThrows() started.
+✔ Test compiledBundleMissingWhileValidDecoyExistsThrows() passed after 0.001 seconds.
+◇ Test customCompiledPayloadIsReadByContentAndOrder() started.
+✔ Test customCompiledPayloadIsReadByContentAndOrder() passed after 0.001 seconds.
+◇ Test incompleteNameMarkerThrowsWithoutFallback() started.
+✔ Test incompleteNameMarkerThrowsWithoutFallback() passed after 0.001 seconds.
+◇ Test incompletePathMarkerThrowsWithoutFallback() started.
+✔ Test incompletePathMarkerThrowsWithoutFallback() passed after 0.001 seconds.
+◇ Test nonStringNameMarkerThrowsWithoutFallback() started.
+✔ Test nonStringNameMarkerThrowsWithoutFallback() passed after 0.001 seconds.
+◇ Test nonStringPathMarkerThrowsWithoutFallback() started.
+✔ Test nonStringPathMarkerThrowsWithoutFallback() passed after 0.001 seconds.
+◇ Test emptyMarkerValuesThrowWithoutFallback() started.
+✔ Test emptyMarkerValuesThrowWithoutFallback() passed after 0.001 seconds.
+◇ Test nameCarryingBundleSuffixThrowsWithoutFallback() started.
+✔ Test nameCarryingBundleSuffixThrowsWithoutFallback() passed after 0.001 seconds.
+◇ Test nameWithSeparatorThrowsWithoutFallback() started.
+✔ Test nameWithSeparatorThrowsWithoutFallback() passed after 0.001 seconds.
+◇ Test traversalPathMarkerThrowsWithoutFallback() started.
+✔ Test traversalPathMarkerThrowsWithoutFallback() passed after 0.001 seconds.
+◇ Test absolutePathMarkerThrowsWithoutFallback() started.
+✔ Test absolutePathMarkerThrowsWithoutFallback() passed after 0.001 seconds.
+◇ Test inconsistentMarkersThrowWithoutFallback() started.
+✔ Test inconsistentMarkersThrowWithoutFallback() passed after 0.001 seconds.
+◇ Test missingBundleDirectoryThrowsWithoutFallback() started.
+✔ Test missingBundleDirectoryThrowsWithoutFallback() passed after 0.001 seconds.
+◇ Test missingRegistryFileThrowsWithoutFallback() started.
+✔ Test missingRegistryFileThrowsWithoutFallback() passed after 0.001 seconds.
+◇ Test registryFileThatIsADirectoryThrowsWithoutFallback() started.
+✔ Test registryFileThatIsADirectoryThrowsWithoutFallback() passed after 0.001 seconds.
+◇ Test bundleSymlinkEscapingResourceRootThrowsWithoutFallback() started.
+✔ Test bundleSymlinkEscapingResourceRootThrowsWithoutFallback() passed after 0.001 seconds.
+◇ Test registryFileSymlinkEscapingBundleThrowsWithoutFallback() started.
+✔ Test registryFileSymlinkEscapingBundleThrowsWithoutFallback() passed after 0.001 seconds.
+◇ Test resourceRootEscapingAppThrowsWithoutFallback() started.
+✔ Test resourceRootEscapingAppThrowsWithoutFallback() passed after 0.001 seconds.
+◇ Test nilResourceRootThrowsWithoutFallback() started.
+✔ Test nilResourceRootThrowsWithoutFallback() passed after 0.001 seconds.
+◇ Test malformedDeclaredRegistryThrowsRegistryErrorNotFallback() started.
+✔ Test malformedDeclaredRegistryThrowsRegistryErrorNotFallback() passed after 0.002 seconds.
+◇ Test absentMarkersUseBundledResource() started.
+✔ Test absentMarkersUseBundledResource() passed after 0.001 seconds.
+◇ Test absentMarkersReportAbsentFromTheSeam() started.
+✔ Test absentMarkersReportAbsentFromTheSeam() passed after 0.001 seconds.
+◇ Test presentButEmptyDictionaryIsNotAbsentForUnrelatedKeys() started.
+✔ Test presentButEmptyDictionaryIsNotAbsentForUnrelatedKeys() passed after 0.001 seconds.
+◇ Test declaredResourceNeverInvokesTheLazyFallback() started.
+✔ Test declaredResourceNeverInvokesTheLazyFallback() passed after 0.001 seconds.
+◇ Test invalidMarkersNeverInvokeTheLazyFallback() started.
+✔ Test invalidMarkersNeverInvokeTheLazyFallback() passed after 0.001 seconds.
+◇ Test absentMarkersInvokeTheLazyFallbackExactlyOnce() started.
+✔ Test absentMarkersInvokeTheLazyFallbackExactlyOnce() passed after 0.001 seconds.
+◇ Test fallbackPropagatesItsOwnError() started.
+✔ Test fallbackPropagatesItsOwnError() passed after 0.001 seconds.
+◇ Test partialInjectedMarkerMetadataNeverReachesTheFallback() started.
+✔ Test partialInjectedMarkerMetadataNeverReachesTheFallback() passed after 0.001 seconds.
+◇ Test markerPathWithoutAppURLNeverReachesTheFallback() started.
+✔ Test markerPathWithoutAppURLNeverReachesTheFallback() passed after 0.001 seconds.
+◇ Test appURLWithoutMetadataIsIncompleteContext() started.
+✔ Test appURLWithoutMetadataIsIncompleteContext() passed after 0.001 seconds.
+◇ Test ownedFixtureRootRequiresAnAuthorizedBase() started.
+✔ Test ownedFixtureRootRequiresAnAuthorizedBase() passed after 0.001 seconds.
+◇ Test ownedFixtureRootIsPhysicalAndExclusivelyOwned() started.
+✔ Test ownedFixtureRootIsPhysicalAndExclusivelyOwned() passed after 0.001 seconds.
+◇ Test ownedSymlinkAliasResolvesToTheSamePhysicalVNode() started.
+✔ Test ownedSymlinkAliasResolvesToTheSamePhysicalVNode() passed after 0.001 seconds.
+◇ Test denialIsEnforcedForEachSuppliedPhysicalSpelling() started.
+✔ Test denialIsEnforcedForEachSuppliedPhysicalSpelling() passed after 0.199 seconds.
+◇ Test preexistingDirectoryCannotBeHandedToCleanup() started.
+✔ Test preexistingDirectoryCannotBeHandedToCleanup() passed after 0.002 seconds.
+◇ Test replacedFixtureRootIsRefusedByCleanup() started.
+✔ Test replacedFixtureRootIsRefusedByCleanup() passed after 0.001 seconds.
+◇ Test groupWritableFixtureRootIsRefusedByCleanup() started.
+✔ Test groupWritableFixtureRootIsRefusedByCleanup() passed after 0.001 seconds.
+◇ Test simulatedNonEnforcingSandboxIsRejectedAndLaunchFailureIsNotDenial() started.
+✔ Test simulatedNonEnforcingSandboxIsRejectedAndLaunchFailureIsNotDenial() passed after 0.173 seconds.
+◇ Test authorizedBaseComesFromInheritedEnvironmentAndResolvesPhysically() started.
+✔ Test authorizedBaseComesFromInheritedEnvironmentAndResolvesPhysically() passed after 0.002 seconds.
+◇ Test testOnlyResolverRejectsNulBytes() started.
+✔ Test testOnlyResolverRejectsNulBytes() passed after 0.001 seconds.
+◇ Test markerWithMissingReceiptIsNotADenial() started.
+✔ Test markerWithMissingReceiptIsNotADenial() passed after 0.261 seconds.
+◇ Test malformedOrAmbiguousStatusesAreNeverDenial() started.
+✔ Test malformedOrAmbiguousStatusesAreNeverDenial() passed after 1.905 seconds.
+◇ Test nonzeroProbeExitAfterMarkerIsNotADenial() started.
+✔ Test nonzeroProbeExitAfterMarkerIsNotADenial() passed after 0.261 seconds.
+◇ Test newlineOnlySentinelMutationIsNotADenial() started.
+✔ Test newlineOnlySentinelMutationIsNotADenial() passed after 0.264 seconds.
+◇ Test unrecognizedReceiptLineIsNotADenial() started.
+✔ Test unrecognizedReceiptLineIsNotADenial() passed after 0.268 seconds.
+◇ Test validScopedNpmAndFullyQualifiedTapCandidatesAreAccepted() started.
+✔ Test validScopedNpmAndFullyQualifiedTapCandidatesAreAccepted() passed after 0.001 seconds.
+◇ Test homebrewCandidatesAcceptOnlyBareOrFullyQualifiedNames() started.
+✔ Test homebrewCandidatesAcceptOnlyBareOrFullyQualifiedNames() passed after 0.002 seconds.
+◇ Test invalidPackageIdentitiesAreRejectedWithThePackageField() started.
+✔ Test invalidPackageIdentitiesAreRejectedWithThePackageField() passed after 0.003 seconds.
+◇ Test unknownPackageManagerIsRejectedWithTheManagerField() started.
+✔ Test unknownPackageManagerIsRejectedWithTheManagerField() passed after 0.001 seconds.
+◇ Test duplicateManagerAndNamePairsAreRejectedButDifferentManagersAreDistinct() started.
+✔ Test duplicateManagerAndNamePairsAreRejectedButDifferentManagersAreDistinct() passed after 0.001 seconds.
+◇ Test unknownCategoryIsRejectedWithTheCategoryField() started.
+✔ Test unknownCategoryIsRejectedWithTheCategoryField() passed after 0.001 seconds.
+◇ Test httpsInformationAndUninstallLinksAreAcceptedAndPreserved() started.
+✔ Test httpsInformationAndUninstallLinksAreAcceptedAndPreserved() passed after 0.001 seconds.
+◇ Test absentOrNullOptionalLinksRemainAbsent() started.
+✔ Test absentOrNullOptionalLinksRemainAbsent() passed after 0.001 seconds.
+◇ Test malformedOrNonHTTPSLinksAreRejected() started.
+✔ Test malformedOrNonHTTPSLinksAreRejected() passed after 0.001 seconds.
+◇ Test unknownKeysAreRejectedAtRootDefinitionFixturePackageAndQueryLevels() started.
+✔ Test unknownKeysAreRejectedAtRootDefinitionFixturePackageAndQueryLevels() passed after 0.001 seconds.
+◇ Test validDefinitionsRoundTripThroughCodable() started.
+✔ Test validDefinitionsRoundTripThroughCodable() passed after 0.002 seconds.
+◇ Test decodingAnInvalidDefinitionFailsClosed() started.
+✔ Test decodingAnInvalidDefinitionFailsClosed() passed after 0.001 seconds.
+◇ Test directConstructionRejectsNonHTTPSInformationURL() started.
+✔ Test directConstructionRejectsNonHTTPSInformationURL() passed after 0.001 seconds.
+◇ Test dangerousSchemaVersionsAreRejectedWithoutTrappingTheTestProcess() started.
+core-probe: layout=aggregate root=<repo>/.build/out/Products/Debug module=<repo>/.build/out/Products/Debug objects=1 compiler=/usr/bin/swiftc
+✔ Test dangerousSchemaVersionsAreRejectedWithoutTrappingTheTestProcess() passed after 0.569 seconds.
+◇ Test bundledDefaultDetectorsIsValidWithThreeTools() started.
+✔ Test bundledDefaultDetectorsIsValidWithThreeTools() passed after 0.001 seconds.
+◇ Test schemaViolationsAreRejectedLoudly() started.
+✔ Test schemaViolationsAreRejectedLoudly() passed after 0.001 seconds.
+◇ Test bundledFixtureDefinitionsMatchSyntheticLayouts() started.
+✔ Test bundledFixtureDefinitionsMatchSyntheticLayouts() passed after 0.006 seconds.
+◇ Test addingAFourthDefinitionRequiresNoSourceChanges() started.
+✔ Test addingAFourthDefinitionRequiresNoSourceChanges() passed after 0.001 seconds.
+◇ Test observedDirectoryRecordsAPhysicalBindingForItsOwnIdentity() started.
+✔ Test observedDirectoryRecordsAPhysicalBindingForItsOwnIdentity() passed after 0.001 seconds.
+◇ Test logicalAndPhysicalAliasesOpenUnderInheritedTemporaryDirectory() started.
+✔ Test logicalAndPhysicalAliasesOpenUnderInheritedTemporaryDirectory() passed after 0.001 seconds.
+◇ Test openerRequiresTheCanonicalArgumentFromTheSameObservation() started.
+✔ Test openerRequiresTheCanonicalArgumentFromTheSameObservation() passed after 0.001 seconds.
+◇ Test missingAndUnresolvableDirectoriesHaveNoObservation() started.
+✔ Test missingAndUnresolvableDirectoriesHaveNoObservation() passed after 0.001 seconds.
+◇ Test degeneratePhysicalComponentsAreRejected() started.
+✔ Test degeneratePhysicalComponentsAreRejected() passed after 0.001 seconds.
+◇ Test observedDirectoryReplacedIsRefused() started.
+✔ Test observedDirectoryReplacedIsRefused() passed after 0.001 seconds.
+◇ Test ancestorSymlinkToTheSameInodeIsRefused() started.
+✔ Test ancestorSymlinkToTheSameInodeIsRefused() passed after 0.001 seconds.
+◇ Test finalComponentSymlinkToTheSameInodeIsRefused() started.
+✔ Test finalComponentSymlinkToTheSameInodeIsRefused() passed after 0.001 seconds.
+◇ Test physicalEqualityIsNotASubstituteForIdentityFacts() started.
+✔ Test physicalEqualityIsNotASubstituteForIdentityFacts() passed after 0.001 seconds.
+◇ Test homebrewManagerIsTheFirstLivePathWinner() started.
+✔ Test homebrewManagerIsTheFirstLivePathWinner() passed after 0.001 seconds.
+◇ Test homebrewManagerSkipsBrokenLinksDirectoriesAndNonExecutablesThenResolvesASymlink() started.
+✔ Test homebrewManagerSkipsBrokenLinksDirectoriesAndNonExecutablesThenResolvesASymlink() passed after 0.001 seconds.
+◇ Test homebrewManagerResolvesEmptyAndRelativeRootsAgainstTheSuppliedDirectory() started.
+✔ Test homebrewManagerResolvesEmptyAndRelativeRootsAgainstTheSuppliedDirectory() passed after 0.001 seconds.
+◇ Test homebrewManagerIsAbsentWhenNoLiveBrewExists() started.
+✔ Test homebrewManagerIsAbsentWhenNoLiveBrewExists() passed after 0.001 seconds.
+◇ Test selectedTargetMustBelongToTheManagerCellarByPathComponents() started.
+✔ Test selectedTargetMustBelongToTheManagerCellarByPathComponents() passed after 0.024 seconds.
+◇ Test infoParserToleratesExtraFieldsAndIgnoresCasks() started.
+✔ Test infoParserToleratesExtraFieldsAndIgnoresCasks() passed after 0.001 seconds.
+◇ Test invalidEnvelopesFailClosed() started.
+✔ Test invalidEnvelopesFailClosed() passed after 0.001 seconds.
+◇ Test malformedRelevantRecordBecomesAnInvalidMarkerNotAnOmission() started.
+✔ Test malformedRelevantRecordBecomesAnInvalidMarkerNotAnOmission() passed after 0.001 seconds.
+◇ Test nonIntegerAndOutOfRangeRevisionsAreMalformedNotCoerced() started.
+✔ Test nonIntegerAndOutOfRangeRevisionsAreMalformedNotCoerced() passed after 0.001 seconds.
+◇ Test nonUTF8AndBOMTranscriptsAreRejectedBeforeDecoding() started.
+✔ Test nonUTF8AndBOMTranscriptsAreRejectedBeforeDecoding() passed after 0.001 seconds.
+◇ Test batchUsesAtMostThreeQueriesWithDeduplicatedMetadataArguments() started.
+✔ Test batchUsesAtMostThreeQueriesWithDeduplicatedMetadataArguments() passed after 0.001 seconds.
+◇ Test batchWithNoEligibleFormulaRunsZeroQueries() started.
+✔ Test batchWithNoEligibleFormulaRunsZeroQueries() passed after 0.001 seconds.
+◇ Test batchRejectsInvalidFormulaTokensBeforeAnyProcessStarts() started.
+✔ Test batchRejectsInvalidFormulaTokensBeforeAnyProcessStarts() passed after 0.001 seconds.
+◇ Test batchProcessFailureIsNeverSuccessfulEmptyMetadata() started.
+✔ Test batchProcessFailureIsNeverSuccessfulEmptyMetadata() passed after 0.001 seconds.
+◇ Test batchAlwaysSetsDiagnosticEnvironmentWithoutMutatingOriginal() started.
+✔ Test batchAlwaysSetsDiagnosticEnvironmentWithoutMutatingOriginal() passed after 0.001 seconds.
+◇ Test malformedInfoRecordMakesOnlyItsOwnToolUnknownThroughRunBatch() started.
+✔ Test malformedInfoRecordMakesOnlyItsOwnToolUnknownThroughRunBatch() passed after 0.001 seconds.
+◇ Test malformedOutdatedRecordMakesOnlyItsOwnToolUnknownThroughRunBatch() started.
+✔ Test malformedOutdatedRecordMakesOnlyItsOwnToolUnknownThroughRunBatch() passed after 0.001 seconds.
+◇ Test invalidEnvelopeFailsTheWholeBatchThroughRunBatch() started.
+✔ Test invalidEnvelopeFailsTheWholeBatchThroughRunBatch() passed after 0.001 seconds.
+◇ Test utf16TranscriptFailsTheBatchAsInvalidOutput() started.
+✔ Test utf16TranscriptFailsTheBatchAsInvalidOutput() passed after 0.001 seconds.
+◇ Test selectedCurrentKegWithOlderUnselectedKegIsStillUpdateAvailableWhenMetadataIsNewer() started.
+✔ Test selectedCurrentKegWithOlderUnselectedKegIsStillUpdateAvailableWhenMetadataIsNewer() passed after 0.001 seconds.
+◇ Test selectedCurrentKegStaysUpToDateDespiteOlderUnselectedKegInCellar() started.
+✔ Test selectedCurrentKegStaysUpToDateDespiteOlderUnselectedKegInCellar() passed after 0.001 seconds.
+◇ Test selectedOlderKegStaysUpdateEvenWhenACurrentKegIsInstalled() started.
+✔ Test selectedOlderKegStaysUpdateEvenWhenACurrentKegIsInstalled() passed after 0.001 seconds.
+◇ Test absenceFromOutdatedListIsNotEnoughForUpToDate() started.
+✔ Test absenceFromOutdatedListIsNotEnoughForUpToDate() passed after 0.001 seconds.
+◇ Test contradictingOutdatedRecordMakesIdentityUnverified() started.
+✔ Test contradictingOutdatedRecordMakesIdentityUnverified() passed after 0.001 seconds.
+◇ Test localVersionMustAgreeWithTheSelectedKegUpstream() started.
+✔ Test localVersionMustAgreeWithTheSelectedKegUpstream() passed after 0.001 seconds.
+◇ Test missingOrDuplicateFormulaRecordsAreUnverifiedNotGuessed() started.
+✔ Test missingOrDuplicateFormulaRecordsAreUnverifiedNotGuessed() passed after 0.001 seconds.
+◇ Test foreignManagerCellarIsReportedAsManagerMismatch() started.
+✔ Test foreignManagerCellarIsReportedAsManagerMismatch() passed after 0.001 seconds.
+◇ Test unsupportedLocalVersionIsUnknownAndKeepsItsText() started.
+✔ Test unsupportedLocalVersionIsUnknownAndKeepsItsText() passed after 0.001 seconds.
+◇ Test selectedPackageNewerThanMetadataIsUnknownNotDowngrade() started.
+✔ Test selectedPackageNewerThanMetadataIsUnknownNotDowngrade() passed after 0.001 seconds.
+◇ Test legitimateTappedFormulaAssociatesAnAgreeingOutdatedRecordByFullName() started.
+✔ Test legitimateTappedFormulaAssociatesAnAgreeingOutdatedRecordByFullName() passed after 0.001 seconds.
+◇ Test tappedFormulaOutdatedContradictionIsFoundByFullNameNotIgnored() started.
+✔ Test tappedFormulaOutdatedContradictionIsFoundByFullNameNotIgnored() passed after 0.001 seconds.
+◇ Test contradictoryOutdatedForTappedFormulaIsUnverifiedNotUpToDate() started.
+✔ Test contradictoryOutdatedForTappedFormulaIsUnverifiedNotUpToDate() passed after 0.001 seconds.
+◇ Test bareNameOutdatedAliasForTappedFormulaIsUnverified() started.
+✔ Test bareNameOutdatedAliasForTappedFormulaIsUnverified() passed after 0.001 seconds.
+◇ Test contradictoryFullNameInInfoIsAnInvalidRecordNotOwnershipByBasename() started.
+✔ Test contradictoryFullNameInInfoIsAnInvalidRecordNotOwnershipByBasename() passed after 0.001 seconds.
+◇ Test duplicateFullIdentitiesAreAmbiguousNotGuessed() started.
+✔ Test duplicateFullIdentitiesAreAmbiguousNotGuessed() passed after 0.001 seconds.
+◇ Test selectedCurrentKegStaysUpToDateWhenOnlyAnUnselectedOldKegIsOutdated() started.
+✔ Test selectedCurrentKegStaysUpToDateWhenOnlyAnUnselectedOldKegIsOutdated() passed after 0.001 seconds.
+◇ Test selectedOlderKegWithActualOutdatedRecordIsUpdateAvailable() started.
+✔ Test selectedOlderKegWithActualOutdatedRecordIsUpdateAvailable() passed after 0.001 seconds.
+◇ Test outdatedListingTheEqualSelectedKegIsAContradiction() started.
+✔ Test outdatedListingTheEqualSelectedKegIsAContradiction() passed after 0.001 seconds.
+◇ Test twoComponentLocalAndKegVersionsAgreeUnderHomebrewPolicy() started.
+✔ Test twoComponentLocalAndKegVersionsAgreeUnderHomebrewPolicy() passed after 0.001 seconds.
+◇ Test localTwoComponentAgreesWithThreeComponentKegUpstream() started.
+✔ Test localTwoComponentAgreesWithThreeComponentKegUpstream() passed after 0.001 seconds.
+◇ Test kegRevisionStaysSeparateFromTwoComponentUpstream() started.
+✔ Test kegRevisionStaysSeparateFromTwoComponentUpstream() passed after 0.001 seconds.
+◇ Test unsupportedUpstreamFormatsRemainUnknownWithoutLexicalGuessing() started.
+✔ Test unsupportedUpstreamFormatsRemainUnknownWithoutLexicalGuessing() passed after 0.001 seconds.
+◇ Test everyNonUTF8EndianFormIsRejectedWithAndWithoutABOM() started.
+✔ Test everyNonUTF8EndianFormIsRejectedWithAndWithoutABOM() passed after 0.001 seconds.
+◇ Test invalidUTF8SequencesAndEmbeddedNULAreRejectedWhileValidUTF8Passes() started.
+✔ Test invalidUTF8SequencesAndEmbeddedNULAreRejectedWhileValidUTF8Passes() passed after 0.001 seconds.
+◇ Test utf32LittleEndianTranscriptFailsTheBatchAsInvalidOutput() started.
+✔ Test utf32LittleEndianTranscriptFailsTheBatchAsInvalidOutput() passed after 0.001 seconds.
+◇ Test malformedBorrowedAliasRetainsItsFullNameClaimAndPoisonsTheNeighbour() started.
+✔ Test malformedBorrowedAliasRetainsItsFullNameClaimAndPoisonsTheNeighbour() passed after 0.001 seconds.
+◇ Test malformedNeighbourWithItsOwnIdentityLeavesTheValidRecordUsable() started.
+✔ Test malformedNeighbourWithItsOwnIdentityLeavesTheValidRecordUsable() passed after 0.001 seconds.
+◇ Test directlyConstructedDisagreeingFullNameIsNotTrustedDespiteDefaultIsValid() started.
+✔ Test directlyConstructedDisagreeingFullNameIsNotTrustedDespiteDefaultIsValid() passed after 0.001 seconds.
+◇ Test borrowedAliasAndLyingFullNameAreRejectedDownstreamOfRunBatch() started.
+✔ Test borrowedAliasAndLyingFullNameAreRejectedDownstreamOfRunBatch() passed after 0.001 seconds.
+◇ Test outdatedNamingAnUninstalledKegContradictsTheVerifiedInventory() started.
+✔ Test outdatedNamingAnUninstalledKegContradictsTheVerifiedInventory() passed after 0.001 seconds.
+◇ Test outdatedNamingTheLatestPackageItselfContradictsTheInventory() started.
+✔ Test outdatedNamingTheLatestPackageItselfContradictsTheInventory() passed after 0.001 seconds.
+◇ Test outdatedListingOnlyRealOlderInstalledKeepsTheUpdateVerdict() started.
+✔ Test outdatedListingOnlyRealOlderInstalledKeepsTheUpdateVerdict() passed after 0.001 seconds.
+◇ Test contradictoryOutdatedInventoryClaimIsRejectedDownstreamOfRunBatch() started.
+✔ Test contradictoryOutdatedInventoryClaimIsRejectedDownstreamOfRunBatch() passed after 0.001 seconds.
+◇ Test tappedFormulaRejectsABareOutdatedAliasEvenWhenItsNumbersAgree() started.
+✔ Test tappedFormulaRejectsABareOutdatedAliasEvenWhenItsNumbersAgree() passed after 0.001 seconds.
+◇ Test tappedFormulaWithBothFullAndBareOutdatedRecordsIsAmbiguous() started.
+✔ Test tappedFormulaWithBothFullAndBareOutdatedRecordsIsAmbiguous() passed after 0.001 seconds.
+◇ Test unverifiedBareOutdatedAliasForTappedFormulaIsRejectedDownstreamOfRunBatch() started.
+✔ Test unverifiedBareOutdatedAliasForTappedFormulaIsRejectedDownstreamOfRunBatch() passed after 0.001 seconds.
+◇ Test unsupportedStableFormatsRemainUnsupportedThroughRunBatch() started.
+✔ Test unsupportedStableFormatsRemainUnsupportedThroughRunBatch() passed after 0.001 seconds.
+◇ Test validStableWithSeparateManagerRevisionRemainsSupportedThroughRunBatch() started.
+✔ Test validStableWithSeparateManagerRevisionRemainsSupportedThroughRunBatch() passed after 0.001 seconds.
+◇ Test unsupportedStableValidatesMatchingOutdatedRecordsFirst() started.
+✔ Test unsupportedStableValidatesMatchingOutdatedRecordsFirst() passed after 0.001 seconds.
+◇ Test unsupportedStableDoesNotOverrideIdentityOrSelectedKegFailures() started.
+✔ Test unsupportedStableDoesNotOverrideIdentityOrSelectedKegFailures() passed after 0.001 seconds.
+◇ Test directlyConstructedStableSuffixIsUnsupportedDespiteDefaultValidity() started.
+✔ Test directlyConstructedStableSuffixIsUnsupportedDespiteDefaultValidity() passed after 0.001 seconds.
+◇ Test npmObjectBinAndExternalSameTargetAliasProveTheDeclaredPackage() started.
+✔ Test npmObjectBinAndExternalSameTargetAliasProveTheDeclaredPackage() passed after 0.003 seconds.
+◇ Test npmStringBinShorthandUsesThePackageBasename() started.
+✔ Test npmStringBinShorthandUsesThePackageBasename() passed after 0.002 seconds.
+◇ Test npmDeclarationAloneDoesNotProveOwnershipWhenTheManagerBinIsMissing() started.
+✔ Test npmDeclarationAloneDoesNotProveOwnershipWhenTheManagerBinIsMissing() passed after 0.002 seconds.
+◇ Test npmRootMustMatchThePrefixLayoutByComponents() started.
+✔ Test npmRootMustMatchThePrefixLayoutByComponents() passed after 0.001 seconds.
+◇ Test npmEscapingNodeModulesLinkCannotBorrowAnotherPrefix() started.
+✔ Test npmEscapingNodeModulesLinkCannotBorrowAnotherPrefix() passed after 0.003 seconds.
+◇ Test npmDecoyNodeModulesPathCannotBorrowTheRealPrefixProof() started.
+✔ Test npmDecoyNodeModulesPathCannotBorrowTheRealPrefixProof() passed after 0.002 seconds.
+◇ Test npmWrongManifestNameAndMissingBinAreNeutral() started.
+✔ Test npmWrongManifestNameAndMissingBinAreNeutral() passed after 0.003 seconds.
+◇ Test npmTraversalAndSymlinkEscapesNeverLeaveThePackageRoot() started.
+✔ Test npmTraversalAndSymlinkEscapesNeverLeaveThePackageRoot() passed after 0.003 seconds.
+◇ Test npmSymlinkedManifestIsRejectedWithoutFollowingIt() started.
+✔ Test npmSymlinkedManifestIsRejectedWithoutFollowingIt() passed after 0.003 seconds.
+◇ Test npmDirectoryAndDeviceManifestPlaceholdersAreRejectedWithoutReads() started.
+✔ Test npmDirectoryAndDeviceManifestPlaceholdersAreRejectedWithoutReads() passed after 0.011 seconds.
+◇ Test npmStaticAncestorSymlinkEscapeIsRejectedBeforeAnyManifestRead() started.
+✔ Test npmStaticAncestorSymlinkEscapeIsRejectedBeforeAnyManifestRead() passed after 0.002 seconds.
+◇ Test npmAncestorReplacementAfterObservationCannotReadAnOutsideDecoy() started.
+✔ Test npmAncestorReplacementAfterObservationCannotReadAnOutsideDecoy() passed after 0.002 seconds.
+◇ Test npmDeclaredPackageLinkRetargetCannotKeepTheOldStoreProof() started.
+✔ Test npmDeclaredPackageLinkRetargetCannotKeepTheOldStoreProof() passed after 0.003 seconds.
+◇ Test npmBinRetargetToOutsidePrefixCannotBorrowManagerBinProof() started.
+✔ Test npmBinRetargetToOutsidePrefixCannotBorrowManagerBinProof() passed after 0.002 seconds.
+◇ Test npmOversizedAndMalformedManifestsAreRejectedWithoutVerification() started.
+✔ Test npmOversizedAndMalformedManifestsAreRejectedWithoutVerification() passed after 0.004 seconds.
+◇ Test npmMissingDeclaredPackageIsNeutralRatherThanBorrowingAnotherPackage() started.
+✔ Test npmMissingDeclaredPackageIsNeutralRatherThanBorrowingAnotherPackage() passed after 0.001 seconds.
+◇ Test npmSecondDeclarationCannotBorrowTheFirstPackagesExecutable() started.
+✔ Test npmSecondDeclarationCannotBorrowTheFirstPackagesExecutable() passed after 0.002 seconds.
+◇ Test npmSelectionRetargetDuringTheQuerySuppressesTheNextQueryAndNeverVerifies() started.
+✔ Test npmSelectionRetargetDuringTheQuerySuppressesTheNextQueryAndNeverVerifies() passed after 0.001 seconds.
+◇ Test npmManagerChangeDuringPrefixSuppressesRootAndReportsTheManager() started.
+✔ Test npmManagerChangeDuringPrefixSuppressesRootAndReportsTheManager() passed after 0.001 seconds.
+◇ Test cancellationDuringABoundedQueryAwaitsCleanupAndPublishesNoVerifiedResult() started.
+✔ Test cancellationDuringABoundedQueryAwaitsCleanupAndPublishesNoVerifiedResult() passed after 0.001 seconds.
+◇ Test cancellationBeforeAnyQueryIsNeutralAndNeverVerified() started.
+✔ Test cancellationBeforeAnyQueryIsNeutralAndNeverVerified() passed after 0.001 seconds.
+◇ Test notInstalledInconsistentAndStandaloneSelectionsMakeZeroManagerCalls() started.
+✔ Test notInstalledInconsistentAndStandaloneSelectionsMakeZeroManagerCalls() passed after 0.001 seconds.
+◇ Test npmWithoutADeclaredCandidateMakesZeroManagerCalls() started.
+✔ Test npmWithoutADeclaredCandidateMakesZeroManagerCalls() passed after 0.001 seconds.
+◇ Test homebrewFormulaProofUsesCellarInfoAndListWithoutStableVersionComparison() started.
+✔ Test homebrewFormulaProofUsesCellarInfoAndListWithoutStableVersionComparison() passed after 0.001 seconds.
+◇ Test homebrewOwnershipDoesNotRequireStableVersionOrRevision() started.
+✔ Test homebrewOwnershipDoesNotRequireStableVersionOrRevision() passed after 0.004 seconds.
+◇ Test homebrewOwnershipKeepsMalformedIdentityClaimsFromBorrowingProof() started.
+✔ Test homebrewOwnershipKeepsMalformedIdentityClaimsFromBorrowingProof() passed after 0.003 seconds.
+◇ Test homebrewMalformedDuplicateAndMismatchedRecordsNeverVerify() started.
+✔ Test homebrewMalformedDuplicateAndMismatchedRecordsNeverVerify() passed after 0.002 seconds.
+◇ Test homebrewOtherKegUninstalledKegAndUnlistedKegStayUnknown() started.
+✔ Test homebrewOtherKegUninstalledKegAndUnlistedKegStayUnknown() passed after 0.001 seconds.
+◇ Test homebrewOtherCellarCaskAndStandaloneNeverQueryForFormulaProof() started.
+✔ Test homebrewOtherCellarCaskAndStandaloneNeverQueryForFormulaProof() passed after 0.001 seconds.
+◇ Test homebrewManagerChangeDuringInfoSuppressesListAndNeverVerifies() started.
+✔ Test homebrewManagerChangeDuringInfoSuppressesListAndNeverVerifies() passed after 0.001 seconds.
+◇ Test installationVersionsKeepDistinctValuesForTwoRealCanonicalTargets() started.
+✔ Test installationVersionsKeepDistinctValuesForTwoRealCanonicalTargets() passed after 0.472 seconds.
+◇ Test installationVersionsQueryEachCanonicalTargetOnceDespiteAliasesAndRepeatedSlots() started.
+✔ Test installationVersionsQueryEachCanonicalTargetOnceDespiteAliasesAndRepeatedSlots() passed after 0.482 seconds.
+◇ Test selectedExtraRootGetsOnlyItsOwnOffPathVersion() started.
+✔ Test selectedExtraRootGetsOnlyItsOwnOffPathVersion() passed after 0.243 seconds.
+◇ Test unchangedFailedQueryKeepsTheWinnerAndPublishesNeutralUnknown() started.
+✔ Test unchangedFailedQueryKeepsTheWinnerAndPublishesNeutralUnknown() passed after 0.140 seconds.
+◇ Test selectedRetargetDuringQueryCannotKeepAPlausiblePrintedVersion() started.
+✔ Test selectedRetargetDuringQueryCannotKeepAPlausiblePrintedVersion() passed after 0.140 seconds.
+◇ Test samePathReplacementDuringQueryLosesThePrintedVersion() started.
+✔ Test samePathReplacementDuringQueryLosesThePrintedVersion() passed after 0.005 seconds.
+◇ Test earlySelectedChangeWhileALaterQueryRunsClearsTheSelectedVersion() started.
+✔ Test earlySelectedChangeWhileALaterQueryRunsClearsTheSelectedVersion() passed after 0.531 seconds.
+◇ Test earlyShadowedChangeWhileALaterQueryRunsLeavesTheWinnerIntact() started.
+✔ Test earlyShadowedChangeWhileALaterQueryRunsLeavesTheWinnerIntact() passed after 0.407 seconds.
+◇ Test missingAndUnexecutableShadowedCandidatesStayUnknownWithoutBorrowing() started.
+✔ Test missingAndUnexecutableShadowedCandidatesStayUnknownWithoutBorrowing() passed after 0.140 seconds.
+◇ Test aggregateVersionProbeBudgetStopsAfterThreeSecondsRemainderAndKeepsEveryTarget() started.
+✔ Test aggregateVersionProbeBudgetStopsAfterThreeSecondsRemainderAndKeepsEveryTarget() passed after 0.007 seconds.
+◇ Test directDetectStillRunsExactlyOneLocalVersionQuery() started.
+✔ Test directDetectStillRunsExactlyOneLocalVersionQuery() passed after 0.236 seconds.
+◇ Test terminalSelectedRetargetAfterPublicationInvalidatesTheSelectedObservation() started.
+✔ Test terminalSelectedRetargetAfterPublicationInvalidatesTheSelectedObservation() passed after 0.277 seconds.
+◇ Test offRootSelectedRetargetDuringQueryRetainsItsExactDiscoveryOrigin() started.
+✔ Test offRootSelectedRetargetDuringQueryRetainsItsExactDiscoveryOrigin() passed after 0.007 seconds.
+◇ Test vanishedOffRootSelectionRetainsItsExactDiscoveryOrigin() started.
+✔ Test vanishedOffRootSelectionRetainsItsExactDiscoveryOrigin() passed after 0.004 seconds.
+◇ Test preparationBindsExactUninstallArgvAndRemovalReconcilesToSuccess() started.
+✔ Test preparationBindsExactUninstallArgvAndRemovalReconcilesToSuccess() passed after 0.016 seconds.
+◇ Test exitZeroWithoutRemovalIsUncertainAndNeverClaimsSuccess() started.
+✔ Test exitZeroWithoutRemovalIsUncertainAndNeverClaimsSuccess() passed after 0.014 seconds.
+◇ Test nonzeroExitRetainsBothStreamsAndMeasuredDelta() started.
+✔ Test nonzeroExitRetainsBothStreamsAndMeasuredDelta() passed after 0.008 seconds.
+◇ Test missingLocalVersionStillPreparesAndRemoves() started.
+✔ Test missingLocalVersionStillPreparesAndRemoves() passed after 0.007 seconds.
+◇ Test cancelReleasesOwnedRootWithZeroMutation() started.
+✔ Test cancelReleasesOwnedRootWithZeroMutation() passed after 0.004 seconds.
+◇ Test replayedPreparationCannotLaunchASecondRemoval() started.
+✔ Test replayedPreparationCannotLaunchASecondRemoval() passed after 0.006 seconds.
+◇ Test busyGateRefusesWithoutLaunch() started.
+✔ Test busyGateRefusesWithoutLaunch() passed after 0.004 seconds.
+◇ Test staleSelectionRefusesBeforeLaunch() started.
+✔ Test staleSelectionRefusesBeforeLaunch() passed after 0.004 seconds.
+◇ Test staleProofRefusesBeforeLaunch() started.
+✔ Test staleProofRefusesBeforeLaunch() passed after 0.004 seconds.
+◇ Test scopedPackagePinsScopeRegistry() started.
+✔ Test scopedPackagePinsScopeRegistry() passed after 0.003 seconds.
+◇ Test noMetadataOrRegistryQueriesAreSent() started.
+✔ Test noMetadataOrRegistryQueriesAreSent() passed after 0.003 seconds.
+◇ Test cleanupRefusalKeepsProvenRemovalAndAddsWarning() started.
+✔ Test cleanupRefusalKeepsProvenRemovalAndAddsWarning() passed after 0.004 seconds.
+◇ Test cleanupBreakingRunnerRetainsSuccessAndWarning() started.
+✔ Test cleanupBreakingRunnerRetainsSuccessAndWarning() passed after 0.005 seconds.
+◇ Test cancellingAfterSpawnInterruptsAndReconcilesWithoutOrphan() started.
+✔ Test cancellingAfterSpawnInterruptsAndReconcilesWithoutOrphan() passed after 0.216 seconds.
+◇ Test replacedPackageDirectoryIsNotCleanRemoval() started.
+✔ Test replacedPackageDirectoryIsNotCleanRemoval() passed after 0.012 seconds.
+◇ Test symlinkedInRootStoreRemovalBindsRecordedIdentity() started.
+✔ Test symlinkedInRootStoreRemovalBindsRecordedIdentity() passed after 0.010 seconds.
+◇ Test sharedBinRetargetIsReportedAsUnknownOwnership() started.
+✔ Test sharedBinRetargetIsReportedAsUnknownOwnership() passed after 0.008 seconds.
+◇ Test unreadableRemovalObservationIsUncertainNotSuccess() started.
+✔ Test unreadableRemovalObservationIsUncertainNotSuccess() passed after 0.007 seconds.
+◇ Test uninstallDefaultPreparationRootUsesCapturedTemporaryDirectory() started.
+✔ Test uninstallDefaultPreparationRootUsesCapturedTemporaryDirectory() passed after 0.004 seconds.
+◇ Test uninstallUnsafeCapturedTemporaryDirectoryRefusesWithZeroMutation() started.
+✔ Test uninstallUnsafeCapturedTemporaryDirectoryRefusesWithZeroMutation() passed after 0.002 seconds.
+◇ Test freshEntryIsFoundWithinTTL() started.
+✔ Test freshEntryIsFoundWithinTTL() passed after 0.001 seconds.
+◇ Test entryExactlyAtSixHoursIsAMiss() started.
+✔ Test entryExactlyAtSixHoursIsAMiss() passed after 0.001 seconds.
+◇ Test futureObservationIsAMissAndStaysOutOfStoreAfterSave() started.
+✔ Test futureObservationIsAMissAndStaysOutOfStoreAfterSave() passed after 0.001 seconds.
+◇ Test corruptDocumentIsAMissNotAThrow() started.
+✔ Test corruptDocumentIsAMissNotAThrow() passed after 0.001 seconds.
+◇ Test oversizeDocumentIsAMiss() started.
+✔ Test oversizeDocumentIsAMiss() passed after 0.010 seconds.
+◇ Test duplicateCompleteIdentityRecordsAreAMiss() started.
+✔ Test duplicateCompleteIdentityRecordsAreAMiss() passed after 0.001 seconds.
+◇ Test savePreservesOtherToolAndReplacesOnlyMatchingIdentity() started.
+✔ Test savePreservesOtherToolAndReplacesOnlyMatchingIdentity() passed after 0.001 seconds.
+◇ Test savePrunesExpiredRecords() started.
+✔ Test savePrunesExpiredRecords() passed after 0.001 seconds.
+◇ Test saveRejectsIncoherentEntryAndLeavesStoreUnchanged() started.
+✔ Test saveRejectsIncoherentEntryAndLeavesStoreUnchanged() passed after 0.001 seconds.
+◇ Test npmDocumentIsASeparateSiblingOfTheHomebrewCache() started.
+✔ Test npmDocumentIsASeparateSiblingOfTheHomebrewCache() passed after 0.001 seconds.
+◇ Test storedUnsupportedRegistryIsAMissAndCannotBeSaved() started.
+✔ Test storedUnsupportedRegistryIsAMissAndCannotBeSaved() passed after 0.001 seconds.
+◇ Test storedUnsupportedTagIsAMissAndCannotBeSaved() started.
+✔ Test storedUnsupportedTagIsAMissAndCannotBeSaved() passed after 0.001 seconds.
+◇ Test storedPrereleaseVersionIsAMissAndCannotBeSaved() started.
+✔ Test storedPrereleaseVersionIsAMissAndCannotBeSaved() passed after 0.001 seconds.
+◇ Test storedTwoComponentVersionIsAMissAndCannotBeSaved() started.
+✔ Test storedTwoComponentVersionIsAMissAndCannotBeSaved() passed after 0.001 seconds.
+◇ Test storedVersionDivergingFromLatestTagIsAMissAndCannotBeSaved() started.
+✔ Test storedVersionDivergingFromLatestTagIsAMissAndCannotBeSaved() passed after 0.001 seconds.
+◇ Test storedNameDifferingFromPackageIsAMissAndCannotBeSaved() started.
+✔ Test storedNameDifferingFromPackageIsAMissAndCannotBeSaved() passed after 0.001 seconds.
+◇ Test storedPackageOutsideCatalogueGrammarIsAMissAndCannotBeSaved() started.
+✔ Test storedPackageOutsideCatalogueGrammarIsAMissAndCannotBeSaved() passed after 0.001 seconds.
+◇ Test poisonedRecordForAnIdentityIsNotReplacedBySilentlyChoosingAnother() started.
+✔ Test poisonedRecordForAnIdentityIsNotReplacedBySilentlyChoosingAnother() passed after 0.001 seconds.
+◇ Test unrelatedSaveNeverPromotesTheValidSiblingOfAContaminatedIdentity() started.
+✔ Test unrelatedSaveNeverPromotesTheValidSiblingOfAContaminatedIdentity() passed after 0.001 seconds.
+◇ Test unrelatedSaveNeverCollapsesAnAmbiguousIdentityAndNeverTouchesHomebrew() started.
+✔ Test unrelatedSaveNeverCollapsesAnAmbiguousIdentityAndNeverTouchesHomebrew() passed after 0.001 seconds.
+◇ Test saveRefusesPoisonedIncomingRecordWithoutDisturbingStoredRecords() started.
+✔ Test saveRefusesPoisonedIncomingRecordWithoutDisturbingStoredRecords() passed after 0.001 seconds.
+◇ Test simultaneousSavesOfDistinctIdentitiesAllSurvive() started.
+✔ Test simultaneousSavesOfDistinctIdentitiesAllSurvive() passed after 0.004 seconds.
+◇ Test preparationBindsExactUnscopedArgvAndExecutionReconcilesToSuccess() started.
+✔ Test preparationBindsExactUnscopedArgvAndExecutionReconcilesToSuccess() passed after 0.011 seconds.
+◇ Test replayedPreparationCannotLaunchASecondMutation() started.
+✔ Test replayedPreparationCannotLaunchASecondMutation() passed after 0.012 seconds.
+◇ Test staleLocalSelectionRefusesBeforeLaunch() started.
+✔ Test staleLocalSelectionRefusesBeforeLaunch() passed after 0.009 seconds.
+◇ Test gateBusyRefusesWithoutLaunch() started.
+✔ Test gateBusyRefusesWithoutLaunch() passed after 0.005 seconds.
+◇ Test scopedPreparationPinsScopeRegistryAndCancelReleasesOwnedRoot() started.
+✔ Test scopedPreparationPinsScopeRegistryAndCancelReleasesOwnedRoot() passed after 0.005 seconds.
+◇ Test nonzeroOperationRetainsBothStreamsExitAndMeasuredDelta() started.
+✔ Test nonzeroOperationRetainsBothStreamsExitAndMeasuredDelta() passed after 0.010 seconds.
+◇ Test cleanupRefusalKeepsProvenSuccessAndAddsWarning() started.
+✔ Test cleanupRefusalKeepsProvenSuccessAndAddsWarning() passed after 0.012 seconds.
+◇ Test missingObservedExitStatusIsUncertainAndPreservesOutput() started.
+✔ Test missingObservedExitStatusIsUncertainAndPreservesOutput() passed after 0.010 seconds.
+◇ Test reconciliationKeepsSuccessForSameTargetAliasWinnerChange() started.
+✔ Test reconciliationKeepsSuccessForSameTargetAliasWinnerChange() passed after 0.196 seconds.
+◇ Test reconciliationReportsUncertainWhenPathWinnerHasDifferentTarget() started.
+✔ Test reconciliationReportsUncertainWhenPathWinnerHasDifferentTarget() passed after 0.366 seconds.
+◇ Test staleRegistryRouteRefusesBeforeLaunch() started.
+✔ Test staleRegistryRouteRefusesBeforeLaunch() passed after 0.009 seconds.
+◇ Test staleScopeRegistryRouteRefusesBeforeLaunch() started.
+✔ Test staleScopeRegistryRouteRefusesBeforeLaunch() passed after 0.008 seconds.
+◇ Test movingLatestTagRefusesBeforeLaunch() started.
+✔ Test movingLatestTagRefusesBeforeLaunch() passed after 0.009 seconds.
+◇ Test staleManagerExecutableRefusesBeforeLaunch() started.
+✔ Test staleManagerExecutableRefusesBeforeLaunch() passed after 0.009 seconds.
+◇ Test stalePrefixRefusesBeforeLaunch() started.
+✔ Test stalePrefixRefusesBeforeLaunch() passed after 0.006 seconds.
+◇ Test staleOwnedRootRefusesBeforeLaunch() started.
+✔ Test staleOwnedRootRefusesBeforeLaunch() passed after 0.005 seconds.
+◇ Test staleManifestIdentityRefusesBeforeLaunch() started.
+✔ Test staleManifestIdentityRefusesBeforeLaunch() passed after 0.006 seconds.
+◇ Test staleBinIdentityRefusesBeforeLaunch() started.
+✔ Test staleBinIdentityRefusesBeforeLaunch() passed after 0.009 seconds.
+◇ Test staleSelectionTargetRefusesThroughARealScanBeforeLaunch() started.
+✔ Test staleSelectionTargetRefusesThroughARealScanBeforeLaunch() passed after 0.134 seconds.
+◇ Test exitZeroWithWrongFinalVersionIsUncertainAndNeverClaimsSuccess() started.
+✔ Test exitZeroWithWrongFinalVersionIsUncertainAndNeverClaimsSuccess() passed after 0.018 seconds.
+◇ Test exitZeroWithoutAFinalVersionIsUncertainAndKeepsObservedState() started.
+✔ Test exitZeroWithoutAFinalVersionIsUncertainAndKeepsObservedState() passed after 0.013 seconds.
+◇ Test cancelledTaskBeforeLaunchReportsCancelledWithNoMutation() started.
+✔ Test cancelledTaskBeforeLaunchReportsCancelledWithNoMutation() passed after 0.006 seconds.
+◇ Test cancellingAfterSpawnInterruptsAndStillReconcilesWithoutOrphan() started.
+✔ Test cancellingAfterSpawnInterruptsAndStillReconcilesWithoutOrphan() passed after 2.272 seconds.
+◇ Test defaultPreparationRootUsesCapturedTemporaryDirectory() started.
+✔ Test defaultPreparationRootUsesCapturedTemporaryDirectory() passed after 0.020 seconds.
+◇ Test unsafeCapturedTemporaryDirectoryRefusesWithZeroMutation() started.
+✔ Test unsafeCapturedTemporaryDirectoryRefusesWithZeroMutation() passed after 0.004 seconds.
+◇ Test postLaunchOwnershipQueryUsesOwnedCacheScratch() started.
+✔ Test postLaunchOwnershipQueryUsesOwnedCacheScratch() passed after 0.021 seconds.
+◇ Test ownershipQueryScratchReleaseRefusalKeepsSuccessAndWarning() started.
+✔ Test ownershipQueryScratchReleaseRefusalKeepsSuccessAndWarning() passed after 0.015 seconds.
+◇ Test failedOwnershipQueryBaseClaimIsUntrustedContainmentNotSelection() started.
+✔ Test failedOwnershipQueryBaseClaimIsUntrustedContainmentNotSelection() passed after 0.011 seconds.
+◇ Test unscopedUpdateAvailablePublishesNpmIdentityAndFreshProvenance() started.
+✔ Test unscopedUpdateAvailablePublishesNpmIdentityAndFreshProvenance() passed after 0.006 seconds.
+◇ Test scopedCheckBindsBothRegistryFlagsAndReportsUpToDate() started.
+✔ Test scopedCheckBindsBothRegistryFlagsAndReportsUpToDate() passed after 0.006 seconds.
+◇ Test customBaseRegistryRefusesWithZeroViewCalls() started.
+✔ Test customBaseRegistryRefusesWithZeroViewCalls() passed after 0.002 seconds.
+◇ Test customScopeRegistryRefusesWithZeroViewCalls() started.
+✔ Test customScopeRegistryRefusesWithZeroViewCalls() passed after 0.002 seconds.
+◇ Test prereleaseLatestIsUnsupportedChannelAndNeverPersisted() started.
+✔ Test prereleaseLatestIsUnsupportedChannelAndNeverPersisted() passed after 0.005 seconds.
+◇ Test installedNewerThanKnownMetadataIsUnknownAndNotPersisted() started.
+✔ Test installedNewerThanKnownMetadataIsUnknownAndNotPersisted() passed after 0.005 seconds.
+◇ Test malformedViewOutputIsMetadataInvalidWithOneViewCall() started.
+✔ Test malformedViewOutputIsMetadataInvalidWithOneViewCall() passed after 0.012 seconds.
+◇ Test checkCacheHitSkipsViewAndPreservesOriginalObservation() started.
+✔ Test checkCacheHitSkipsViewAndPreservesOriginalObservation() passed after 0.009 seconds.
+◇ Test tamperedCacheRecordRefusesTheHitAndRefetchesBoundedOnce() started.
+✔ Test tamperedCacheRecordRefusesTheHitAndRefetchesBoundedOnce() passed after 0.014 seconds.
+◇ Test exhaustedStageStopsAfterInitialOwnershipAndPreservesIdentity() started.
+✔ Test exhaustedStageStopsAfterInitialOwnershipAndPreservesIdentity() passed after 0.002 seconds.
+◇ Test missingSelectionLaunchesNoCommands() started.
+✔ Test missingSelectionLaunchesNoCommands() passed after 0.001 seconds.
+◇ Test managerAbsentFromPathLaunchesNoCommands() started.
+✔ Test managerAbsentFromPathLaunchesNoCommands() passed after 0.001 seconds.
+◇ Test laterDeclarationMatchUsesVerifiedPackageNameForEveryLookup() started.
+✔ Test laterDeclarationMatchUsesVerifiedPackageNameForEveryLookup() passed after 0.006 seconds.
+◇ Test unmatchedDeclarationAuthorizesZeroLookupsAndPersistsNothing() started.
+✔ Test unmatchedDeclarationAuthorizesZeroLookupsAndPersistsNothing() passed after 0.001 seconds.
+◇ Test scopedUnsetConfigStillPinsBothRegistryFlags() started.
+✔ Test scopedUnsetConfigStillPinsBothRegistryFlags() passed after 0.005 seconds.
+◇ Test blankScopeOutputRefusesAsMalformedWithZeroViewCalls() started.
+✔ Test blankScopeOutputRefusesAsMalformedWithZeroViewCalls() passed after 0.002 seconds.
+◇ Test samePathManifestReplacementNeverReusesCachedProofMetadata() started.
+✔ Test samePathManifestReplacementNeverReusesCachedProofMetadata() passed after 0.011 seconds.
+◇ Test samePathBinReplacementInvalidatesCacheHitWithFreshView() started.
+✔ Test samePathBinReplacementInvalidatesCacheHitWithFreshView() passed after 0.010 seconds.
+◇ Test replacedRootDirectoryRefusesNeverReusingPriorProof() started.
+✔ Test replacedRootDirectoryRefusesNeverReusingPriorProof() passed after 0.005 seconds.
+◇ Test replacedManagerCannotReusePriorProofIdentity() started.
+✔ Test replacedManagerCannotReusePriorProofIdentity() passed after 0.010 seconds.
+◇ Test selectionReplacementDuringFinalScopeReadRefusesAndPersistsNothing() started.
+✔ Test selectionReplacementDuringFinalScopeReadRefusesAndPersistsNothing() passed after 0.015 seconds.
+◇ Test deadlineExhaustedAfterFinalQueryMapsToBudgetExhaustedOnCacheHit() started.
+✔ Test deadlineExhaustedAfterFinalQueryMapsToBudgetExhaustedOnCacheHit() passed after 0.014 seconds.
+◇ Test everyNpmInvocationOverridesInheritedCacheLogsAndNotifierIncludingFourOwnershipQueries() started.
+✔ Test everyNpmInvocationOverridesInheritedCacheLogsAndNotifierIncludingFourOwnershipQueries() passed after 0.007 seconds.
+◇ Test metadataDeadlineRefusalUsesBudgetReasonWhileTaskCancellationStaysNeutral() started.
+✔ Test metadataDeadlineRefusalUsesBudgetReasonWhileTaskCancellationStaysNeutral() passed after 0.008 seconds.
+◇ Test unsafeScratchBasesRefuseWithZeroNpmLaunches() started.
+✔ Test unsafeScratchBasesRefuseWithZeroNpmLaunches() passed after 0.001 seconds.
+◇ Test symlinkedAncestorScratchBaseStillRunsAndLeavesNoOwnedChild() started.
+✔ Test symlinkedAncestorScratchBaseStillRunsAndLeavesNoOwnedChild() passed after 0.005 seconds.
+◇ Test claimedScratchChildIsOwnedMode0700DirectPhysicalChildOfBase() started.
+✔ Test claimedScratchChildIsOwnedMode0700DirectPhysicalChildOfBase() passed after 0.001 seconds.
+◇ Test anchoredCleanupRemovesOnlyTheRecordedOwnedChild() started.
+✔ Test anchoredCleanupRemovesOnlyTheRecordedOwnedChild() passed after 0.001 seconds.
+◇ Test anchoredCleanupRefusesAChildReplacedByADifferentDirectory() started.
+✔ Test anchoredCleanupRefusesAChildReplacedByADifferentDirectory() passed after 0.001 seconds.
+◇ Test anchoredCleanupRefusesARetargetedAncestorAndLeavesTheRecordedChild() started.
+✔ Test anchoredCleanupRefusesARetargetedAncestorAndLeavesTheRecordedChild() passed after 0.001 seconds.
+◇ Test scratchCleanupFailureIsPropagatedAndNeverPublishedAsVerified() started.
+✔ Test scratchCleanupFailureIsPropagatedAndNeverPublishedAsVerified() passed after 0.014 seconds.
+◇ Test operationRunnerCapturesBothInterleavedStreamsWithoutDeadlock() started.
+✔ Test operationRunnerCapturesBothInterleavedStreamsWithoutDeadlock() passed after 0.069 seconds.
+◇ Test operationRunnerTruncatesEachStreamExplicitly() started.
+✔ Test operationRunnerTruncatesEachStreamExplicitly() passed after 2.057 seconds.
+◇ Test operationRunnerCapturesWorkingDirectoryAndSeparateStderr() started.
+✔ Test operationRunnerCapturesWorkingDirectoryAndSeparateStderr() passed after 0.056 seconds.
+◇ Test operationRunnerReportsTimeoutAndReapsTheOwnedProcessGroup() started.
+✔ Test operationRunnerReportsTimeoutAndReapsTheOwnedProcessGroup() passed after 2.231 seconds.
+◇ Test operationRunnerCancellationUsesTheSameBoundedGroupCleanup() started.
+✔ Test operationRunnerCancellationUsesTheSameBoundedGroupCleanup() passed after 2.085 seconds.
+◇ Test operationRunnerMapsSpawnFailureWithoutAStartedProcess() started.
+✔ Test operationRunnerMapsSpawnFailureWithoutAStartedProcess() passed after 0.001 seconds.
+◇ Test operationRunnerReapsADelayedChildAfterParentExit() started.
+✔ Test operationRunnerReapsADelayedChildAfterParentExit() passed after 7.038 seconds.
+◇ Test operationRunnerOverflowIsExplicitAndDoesNotMasqueradeAsSuccessEvidence() started.
+✔ Test operationRunnerOverflowIsExplicitAndDoesNotMasqueradeAsSuccessEvidence() passed after 0.085 seconds.
+◇ Test pathDiagnosticsReportTheFirstLivePathWinner() started.
+✔ Test pathDiagnosticsReportTheFirstLivePathWinner() passed after 0.001 seconds.
+◇ Test pathDiagnosticsSeparateRepeatedSlotsAliasesAndShadowedTargets() started.
+✔ Test pathDiagnosticsSeparateRepeatedSlotsAliasesAndShadowedTargets() passed after 0.001 seconds.
+◇ Test pathDiagnosticsRetainInvalidFilesystemEvidenceBeforeTheWinner() started.
+✔ Test pathDiagnosticsRetainInvalidFilesystemEvidenceBeforeTheWinner() passed after 0.003 seconds.
+◇ Test pathDiagnosticsTreatsInvalidOnlyAndAbsentCandidatesAsNotInstalled() started.
+✔ Test pathDiagnosticsTreatsInvalidOnlyAndAbsentCandidatesAsNotInstalled() passed after 0.001 seconds.
+◇ Test pathDiagnosticsReportsKnownExtraRootAsOffPathWithoutCallingItWinner() started.
+✔ Test pathDiagnosticsReportsKnownExtraRootAsOffPathWithoutCallingItWinner() passed after 0.001 seconds.
+◇ Test pathDiagnosticsResolvesEmptyAndRelativeRootsAgainstInjectedWorkingDirectory() started.
+✔ Test pathDiagnosticsResolvesEmptyAndRelativeRootsAgainstInjectedWorkingDirectory() passed after 0.602 seconds.
+◇ Test pathDiagnosticsMatchesDetectorForEmptySlotAndRelativeLiveRoots() started.
+✔ Test pathDiagnosticsMatchesDetectorForEmptySlotAndRelativeLiveRoots() passed after 0.006 seconds.
+◇ Test pathDiagnosticsDoesNotDoubleCountAnExtraRootOverlappingLivePath() started.
+✔ Test pathDiagnosticsDoesNotDoubleCountAnExtraRootOverlappingLivePath() passed after 0.003 seconds.
+◇ Test pathDiagnosticsRefusesAChangedTargetInsteadOfClaimingAFalseWinner() started.
+✔ Test pathDiagnosticsRefusesAChangedTargetInsteadOfClaimingAFalseWinner() passed after 0.005 seconds.
+◇ Test pathDiagnosticsRejectsAReplacedCapturedTargetForPathWinner() started.
+✔ Test pathDiagnosticsRejectsAReplacedCapturedTargetForPathWinner() passed after 0.005 seconds.
+◇ Test pathDiagnosticsRejectsAReplacedCapturedTargetForOffPathCandidate() started.
+✔ Test pathDiagnosticsRejectsAReplacedCapturedTargetForOffPathCandidate() passed after 0.006 seconds.
+◇ Test diagnosticsRendererPreservesRegistryOrderDashVersionAndDegradedWarning() started.
+✔ Test diagnosticsRendererPreservesRegistryOrderDashVersionAndDegradedWarning() passed after 0.001 seconds.
+◇ Test parseEnvironmentDumpExtractsSentinelDelimitedPairs() started.
+✔ Test parseEnvironmentDumpExtractsSentinelDelimitedPairs() passed after 0.001 seconds.
+◇ Test parseEnvironmentDumpReturnsNilWithoutSentinels() started.
+✔ Test parseEnvironmentDumpReturnsNilWithoutSentinels() passed after 0.001 seconds.
+◇ Test buildEnvironmentIsDegradedOnTimeoutAndUsesFallbackPath() started.
+✔ Test buildEnvironmentIsDegradedOnTimeoutAndUsesFallbackPath() passed after 0.001 seconds.
+◇ Test buildEnvironmentIsDegradedWhenDumpHasNoPath() started.
+✔ Test buildEnvironmentIsDegradedWhenDumpHasNoPath() passed after 0.001 seconds.
+◇ Test buildEnvironmentPassesRawEnvironmentThroughForProcess() started.
+✔ Test buildEnvironmentPassesRawEnvironmentThroughForProcess() passed after 0.001 seconds.
+◇ Test buildEnvironmentPreservesLeadingTrailingAndInternalEmptyPATHComponents() started.
+✔ Test buildEnvironmentPreservesLeadingTrailingAndInternalEmptyPATHComponents() passed after 0.001 seconds.
+◇ Test captureTimesOutAgainstAHangingShell() started.
+✔ Test captureTimesOutAgainstAHangingShell() passed after 0.508 seconds.
+◇ Test captureKillsTerminationResistantProcessAfterEarlyStdoutEOF() started.
+✔ Test captureKillsTerminationResistantProcessAfterEarlyStdoutEOF() passed after 0.109 seconds.
+◇ Test captureDiscardsLargeStderrWithoutBlocking() started.
+✔ Test captureDiscardsLargeStderrWithoutBlocking() passed after 0.119 seconds.
+◇ Test captureParsesASuccessfulRealShellRun() started.
+✔ Test captureParsesASuccessfulRealShellRun() passed after 0.064 seconds.
+◇ Test captureRejectsSentinelsFromANonzeroShellExit() started.
+✔ Test captureRejectsSentinelsFromANonzeroShellExit() passed after 0.066 seconds.
+◇ Test ptyProductionCaptureUsesFixturePathForSupportedLoginShells() started.
+core-probe: layout=aggregate root=<repo>/.build/out/Products/Debug module=<repo>/.build/out/Products/Debug objects=1 compiler=/usr/bin/swiftc
+✔ Test ptyProductionCaptureUsesFixturePathForSupportedLoginShells() passed after 0.899 seconds.
+◇ Test productSelectionRecognizesTheAggregateSwiftBuildLayout() started.
+core-probe: layout=aggregate root=/private/var/folders/tf/jsdyxcts6y72fs98s7wl3dfm0000gn/T/agentlens-m3-products-aggregate-D3048CB3-C8EB-491F-B0B9-3B9DD8FD1CE9 module=/private/var/folders/tf/jsdyxcts6y72fs98s7wl3dfm0000gn/T/agentlens-m3-products-aggregate-D3048CB3-C8EB-491F-B0B9-3B9DD8FD1CE9 objects=1 compiler=/usr/bin/swiftc
+✔ Test productSelectionRecognizesTheAggregateSwiftBuildLayout() passed after 0.003 seconds.
+◇ Test productSelectionRecognizesTheNativeObjectVectorSortedAndTargetScoped() started.
+core-probe: layout=native root=/private/var/folders/tf/jsdyxcts6y72fs98s7wl3dfm0000gn/T/agentlens-m3-products-native-8551F9E0-D5EA-4EFF-BB45-63147CE1A518 module=/private/var/folders/tf/jsdyxcts6y72fs98s7wl3dfm0000gn/T/agentlens-m3-products-native-8551F9E0-D5EA-4EFF-BB45-63147CE1A518/Modules objects=3 compiler=/usr/bin/swiftc
+✔ Test productSelectionRecognizesTheNativeObjectVectorSortedAndTargetScoped() passed after 0.006 seconds.
+◇ Test productSelectionLabelsAOneObjectNativeLayoutAsNative() started.
+core-probe: layout=native root=/private/var/folders/tf/jsdyxcts6y72fs98s7wl3dfm0000gn/T/agentlens-m3-products-native-one-C09A0F52-7C98-40C9-B187-CC5274584CF0 module=/private/var/folders/tf/jsdyxcts6y72fs98s7wl3dfm0000gn/T/agentlens-m3-products-native-one-C09A0F52-7C98-40C9-B187-CC5274584CF0/Modules objects=1 compiler=/usr/bin/swiftc
+✔ Test productSelectionLabelsAOneObjectNativeLayoutAsNative() passed after 0.003 seconds.
+◇ Test productSelectionRejectsAnEmptyOverrideEvenWithAValidBundleAvailable() started.
+✔ Test productSelectionRejectsAnEmptyOverrideEvenWithAValidBundleAvailable() passed after 0.001 seconds.
+◇ Test productSelectionRejectsRelativeAndNULOverrides() started.
+✔ Test productSelectionRejectsRelativeAndNULOverrides() passed after 0.001 seconds.
+◇ Test productSelectionInvalidOverrideNeverFallsBackToAValidBundle() started.
+core-probe: layout=aggregate root=<repo>/.build/out/Products/Debug module=<repo>/.build/out/Products/Debug objects=1 compiler=/usr/bin/swiftc
+✔ Test productSelectionInvalidOverrideNeverFallsBackToAValidBundle() passed after 0.003 seconds.
+◇ Test productSelectionRejectsAmbiguousDualLayoutRoot() started.
+✔ Test productSelectionRejectsAmbiguousDualLayoutRoot() passed after 0.003 seconds.
+◇ Test productSelectionRejectsARecognizedButIncompleteActiveRoot() started.
+✔ Test productSelectionRejectsARecognizedButIncompleteActiveRoot() passed after 0.001 seconds.
+◇ Test productSelectionStopsAtAnInvalidNearerRootWithAValidAncestor() started.
+core-probe: layout=aggregate root=/private/var/folders/tf/jsdyxcts6y72fs98s7wl3dfm0000gn/T/agentlens-m3-products-nested-ancestor-58204354-7D71-4B7E-9021-2DF5FCB1A34D module=/private/var/folders/tf/jsdyxcts6y72fs98s7wl3dfm0000gn/T/agentlens-m3-products-nested-ancestor-58204354-7D71-4B7E-9021-2DF5FCB1A34D objects=1 compiler=/usr/bin/swiftc
+✔ Test productSelectionStopsAtAnInvalidNearerRootWithAValidAncestor() passed after 0.002 seconds.
+◇ Test productSelectionRefusesAModuleThatEscapesTheConfigurationRoot() started.
+✔ Test productSelectionRefusesAModuleThatEscapesTheConfigurationRoot() passed after 0.001 seconds.
+◇ Test productSelectionRejectsAnExternalObjectSymlinkInsteadOfDroppingIt() started.
+✔ Test productSelectionRejectsAnExternalObjectSymlinkInsteadOfDroppingIt() passed after 0.001 seconds.
+◇ Test productSelectionRejectsASymlinkedObjectDirectory() started.
+✔ Test productSelectionRejectsASymlinkedObjectDirectory() passed after 0.001 seconds.
+◇ Test productSelectionAcceptsAPhysicalAliasOfTheSameRoot() started.
+core-probe: layout=aggregate root=/private/var/folders/tf/jsdyxcts6y72fs98s7wl3dfm0000gn/T/agentlens-m3-products-alias-96184C12-A207-431B-B4FE-7816A693299E module=/private/var/folders/tf/jsdyxcts6y72fs98s7wl3dfm0000gn/T/agentlens-m3-products-alias-96184C12-A207-431B-B4FE-7816A693299E objects=1 compiler=/usr/bin/swiftc
+✔ Test productSelectionAcceptsAPhysicalAliasOfTheSameRoot() passed after 0.001 seconds.
+◇ Test productSelectionFollowsThePhysicalBundleNotTheLexicalParentRoot() started.
+core-probe: layout=aggregate root=/private/var/folders/tf/jsdyxcts6y72fs98s7wl3dfm0000gn/T/agentlens-m3-products-physical-active-F743181B-0923-4952-A25D-DEAB413FE831 module=/private/var/folders/tf/jsdyxcts6y72fs98s7wl3dfm0000gn/T/agentlens-m3-products-physical-active-F743181B-0923-4952-A25D-DEAB413FE831 objects=1 compiler=/usr/bin/swiftc
+✔ Test productSelectionFollowsThePhysicalBundleNotTheLexicalParentRoot() passed after 0.001 seconds.
+◇ Test productSelectionFindsTheActiveBundleAncestryWithoutCwdFallback() started.
+core-probe: layout=aggregate root=<repo>/.build/out/Products/Debug module=<repo>/.build/out/Products/Debug objects=1 compiler=/usr/bin/swiftc
+✔ Test productSelectionFindsTheActiveBundleAncestryWithoutCwdFallback() passed after 0.001 seconds.
+◇ Test detectorFindsExecutableOnPath() started.
+✔ Test detectorFindsExecutableOnPath() passed after 0.001 seconds.
+◇ Test detectorUsesExtraRootsForInstalledNotOnPath() started.
+✔ Test detectorUsesExtraRootsForInstalledNotOnPath() passed after 0.001 seconds.
+◇ Test detectorReportsNotInstalledWhenNothingFound() started.
+✔ Test detectorReportsNotInstalledWhenNothingFound() passed after 0.001 seconds.
+◇ Test detectorClassifiesNpmByResolvedSymbolicLinkTarget() started.
+✔ Test detectorClassifiesNpmByResolvedSymbolicLinkTarget() passed after 0.001 seconds.
+◇ Test detectorClassifiesCellarAsBrew() started.
+✔ Test detectorClassifiesCellarAsBrew() passed after 0.001 seconds.
+◇ Test versionTokenExtractionHandlesKnownOutputShapes() started.
+✔ Test versionTokenExtractionHandlesKnownOutputShapes() passed after 0.001 seconds.
+◇ Test versionQueryTimesOutAgainstHangingBinary() started.
+✔ Test versionQueryTimesOutAgainstHangingBinary() passed after 0.209 seconds.
+◇ Test detectorDoesNotTreatDirectoryAsAnInstalledExecutable() started.
+✔ Test detectorDoesNotTreatDirectoryAsAnInstalledExecutable() passed after 0.002 seconds.
+◇ Test detectorSkipsBrokenSymlinkAndKeepsFirstLivePathWinner() started.
+✔ Test detectorSkipsBrokenSymlinkAndKeepsFirstLivePathWinner() passed after 0.011 seconds.
+◇ Test detectorKeepsOrderAcrossEmptyPATHComponents() started.
+✔ Test detectorKeepsOrderAcrossEmptyPATHComponents() passed after 0.005 seconds.
+◇ Test detectorAndVersionQueryHonorEmptyAndRelativeRootsInAnIsolatedWorkingDirectory() started.
+core-probe: layout=aggregate root=<repo>/.build/out/Products/Debug module=<repo>/.build/out/Products/Debug objects=1 compiler=/usr/bin/swiftc
+✔ Test detectorAndVersionQueryHonorEmptyAndRelativeRootsInAnIsolatedWorkingDirectory() passed after 0.926 seconds.
+◇ Test versionQueryKillsTerminationResistantProcessAfterEarlyStdoutEOF() started.
+✔ Test versionQueryKillsTerminationResistantProcessAfterEarlyStdoutEOF() passed after 2.011 seconds.
+◇ Test versionQueryRejectsOutputFromNonzeroExit() started.
+✔ Test versionQueryRejectsOutputFromNonzeroExit() passed after 0.283 seconds.
+◇ Test versionQueryRejectsTruncatedOutputEvenWhenTheFirstLineLooksValid() started.
+✔ Test versionQueryRejectsTruncatedOutputEvenWhenTheFirstLineLooksValid() passed after 0.200 seconds.
+◇ Test boundedProcessRunnerEnforcesDeadlineWhileStdoutRemainsReadable() started.
+✔ Test boundedProcessRunnerEnforcesDeadlineWhileStdoutRemainsReadable() passed after 0.021 seconds.
+◇ Test scanRendererShapesAllThreeStates() started.
+✔ Test scanRendererShapesAllThreeStates() passed after 0.001 seconds.
+◇ Test cliRejectsCombinedAndRepeatedScanFlagsWithUsageOnStderr() started.
+✔ Test cliRejectsCombinedAndRepeatedScanFlagsWithUsageOnStderr() passed after 1.579 seconds.
+◇ Test cliNoArgumentsAndUnknownCommandKeepTheirExitStatuses() started.
+✔ Test cliNoArgumentsAndUnknownCommandKeepTheirExitStatuses() passed after 0.266 seconds.
+◇ Test usageStringDocumentsTheExactScanModes() started.
+✔ Test usageStringDocumentsTheExactScanModes() passed after 0.001 seconds.
+◇ Test validDebugEnvironmentCommandUsesTheFixturePathWithoutManagerProbes() started.
+✔ Test validDebugEnvironmentCommandUsesTheFixturePathWithoutManagerProbes() passed after 0.206 seconds.
+◇ Test sandboxDeniesAllAccessToTheRealAgentLensCache() started.
+isolation-probe selected_root=/var/folders/tf/jsdyxcts6y72fs98s7wl3dfm0000gn/T/agentlens-m6-cli-isolation-3FDB6944-AE5B-43A4-984B-1EC63C93F84E
+isolation-probe physical_root=/private/var/folders/tf/jsdyxcts6y72fs98s7wl3dfm0000gn/T/agentlens-m6-cli-isolation-3FDB6944-AE5B-43A4-984B-1EC63C93F84E
+isolation-probe scratch_override_present=false
+isolation-probe inherited_TMPDIR=/var/folders/tf/jsdyxcts6y72fs98s7wl3dfm0000gn/T/
+✔ Test sandboxDeniesAllAccessToTheRealAgentLensCache() passed after 0.214 seconds.
+◇ Test sandboxedCheckUpdatesPublishesNoReusableCacheAcrossTwoRuns() started.
+✔ Test sandboxedCheckUpdatesPublishesNoReusableCacheAcrossTwoRuns() passed after 1.936 seconds.
+◇ Test checkUpdatesThroughRealCLIReportsSupportedBrewCurrentWithThreeQueries() started.
+✔ Test checkUpdatesThroughRealCLIReportsSupportedBrewCurrentWithThreeQueries() passed after 1.191 seconds.
+◇ Test refreshThroughRealCLIIsAValidScanModeAndRunsOneBoundedBatch() started.
+✔ Test refreshThroughRealCLIIsAValidScanModeAndRunsOneBoundedBatch() passed after 1.107 seconds.
+◇ Test realCLIAppendsAfterTheExactM5WinnerAliasShadowedAndInvalidPrefix() started.
+✔ Test realCLIAppendsAfterTheExactM5WinnerAliasShadowedAndInvalidPrefix() passed after 1.841 seconds.
+◇ Test delayedManagerLeavesFlushedM5InventoryVisibleBeforeOneAppendedUpdateSection() started.
+✔ Test delayedManagerLeavesFlushedM5InventoryVisibleBeforeOneAppendedUpdateSection() passed after 1.192 seconds.
+◇ Test checkUpdatesThroughRealCLIReportsUpdateAvailableAndCountsIt() started.
+✔ Test checkUpdatesThroughRealCLIReportsUpdateAvailableAndCountsIt() passed after 1.074 seconds.
+◇ Test offlineThroughRealCLIMakesZeroManagerCalls() started.
+✔ Test offlineThroughRealCLIMakesZeroManagerCalls() passed after 0.682 seconds.
+◇ Test plainScanMakesZeroManagerCallsAndReportsNotChecked() started.
+✔ Test plainScanMakesZeroManagerCallsAndReportsNotChecked() passed after 0.632 seconds.
+◇ Test detectorMetadataIsAppendedAfterUnchangedPathReportInEveryScanMode() started.
+✔ Test detectorMetadataIsAppendedAfterUnchangedPathReportInEveryScanMode() passed after 2.537 seconds.
+◇ Test syntheticOffPathDegradedM5ReportRemainsTheExactBytePrefix() started.
+✔ Test syntheticOffPathDegradedM5ReportRemainsTheExactBytePrefix() passed after 0.007 seconds.
+◇ Test verifyInstallationNpmPrintsLocalDeclaredFactsThenExactReadOnlyProof() started.
+✔ Test verifyInstallationNpmPrintsLocalDeclaredFactsThenExactReadOnlyProof() passed after 0.752 seconds.
+◇ Test verifyInstallationFIFOManifestSettlesWithinTheSubprocessWatchdog() started.
+✔ Test verifyInstallationFIFOManifestSettlesWithinTheSubprocessWatchdog() passed after 0.587 seconds.
+◇ Test verifyInstallationHomebrewFormulaUsesCellarInfoListAndIgnoresStableVersion() started.
+✔ Test verifyInstallationHomebrewFormulaUsesCellarInfoListAndIgnoresStableVersion() passed after 0.766 seconds.
+◇ Test verifyInstallationCaskIsNeutralWithZeroManagerQueries() started.
+✔ Test verifyInstallationCaskIsNeutralWithZeroManagerQueries() passed after 0.323 seconds.
+◇ Test verifyInstallationStandaloneIsNeutralWithZeroManagerQueries() started.
+✔ Test verifyInstallationStandaloneIsNeutralWithZeroManagerQueries() passed after 0.319 seconds.
+◇ Test verifyInstallationInvalidAndUnknownFormsExitOneWithoutManagerEffects() started.
+✔ Test verifyInstallationInvalidAndUnknownFormsExitOneWithoutManagerEffects() passed after 0.479 seconds.
+◇ Test probeFailureIsAResultValueAndScanStillExitsZero() started.
+✔ Test probeFailureIsAResultValueAndScanStillExitsZero() passed after 0.875 seconds.
+◇ Test loginShellFixtureExportsTheExactClosedPathForBothZshAndBash() started.
+✔ Test loginShellFixtureExportsTheExactClosedPathForBothZshAndBash() passed after 0.249 seconds.
+◇ Test cacheHitBeforeTheSixHourBoundaryReturnsTheStoredMetadata() started.
+✔ Test cacheHitBeforeTheSixHourBoundaryReturnsTheStoredMetadata() passed after 0.002 seconds.
+◇ Test exactlySixHoursIsAMissAndAFutureTimestampIsAMiss() started.
+✔ Test exactlySixHoursIsAMissAndAFutureTimestampIsAMiss() passed after 0.001 seconds.
+◇ Test changedIdentityOrFingerprintsAreMisses() started.
+✔ Test changedIdentityOrFingerprintsAreMisses() passed after 0.002 seconds.
+◇ Test corruptWrongSchemaAndAbsentFilesAreMisses() started.
+✔ Test corruptWrongSchemaAndAbsentFilesAreMisses() passed after 0.001 seconds.
+◇ Test oversizedCacheFileIsRejectedAsAMiss() started.
+✔ Test oversizedCacheFileIsRejectedAsAMiss() passed after 0.002 seconds.
+◇ Test writeFailureIsNeutralAndDoesNotThrowIntoInventory() started.
+✔ Test writeFailureIsNeutralAndDoesNotThrowIntoInventory() passed after 0.001 seconds.
+◇ Test successfulSaveReplacesTheDocumentAtomicallyAndKeepsOnlySelectedRecords() started.
+✔ Test successfulSaveReplacesTheDocumentAtomicallyAndKeepsOnlySelectedRecords() passed after 0.001 seconds.
+◇ Test storedDigestIsAStableCryptographicSHA256NotHasherRandomized() started.
+✔ Test storedDigestIsAStableCryptographicSHA256NotHasherRandomized() passed after 0.001 seconds.
+◇ Test fullFormulaIdentityIsPartOfTheKeyAndSelectionLookupRejectsAmbiguity() started.
+✔ Test fullFormulaIdentityIsPartOfTheKeyAndSelectionLookupRejectsAmbiguity() passed after 0.004 seconds.
+◇ Test cachedStableMustBeUpstreamTextWithRevisionStoredSeparately() started.
+✔ Test cachedStableMustBeUpstreamTextWithRevisionStoredSeparately() passed after 0.002 seconds.
+◇ Test offlineModeLaunchesNoProbeAndReadsNoCache() started.
+✔ Test offlineModeLaunchesNoProbeAndReadsNoCache() passed after 0.003 seconds.
+◇ Test unsupportedStableKeepsLocalTextAndDoesNotCreateCacheEntry() started.
+✔ Test unsupportedStableKeepsLocalTextAndDoesNotCreateCacheEntry() passed after 0.004 seconds.
+◇ Test plainScanReportsNotCheckedAndMakesNoManagerCall() started.
+✔ Test plainScanReportsNotCheckedAndMakesNoManagerCall() passed after 0.002 seconds.
+◇ Test checkUpdatesProbesOnceThenHitsTheSixHourCacheWithoutAnotherQuery() started.
+✔ Test checkUpdatesProbesOnceThenHitsTheSixHourCacheWithoutAnotherQuery() passed after 0.004 seconds.
+◇ Test refreshBypassesTheCacheAndAFailedRefreshDoesNotRenewOldSuccess() started.
+✔ Test refreshBypassesTheCacheAndAFailedRefreshDoesNotRenewOldSuccess() passed after 0.005 seconds.
+◇ Test npmAndMissingToolsInvokeZeroManagerCommandsAndCarryTypedReasons() started.
+✔ Test npmAndMissingToolsInvokeZeroManagerCommandsAndCarryTypedReasons() passed after 0.001 seconds.
+◇ Test inconsistentM5SelectionSuppressesAnyStatusClaim() started.
+✔ Test inconsistentM5SelectionSuppressesAnyStatusClaim() passed after 0.001 seconds.
+◇ Test installedVersionChangeRecomputesStatusFromTheSameCachedMetadata() started.
+✔ Test installedVersionChangeRecomputesStatusFromTheSameCachedMetadata() passed after 0.003 seconds.
+◇ Test resultsAreAssociatedByRegistryIDNotCompletionOrder() started.
+✔ Test resultsAreAssociatedByRegistryIDNotCompletionOrder() passed after 0.085 seconds.
+◇ Test overlappingRefreshCallsShareOneManagerBatchAdmission() started.
+✔ Test overlappingRefreshCallsShareOneManagerBatchAdmission() passed after 0.010 seconds.
+◇ Test directPublicBatchesShareTheSameAdmissionGate() started.
+✔ Test directPublicBatchesShareTheSameAdmissionGate() passed after 0.002 seconds.
+◇ Test cancellationWhileWaitingLaunchesNoCommandsAndDoesNotCache() started.
+✔ Test cancellationWhileWaitingLaunchesNoCommandsAndDoesNotCache() passed after 0.007 seconds.
+◇ Test cancellationDuringFirstOrFinalQueryRejectsLateSuccessAndReleasesAdmission() started.
+✔ Test cancellationDuringFirstOrFinalQueryRejectsLateSuccessAndReleasesAdmission() passed after 0.006 seconds.
+◇ Test queuedBatchRevalidatesSelectedEntryAndManagerBeforeLaunching() started.
+✔ Test queuedBatchRevalidatesSelectedEntryAndManagerBeforeLaunching() passed after 0.009 seconds.
+◇ Test admissionIsReleasedAfterMalformedAndProcessFailure() started.
+✔ Test admissionIsReleasedAfterMalformedAndProcessFailure() passed after 0.001 seconds.
+◇ Test foreignCellarSubstringNeverBorrowsAHomebrewCacheIdentity() started.
+✔ Test foreignCellarSubstringNeverBorrowsAHomebrewCacheIdentity() passed after 0.002 seconds.
+◇ Test successfulUpdateAvailableMetadataIsCachedNotReprobedEveryScan() started.
+✔ Test successfulUpdateAvailableMetadataIsCachedNotReprobedEveryScan() passed after 0.002 seconds.
+◇ Test changedManagerExecutableInvalidatesTheCachedIdentity() started.
+✔ Test changedManagerExecutableInvalidatesTheCachedIdentity() passed after 0.003 seconds.
+◇ Test selectedEntryMutationDuringFinalQueryNeverPublishesOrPersistsVerifiedStatus() started.
+✔ Test selectedEntryMutationDuringFinalQueryNeverPublishesOrPersistsVerifiedStatus() passed after 0.006 seconds.
+◇ Test offPathSelectionGetsTheSamePostProbeRevalidation() started.
+✔ Test offPathSelectionGetsTheSamePostProbeRevalidation() passed after 0.001 seconds.
+◇ Test cachedStatusIsNotPublishedAfterSelectedEntryDisappears() started.
+✔ Test cachedStatusIsNotPublishedAfterSelectedEntryDisappears() passed after 0.002 seconds.
+◇ Test replacedManagerDuringFinalQueryCannotOwnTheOldMetadata() started.
+✔ Test replacedManagerDuringFinalQueryCannotOwnTheOldMetadata() passed after 0.001 seconds.
+◇ Test effectiveEnvironmentAndWorkingDirectoryEachInvalidateCoordinatorCacheKeys() started.
+✔ Test effectiveEnvironmentAndWorkingDirectoryEachInvalidateCoordinatorCacheKeys() passed after 0.006 seconds.
+◇ Test actualSubprocessWorkingDirectoryControlsCoordinatorCacheContext() started.
+core-probe: layout=aggregate root=<repo>/.build/out/Products/Debug module=<repo>/.build/out/Products/Debug objects=1 compiler=/usr/bin/swiftc
+✔ Test actualSubprocessWorkingDirectoryControlsCoordinatorCacheContext() passed after 0.516 seconds.
+◇ Test tappedFormulaIdentitySurvivesMetadataRoundTripWithoutQueries() started.
+✔ Test tappedFormulaIdentitySurvivesMetadataRoundTripWithoutQueries() passed after 0.002 seconds.
+◇ Test registryIdentityIsIndependentOfSharedOrRenamedDisplayLabels() started.
+✔ Test registryIdentityIsIndependentOfSharedOrRenamedDisplayLabels() passed after 0.001 seconds.
+◇ Test rendererCountsOnlySelectedUpdatesAndUsesDeterministicUTC() started.
+✔ Test rendererCountsOnlySelectedUpdatesAndUsesDeterministicUTC() passed after 0.001 seconds.
+◇ Test nestedCellarComponentsKeepTheManagerVerifiedCellarAndCacheIdentity() started.
+✔ Test nestedCellarComponentsKeepTheManagerVerifiedCellarAndCacheIdentity() passed after 0.003 seconds.
+◇ Test managerReportedCellarSupportsRepositorySymlinkLayoutAndZeroQueryHit() started.
+✔ Test managerReportedCellarSupportsRepositorySymlinkLayoutAndZeroQueryHit() passed after 0.002 seconds.
+◇ Test typedManagerFailuresKeepTheirEvidenceAndOpaqueExitStaysProbeFailed() started.
+✔ Test typedManagerFailuresKeepTheirEvidenceAndOpaqueExitStaysProbeFailed() passed after 0.001 seconds.
+◇ Test rendererDistinguishesOfflinePolicyTypedNetworkEvidenceAndOpaqueExit() started.
+✔ Test rendererDistinguishesOfflinePolicyTypedNetworkEvidenceAndOpaqueExit() passed after 0.001 seconds.
+◇ Test productionProcessOutcomesReachTheCoordinatorWithinTheirRealBounds() started.
+✔ Test productionProcessOutcomesReachTheCoordinatorWithinTheirRealBounds() passed after 7.399 seconds.
+◇ Test cancellingARealHangingQueryWaitsForCleanupAndStopsTheBatch() started.
+✔ Test cancellingARealHangingQueryWaitsForCleanupAndStopsTheBatch() passed after 7.014 seconds.
+◇ Test cancelledRealFinalQueryCannotPublishItsLateSuccessfulMetadata() started.
+✔ Test cancelledRealFinalQueryCannotPublishItsLateSuccessfulMetadata() passed after 0.293 seconds.
+◇ Test productionProcessHandlesParentExitBeforeItsHangingDescendant() started.
+✔ Test productionProcessHandlesParentExitBeforeItsHangingDescendant() passed after 7.014 seconds.
+◇ Test realDelayedProcessLeavesMainActorResponsive() started.
+✔ Test realDelayedProcessLeavesMainActorResponsive() passed after 1.162 seconds.
+◇ Test deadlineClippingRefusalAtStageBudgetReportsBudgetExhausted() started.
+✔ Test deadlineClippingRefusalAtStageBudgetReportsBudgetExhausted() passed after 0.009 seconds.
+◇ Test mixedManagerConcurrentRunsNeverShareTheStageAndKeepHomebrewFirst() started.
+✔ Test mixedManagerConcurrentRunsNeverShareTheStageAndKeepHomebrewFirst() passed after 0.039 seconds.
+◇ Test cacheOnlyCheckWaitsForStageAdmissionBeforeServingDiskMetadata() started.
+✔ Test cacheOnlyCheckWaitsForStageAdmissionBeforeServingDiskMetadata() passed after 0.005 seconds.
+◇ Test exhaustedStageDeadlineRefusesAHomebrewCacheHit() started.
+✔ Test exhaustedStageDeadlineRefusesAHomebrewCacheHit() passed after 0.002 seconds.
+◇ Test npmStageExhaustionRetainsCompletedHomebrewResults() started.
+✔ Test npmStageExhaustionRetainsCompletedHomebrewResults() passed after 0.004 seconds.
+◇ Test oneStageDeadlineClipsHomebrewAndNpmCommandsTogether() started.
+✔ Test oneStageDeadlineClipsHomebrewAndNpmCommandsTogether() passed after 0.017 seconds.
+◇ Test plainAndOfflineRunsNeverWaitForStageAdmission() started.
+✔ Test plainAndOfflineRunsNeverWaitForStageAdmission() passed after 0.008 seconds.
+◇ Test admissionExpiryBeforeAnyLaunchReportsBudgetAndKeepsTheStageUsable() started.
+✔ Test admissionExpiryBeforeAnyLaunchReportsBudgetAndKeepsTheStageUsable() passed after 10.475 seconds.
+◇ Test cancellationInsideAdmittedStageReleasesThePermitExactlyOnce() started.
+✔ Test cancellationInsideAdmittedStageReleasesThePermitExactlyOnce() passed after 0.026 seconds.
+◇ Test semanticNumericComponentsCompareNumerically() started.
+✔ Test semanticNumericComponentsCompareNumerically() passed after 0.001 seconds.
+◇ Test semanticLargeComponentsDoNotOverflow() started.
+✔ Test semanticLargeComponentsDoNotOverflow() passed after 0.001 seconds.
+◇ Test prereleaseIdentifiersFollowSemVerPrecedence() started.
+✔ Test prereleaseIdentifiersFollowSemVerPrecedence() passed after 0.001 seconds.
+◇ Test shorterEqualPrereleasePrefixComesFirst() started.
+✔ Test shorterEqualPrereleasePrefixComesFirst() passed after 0.001 seconds.
+◇ Test numericPrereleaseIdentifiersPrecedeAlphanumericOnes() started.
+✔ Test numericPrereleaseIdentifiersPrecedeAlphanumericOnes() passed after 0.001 seconds.
+◇ Test buildMetadataDoesNotAffectPrecedence() started.
+✔ Test buildMetadataDoesNotAffectPrecedence() passed after 0.001 seconds.
+◇ Test strictSemanticParserRejectsMalformedText() started.
+✔ Test strictSemanticParserRejectsMalformedText() passed after 0.001 seconds.
+◇ Test homebrewRevisionOrdersSamePackageVersion() started.
+✔ Test homebrewRevisionOrdersSamePackageVersion() passed after 0.001 seconds.
+◇ Test homebrewTwoComponentStableVersionUsesZeroPatch() started.
+✔ Test homebrewTwoComponentStableVersionUsesZeroPatch() passed after 0.001 seconds.
+◇ Test homebrewRejectsPrereleaseAndMalformedRevisions() started.
+✔ Test homebrewRejectsPrereleaseAndMalformedRevisions() passed after 0.001 seconds.
+◇ Test homebrewStableUpstreamAgreesWithLocalSemanticToken() started.
+✔ Test homebrewStableUpstreamAgreesWithLocalSemanticToken() passed after 0.001 seconds.
+◇ Test versionQuerySpecificationRejectsInvalidArgumentsAtConstruction() started.
+✔ Test versionQuerySpecificationRejectsInvalidArgumentsAtConstruction() passed after 0.001 seconds.
+◇ Test registryRejectsInvalidVersionQueryFieldsWithNamedFields() started.
+✔ Test registryRejectsInvalidVersionQueryFieldsWithNamedFields() passed after 0.001 seconds.
+◇ Test makeDetectorUsesRegistryArgumentsInTheProductionPath() started.
+✔ Test makeDetectorUsesRegistryArgumentsInTheProductionPath() passed after 0.245 seconds.
+◇ Test makeDetectorUsesDeclaredStdoutAndStderrStreams() started.
+✔ Test makeDetectorUsesDeclaredStdoutAndStderrStreams() passed after 0.319 seconds.
+◇ Test firstRequiresTheFirstLineWhileFirstNonemptySkipsIntroductoryBlankLines() started.
+✔ Test firstRequiresTheFirstLineWhileFirstNonemptySkipsIntroductoryBlankLines() passed after 0.306 seconds.
+◇ Test firstNonemptySkipsWhitespaceAndCRLFBlankLines() started.
+✔ Test firstNonemptySkipsWhitespaceAndCRLFBlankLines() passed after 0.306 seconds.
+◇ Test queryArgumentsWithSpacesAndMetacharactersRemainLiteralArgv() started.
+✔ Test queryArgumentsWithSpacesAndMetacharactersRemainLiteralArgv() passed after 0.253 seconds.
+◇ Test invalidUTF8NoVersionAndNonzeroExitRemainNil() started.
+✔ Test invalidUTF8NoVersionAndNonzeroExitRemainNil() passed after 0.749 seconds.
+◇ Test timeoutAndOutputLimitRemainNilWithTheDeclaredSpecification() started.
+✔ Test timeoutAndOutputLimitRemainNilWithTheDeclaredSpecification() passed after 0.449 seconds.
+◇ Test equalVerifiedVersionsAreUpToDate() started.
+✔ Test equalVerifiedVersionsAreUpToDate() passed after 0.001 seconds.
+◇ Test olderVerifiedVersionIsUpdateAvailable() started.
+✔ Test olderVerifiedVersionIsUpdateAvailable() passed after 0.001 seconds.
+◇ Test homebrewRevisionDifferenceIsAnUpdateNotAnUpToDate() started.
+✔ Test homebrewRevisionDifferenceIsAnUpdateNotAnUpToDate() passed after 0.001 seconds.
+◇ Test installedNewerThanKnownMetadataIsUnknownNotDowngrade() started.
+✔ Test installedNewerThanKnownMetadataIsUnknownNotDowngrade() passed after 0.001 seconds.
+◇ Test unsupportedSchemeRetainsLocalTextAndNeverFabricatesLatest() started.
+✔ Test unsupportedSchemeRetainsLocalTextAndNeverFabricatesLatest() passed after 0.001 seconds.
+✔ Test run with 454 tests in 0 suites passed after 86.428 seconds.
+◇ Test run started.
+↳ Testing Library Version: 2084
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "Bundle Resource and Registry Validation Tests" started.
+◇ Test "Real bundled loader loads valid definitions in expected registry order" started.
+✔ Test "Real bundled loader loads valid definitions in expected registry order" passed after 0.005 seconds.
+◇ Test "Corrupted JSON bytes throw typed badJSON error" started.
+✔ Test "Corrupted JSON bytes throw typed badJSON error" passed after 0.001 seconds.
+◇ Test "Missing schemaVersion throws typed error" started.
+✔ Test "Missing schemaVersion throws typed error" passed after 0.001 seconds.
+◇ Test "Schema 1 is rejected outright" started.
+✔ Test "Schema 1 is rejected outright" passed after 0.001 seconds.
+◇ Test "Unsupported schemaVersion throws typed error naming found version" started.
+✔ Test "Unsupported schemaVersion throws typed error naming found version" passed after 0.001 seconds.
+◇ Test "Empty detectors list throws noDetectors error" started.
+✔ Test "Empty detectors list throws noDetectors error" passed after 0.001 seconds.
+◇ Test "Missing required field throws missingField naming field and id" started.
+✔ Test "Missing required field throws missingField naming field and id" passed after 0.001 seconds.
+◇ Test "Empty required field throws emptyField naming field and id" started.
+✔ Test "Empty required field throws emptyField naming field and id" passed after 0.001 seconds.
+◇ Test "Duplicate detector ID throws duplicateId naming the ID" started.
+✔ Test "Duplicate detector ID throws duplicateId naming the ID" passed after 0.001 seconds.
+◇ Test "Valid synthetic registry preserves declaration order and all fields" started.
+✔ Test "Valid synthetic registry preserves declaration order and all fields" passed after 0.001 seconds.
+✔ Suite "Bundle Resource and Registry Validation Tests" passed after 0.008 seconds.
+◇ Test localSnapshotKeepsEveryRegistryEntryInRegistryOrderIncludingMissingTools() started.
+✔ Test localSnapshotKeepsEveryRegistryEntryInRegistryOrderIncludingMissingTools() passed after 0.136 seconds.
+◇ Test localSnapshotPreservesTypedCoreFactsVerbatim() started.
+✔ Test localSnapshotPreservesTypedCoreFactsVerbatim() passed after 0.223 seconds.
+◇ Test localSnapshotUsesOnlyTheInjectedEnvironmentNotTheProcessEnvironment() started.
+✔ Test localSnapshotUsesOnlyTheInjectedEnvironmentNotTheProcessEnvironment() passed after 0.156 seconds.
+◇ Test degradedSessionEnvironmentIsReportedAsATypedWarning() started.
+✔ Test degradedSessionEnvironmentIsReportedAsATypedWarning() passed after 0.002 seconds.
+◇ Test missingToolsAndOffPathFactsRemainTypedRatherThanBeingDropped() started.
+✔ Test missingToolsAndOffPathFactsRemainTypedRatherThanBeingDropped() passed after 0.001 seconds.
+◇ Test invalidRegistryDataIsReportedAsATypedCoreError() started.
+✔ Test invalidRegistryDataIsReportedAsATypedCoreError() passed after 0.001 seconds.
+◇ Test cancellingAScanStopsBeforeTheNextToolAndWaitsForTheInFlightScan() started.
+✔ Test cancellingAScanStopsBeforeTheNextToolAndWaitsForTheInFlightScan() passed after 0.305 seconds.
+◇ Test anAlreadyCancelledScanRunsNoToolScanAtAll() started.
+✔ Test anAlreadyCancelledScanRunsNoToolScanAtAll() passed after 0.001 seconds.
+◇ Test coordinatorProvenanceSurvivesTheServiceIntoTheSnapshot() started.
+✔ Test coordinatorProvenanceSurvivesTheServiceIntoTheSnapshot() passed after 0.262 seconds.
+◇ Test quietModesLeaveEligibleToolsNeutralAndTouchNeitherManagerNorCache() started.
+✔ Test quietModesLeaveEligibleToolsNeutralAndTouchNeitherManagerNorCache() passed after 0.188 seconds.
+◇ Test localOnlyRunAgainstAnAbsentCacheURLCreatesNoCacheArtifacts() started.
+✔ Test localOnlyRunAgainstAnAbsentCacheURLCreatesNoCacheArtifacts() passed after 0.133 seconds.
+◇ Test updatePreparationRefusesAnEntryWithoutAVerifiedUpdateStatus() started.
+✔ Test updatePreparationRefusesAnEntryWithoutAVerifiedUpdateStatus() passed after 0.071 seconds.
+◇ Test failedPostLaunchRescanCannotLeaveASuccessfulOutcome() started.
+✔ Test failedPostLaunchRescanCannotLeaveASuccessfulOutcome() passed after 0.352 seconds.
+◇ Test updatePreparationRefusesWhenFreshLocalSelectionTargetChanged() started.
+✔ Test updatePreparationRefusesWhenFreshLocalSelectionTargetChanged() passed after 0.419 seconds.
+◇ Test uninstallPreparationAndExecutionPublishTheFreshRemovalDelta() started.
+✔ Test uninstallPreparationAndExecutionPublishTheFreshRemovalDelta() passed after 0.377 seconds.
+◇ Test idleViewModelHasNoFactsAndLaunchPublishesLocalOnlyCounts() started.
+✔ Test idleViewModelHasNoFactsAndLaunchPublishesLocalOnlyCounts() passed after 0.138 seconds.
+◇ Test repeatedLaunchPerformsOneRegistryAndLocalScan() started.
+✔ Test repeatedLaunchPerformsOneRegistryAndLocalScan() passed after 0.004 seconds.
+◇ Test cancellingLaunchAbandonsTheScanAndLetsALaterRescanRun() started.
+✔ Test cancellingLaunchAbandonsTheScanAndLetsALaterRescanRun() passed after 0.008 seconds.
+◇ Test explicitCancelAbandonsTheScanAndLetsALaterRescanRun() started.
+✔ Test explicitCancelAbandonsTheScanAndLetsALaterRescanRun() passed after 0.008 seconds.
+◇ Test launchKeepsTheMainActorResponsiveWhileABoundedScanIsGated() started.
+✔ Test launchKeepsTheMainActorResponsiveWhileABoundedScanIsGated() passed after 0.007 seconds.
+◇ Test conflictingActionCoalescesRatherThanStartingASecondPipeline() started.
+✔ Test conflictingActionCoalescesRatherThanStartingASecondPipeline() passed after 0.005 seconds.
+◇ Test selectionAndSearchStayStableUnderDuplicateDisplayNamesAndRescan() started.
+✔ Test selectionAndSearchStayStableUnderDuplicateDisplayNamesAndRescan() passed after 0.416 seconds.
+◇ Test selectionReconcilesToFirstEntryWhenTheSelectedToolDisappears() started.
+✔ Test selectionReconcilesToFirstEntryWhenTheSelectedToolDisappears() passed after 0.528 seconds.
+◇ Test failedRescanRetainsLocalFactsAndClearsVerifiedUpdateBadges() started.
+✔ Test failedRescanRetainsLocalFactsAndClearsVerifiedUpdateBadges() passed after 0.213 seconds.
+◇ Test checkPublishesLocalFactsBeforeAGatedManagerQueryAndSurvivesCancellation() started.
+✔ Test checkPublishesLocalFactsBeforeAGatedManagerQueryAndSurvivesCancellation() passed after 0.231 seconds.
+◇ Test failedRefreshReplacesAVerifiedBadgeWithATypedProbeFailure() started.
+✔ Test failedRefreshReplacesAVerifiedBadgeWithATypedProbeFailure() passed after 0.331 seconds.
+◇ Test cancellingAnInFlightUpdatePreparationClearsTheBusySlotAndAllowsALaterAction() started.
+✔ Test cancellingAnInFlightUpdatePreparationClearsTheBusySlotAndAllowsALaterAction() passed after 0.338 seconds.
+◇ Test failedPostUninstallRescanClearsOwnershipAndDisarmsUninstall() started.
+✔ Test failedPostUninstallRescanClearsOwnershipAndDisarmsUninstall() passed after 0.301 seconds.
+◇ Test invalidationDuringExecutingUpdatePreservesOutcomeAndWholeSnapshot() started.
+✔ Test invalidationDuringExecutingUpdatePreservesOutcomeAndWholeSnapshot() passed after 0.543 seconds.
+◇ Test serviceVerifiesOwnershipWithTheSessionEnvironmentRunnerAndFixedClock() started.
+✔ Test serviceVerifiesOwnershipWithTheSessionEnvironmentRunnerAndFixedClock() passed after 0.155 seconds.
+◇ Test applyingUpdatesPreservesOwnershipAndAFreshLocalSnapshotDoesNotInventIt() started.
+✔ Test applyingUpdatesPreservesOwnershipAndAFreshLocalSnapshotDoesNotInventIt() passed after 0.212 seconds.
+◇ Test verifyPublishesVerifiedWithoutBlockingTheMainActorOrStayingBusy() started.
+✔ Test verifyPublishesVerifiedWithoutBlockingTheMainActorOrStayingBusy() passed after 0.152 seconds.
+◇ Test selectionChangeWhileVerifyingCancelsAndNeverAttachesProofToAnotherTool() started.
+✔ Test selectionChangeWhileVerifyingCancelsAndNeverAttachesProofToAnotherTool() passed after 0.150 seconds.
+◇ Test explicitCancelWaitsForBoundedCleanupAndPublishesNoProof() started.
+✔ Test explicitCancelWaitsForBoundedCleanupAndPublishesNoProof() passed after 0.150 seconds.
+◇ Test repeatedVerifyWhileBusyCoalescesIntoOnePipeline() started.
+✔ Test repeatedVerifyWhileBusyCoalescesIntoOnePipeline() passed after 0.158 seconds.
+◇ Test freshAndFailedRescansClearOldOwnershipWhileRetainingLocalFacts() started.
+✔ Test freshAndFailedRescansClearOldOwnershipWhileRetainingLocalFacts() passed after 0.214 seconds.
+◇ Test standaloneAndNotInstalledToolsStayNeutralWithoutManagerQueries() started.
+✔ Test standaloneAndNotInstalledToolsStayNeutralWithoutManagerQueries() passed after 0.127 seconds.
+◇ Suite "PathActionTarget target derivation" started.
+◇ Test "Winner exposes actionable entry and target using candidate facts, not detectedTool" started.
+✔ Test "Winner exposes actionable entry and target using candidate facts, not detectedTool" passed after 0.001 seconds.
+◇ Test "Off-PATH candidate is also actionable" started.
+✔ Test "Off-PATH candidate is also actionable" passed after 0.001 seconds.
+◇ Test "Identical entry and target are both independently actionable" started.
+✔ Test "Identical entry and target are both independently actionable" passed after 0.001 seconds.
+◇ Test "Symlink entry versus target are distinct actionables" started.
+✔ Test "Symlink entry versus target are distinct actionables" passed after 0.001 seconds.
+✔ Suite "PathActionTarget target derivation" passed after 0.001 seconds.
+◇ Suite "PathActionTarget invalid input policy" started.
+◇ Test "No selected tool yields noSelection for both fields" started.
+✔ Test "No selected tool yields noSelection for both fields" passed after 0.001 seconds.
+◇ Test "notInstalled exposes no enabled path actions" started.
+✔ Test "notInstalled exposes no enabled path actions" passed after 0.001 seconds.
+◇ Test "inconsistent exposes no enabled path actions" started.
+✔ Test "inconsistent exposes no enabled path actions" passed after 0.001 seconds.
+◇ Test "Missing canonicalTarget makes only the target field ineligible" started.
+✔ Test "Missing canonicalTarget makes only the target field ineligible" passed after 0.001 seconds.
+◇ Test "Empty path is ineligible" started.
+✔ Test "Empty path is ineligible" passed after 0.001 seconds.
+◇ Test "Relative path is ineligible" started.
+✔ Test "Relative path is ineligible" passed after 0.001 seconds.
+◇ Test "Path containing NUL is ineligible" started.
+✔ Test "Path containing NUL is ineligible" passed after 0.001 seconds.
+◇ Test "Unexpanded tilde is ineligible" started.
+✔ Test "Unexpanded tilde is ineligible" passed after 0.001 seconds.
+◇ Test "Each field validated independently" started.
+✔ Test "Each field validated independently" passed after 0.001 seconds.
+◇ Test "Literal special characters are preserved verbatim" started.
+✔ Test "Literal special characters are preserved verbatim" passed after 0.001 seconds.
+✔ Suite "PathActionTarget invalid input policy" passed after 0.001 seconds.
+◇ Suite "PathActionDispatcher policy" started.
+◇ Test "Copy writes the exact literal path with no mutation" started.
+✔ Test "Copy writes the exact literal path with no mutation" passed after 0.001 seconds.
+◇ Test "Clipboard failure is reported, not claimed as success" started.
+✔ Test "Clipboard failure is reported, not claimed as success" passed after 0.001 seconds.
+◇ Test "Copy retains recorded text even if the path has disappeared (no existence check)" started.
+✔ Test "Copy retains recorded text even if the path has disappeared (no existence check)" passed after 0.001 seconds.
+◇ Test "Ineligible target performs no action" started.
+✔ Test "Ineligible target performs no action" passed after 0.001 seconds.
+◇ Test "Reveal on a missing path requests no Finder call" started.
+✔ Test "Reveal on a missing path requests no Finder call" passed after 0.001 seconds.
+◇ Test "Reveal on an existing path asks Finder and reports result" started.
+✔ Test "Reveal on an existing path asks Finder and reports result" passed after 0.001 seconds.
+✔ Suite "PathActionDispatcher policy" passed after 0.001 seconds.
+◇ Suite "PathActionTarget constructor validity invariant" started.
+◇ Test "Direct construction with nil reason for nil path is not actionable" started.
+✔ Test "Direct construction with nil reason for nil path is not actionable" passed after 0.001 seconds.
+◇ Test "Invalid raw paths with nil reason cannot be actionable" started.
+✔ Test "Invalid raw paths with nil reason cannot be actionable" passed after 0.001 seconds.
+◇ Test "Invalid constructed targets perform no callbacks for either action" started.
+✔ Test "Invalid constructed targets perform no callbacks for either action" passed after 0.001 seconds.
+◇ Test "A valid absolute path with nil reason is still actionable and copies" started.
+✔ Test "A valid absolute path with nil reason is still actionable and copies" passed after 0.001 seconds.
+✔ Suite "PathActionTarget constructor validity invariant" passed after 0.001 seconds.
+◇ Test theFirstRequestResolvesOnceAndLaterRequestsReuseTheSessionEnvironment() started.
+✔ Test theFirstRequestResolvesOnceAndLaterRequestsReuseTheSessionEnvironment() passed after 0.001 seconds.
+◇ Test explicitRescanCapturesFreshEnvironmentAndBecomesTheSessionEnvironment() started.
+✔ Test explicitRescanCapturesFreshEnvironmentAndBecomesTheSessionEnvironment() passed after 0.001 seconds.
+◇ Test rescanFallsBackToTheDocumentedShellWhenThePasswordDatabaseHasNoShell() started.
+✔ Test rescanFallsBackToTheDocumentedShellWhenThePasswordDatabaseHasNoShell() passed after 0.001 seconds.
+◇ Test rescanPropagatesADegradedCaptureRatherThanHidingIt() started.
+✔ Test rescanPropagatesADegradedCaptureRatherThanHidingIt() passed after 0.001 seconds.
+◇ Test theRawEnvironmentIsCarriedThroughVerbatimForProcessExecution() started.
+✔ Test theRawEnvironmentIsCarriedThroughVerbatimForProcessExecution() passed after 0.001 seconds.
+◇ Test productionWiringUsesOnlyTheCoreLoginShellSeams() started.
+✔ Test productionWiringUsesOnlyTheCoreLoginShellSeams() passed after 0.008 seconds.
+◇ Test theSourceGuardIgnoresCommentProseButStillSeesRealCode() started.
+✔ Test theSourceGuardIgnoresCommentProseButStillSeesRealCode() passed after 0.001 seconds.
+✔ Test run with 78 tests in 5 suites passed after 7.058 seconds.

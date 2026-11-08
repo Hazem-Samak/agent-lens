@@ -1,0 +1,26 @@
+test_attributed_and_conditional_imports_are_rejected (__main__.CoreUIImportGuardTests.test_attributed_and_conditional_imports_are_rejected) ... ok
+test_file_instead_of_directory_fails (__main__.CoreUIImportGuardTests.test_file_instead_of_directory_fails) ... ok
+test_foundation_and_mentions_in_comments_and_strings_are_accepted (__main__.CoreUIImportGuardTests.test_foundation_and_mentions_in_comments_and_strings_are_accepted) ... ok
+test_identifier_that_merely_contains_a_module_name_is_accepted (__main__.CoreUIImportGuardTests.test_identifier_that_merely_contains_a_module_name_is_accepted) ... ok
+test_looping_and_dangling_symlinks_are_refused (__main__.CoreUIImportGuardTests.test_looping_and_dangling_symlinks_are_refused) ... ok
+test_missing_source_root_fails (__main__.CoreUIImportGuardTests.test_missing_source_root_fails) ... ok
+test_multiline_and_whitespace_spellings_are_rejected (__main__.CoreUIImportGuardTests.test_multiline_and_whitespace_spellings_are_rejected) ... ok
+test_nested_source_directory_is_scanned (__main__.CoreUIImportGuardTests.test_nested_source_directory_is_scanned) ... ok
+test_plain_appkit_import_is_rejected (__main__.CoreUIImportGuardTests.test_plain_appkit_import_is_rejected) ... ok
+test_plain_swiftui_import_is_rejected_with_location (__main__.CoreUIImportGuardTests.test_plain_swiftui_import_is_rejected_with_location) ... ok
+test_plant_fail_clean_pass_cycle_on_real_tree_copy (__main__.CoreUIImportGuardTests.test_plant_fail_clean_pass_cycle_on_real_tree_copy) ... ok
+test_real_source_tree_is_clean (__main__.CoreUIImportGuardTests.test_real_source_tree_is_clean) ... ok
+test_regular_tree_without_symlinks_still_passes (__main__.CoreUIImportGuardTests.test_regular_tree_without_symlinks_still_passes) ... ok
+test_restored_permissions_allow_a_real_scan_again (__main__.CoreUIImportGuardTests.test_restored_permissions_allow_a_real_scan_again) ... ok
+test_scoped_imports_are_rejected (__main__.CoreUIImportGuardTests.test_scoped_imports_are_rejected) ... ok
+test_statement_boundaries_semicolons_and_escaped_identifiers_are_rejected (__main__.CoreUIImportGuardTests.test_statement_boundaries_semicolons_and_escaped_identifiers_are_rejected) ... ok
+test_symlinked_directory_is_refused_by_name (__main__.CoreUIImportGuardTests.test_symlinked_directory_is_refused_by_name) ... ok
+test_symlinked_swift_file_is_refused_by_name (__main__.CoreUIImportGuardTests.test_symlinked_swift_file_is_refused_by_name) ... ok
+test_unreadable_input_fails (__main__.CoreUIImportGuardTests.test_unreadable_input_fails) ... ok
+test_unreadable_nested_directory_fails_closed (__main__.CoreUIImportGuardTests.test_unreadable_nested_directory_fails_closed) ... ok
+test_unreadable_source_root_fails_closed (__main__.CoreUIImportGuardTests.test_unreadable_source_root_fails_closed) ... ok
+
+----------------------------------------------------------------------
+Ran 21 tests in 1.049s
+
+OK

@@ -1,0 +1,21 @@
+{
+  "argv": [
+    "swift",
+    "test",
+    "--no-parallel",
+    "--build-system",
+    "swiftbuild",
+    "--scratch-path",
+    "/private/tmp/agent-lens-m10b-implementation-9jaujmja/parent/river-corrections/red-products",
+    "-Xswiftc",
+    "-load-plugin-library",
+    "-Xswiftc",
+    "/Library/Developer/CommandLineTools/usr/lib/swift/host/plugins/testing/libTestingMacros.dylib",
+    "--filter",
+    "everyNpmInvocationOverridesInheritedCacheLogsAndNotifierIncludingFourOwnershipQueries|metadataDeadlineRefusalUsesBudgetReasonWhileTaskCancellationStaysNeutral"
+  ],
+  "exit": 1,
+  "seconds": 39.05115050000313,
+  "AgentLens_test_overrides": "both unset",
+  "TMPDIR": "/var/folders/tf/jsdyxcts6y72fs98s7wl3dfm0000gn/T/"
+}

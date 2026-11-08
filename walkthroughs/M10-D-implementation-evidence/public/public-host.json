@@ -1,0 +1,26 @@
+{
+  "argv": [
+    "/usr/bin/sandbox-exec",
+    "-f",
+    "/private/tmp/agent-lens-m10d-acceptance.47587/public-m10d/ordinary-app.sb",
+    "/private/tmp/agent-lens-m10d-acceptance.47587/public-m10d/public-host",
+    "/private/tmp/agent-lens-m10d-acceptance.47587/public-m10d/shipping-detectors.json",
+    "/private/tmp/agent-lens-m10d-acceptance.47587/public-m10d",
+    "/private/tmp/agent-lens-m10d-acceptance.47587/public-m10d/public-result.json",
+    "/private/tmp/agent-lens-m10d-acceptance.47587/public-m10d/public-argv.jsonl"
+  ],
+  "cwd": "/private/tmp/agent-lens-m10d-acceptance.47587/public-m10d",
+  "end": 1794131217.0440488,
+  "exit": 0,
+  "original_argv": [
+    "/private/tmp/agent-lens-m10d-acceptance.47587/public-m10d/public-host",
+    "/private/tmp/agent-lens-m10d-acceptance.47587/public-m10d/shipping-detectors.json",
+    "/private/tmp/agent-lens-m10d-acceptance.47587/public-m10d",
+    "/private/tmp/agent-lens-m10d-acceptance.47587/public-m10d/public-result.json",
+    "/private/tmp/agent-lens-m10d-acceptance.47587/public-m10d/public-argv.jsonl"
+  ],
+  "sandbox_profile": "/private/tmp/agent-lens-m10d-acceptance.47587/public-m10d/ordinary-app.sb",
+  "start": 1794131215.5129988,
+  "stderr": "/private/tmp/agent-lens-m10d-acceptance.47587/public-m10d/receipts/public-host.stderr",
+  "stdout": "/private/tmp/agent-lens-m10d-acceptance.47587/public-m10d/receipts/public-host.stdout"
+}

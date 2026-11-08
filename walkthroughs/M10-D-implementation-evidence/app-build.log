@@ -1,0 +1,57 @@
+build-dev-app: building AgentLensApp with SwiftPM (debug)...
+Building for debugging...
+[Planning deferred tasks]
+[42 / 65]
+[43 / 66] AgentLensCore
+[54 / 135]
+[62 / 135]
+[64 / 135]
+[69 / 135]
+[73 / 135]
+[77 / 135]
+[79 / 135]
+[80 / 135]
+[81 / 135]
+[88 / 135]
+[89 / 135]
+[94 / 135]
+[95 / 135]
+[97 / 135]
+[99 / 135]
+[101 / 135]
+[112 / 135] AgentLensCore
+<repo>/Sources/AgentLensCore/Environment/ShellEnvironmentResolver.swift:114:27: warning: 'init(validatingUTF8:)' is deprecated: replaced by 'String.init(validatingCString:)' [#DeprecatedDeclaration]
+112 |         guard let passwd = getpwuid(getuid()) else { return nil }
+113 |         guard let shell = passwd.pointee.pw_shell else { return nil }
+114 |         let shellString = String(validatingUTF8: shell)
+    |                           |- warning: 'init(validatingUTF8:)' is deprecated: replaced by 'String.init(validatingCString:)' [#DeprecatedDeclaration]
+    |                           `- note: use 'String.init(validatingCString:)' instead
+115 |         guard let shellString, !shellString.isEmpty else { return nil }
+116 |         return shellString
+
+[#DeprecatedDeclaration]: <https://docs.swift.org/compiler/documentation/diagnostics/deprecated-declaration>
+[119 / 136] AgentLensCore
+[125 / 142] AgentLensAppSupport
+[125 / 142] AgentLensCore
+<repo>/Package.swift: AgentLensCore: ld: warning: search path '/Library/Developer/CommandLineTools/Developer/Library/Frameworks' not found
+[136 / 143] AgentLensAppSupport
+<repo>/Package.swift: AgentLensAppSupport: ld: warning: search path '/Library/Developer/CommandLineTools/Developer/Library/Frameworks' not found
+[155 / 207]
+[161 / 207]
+[167 / 207]
+[171 / 207]
+[175 / 207]
+[182 / 207]
+[186 / 207]
+[187 / 207]
+[189 / 207]
+[190 / 207]
+[191 / 207]
+[192 / 207]
+[202 / 207] AgentLensApp-product
+[203 / 207] AgentLensApp-product
+<repo>/Package.swift: AgentLensApp-product: ld: warning: search path '/Library/Developer/CommandLineTools/Developer/usr/lib' not found
+<repo>/Package.swift: AgentLensApp-product: ld: warning: search path '/Library/Developer/CommandLineTools/Developer/Library/Frameworks' not found
+[205 / 207] AgentLensApp-product
+Build complete! (26.32 secs)
+/private/tmp/agent-lens-m10d-acceptance.47587/final-app/AgentLensApp-debug.app

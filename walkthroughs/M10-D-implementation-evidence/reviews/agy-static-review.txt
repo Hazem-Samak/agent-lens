@@ -1,0 +1,78 @@
+## VERDICT: **BLOCK**
+
+Independent read-only and STATIC implementation review 2 for Agent Lens M10-D (npm Uninstall + combined npm acceptance).
+No files were edited, created, or deleted; no shell commands (`swift build`, `swift test`, `npm`, etc.) were executed; no web tools were used. File reads only.
+
+---
+
+## BLOCKING
+
+### B1 — `NameError: name 'repo' is not defined` in acceptance harness render scenario
+- **Location:** [`Tests/Fixtures/M10D/npm_uninstall_acceptance.py:476`](file://<repo>/Tests/Fixtures/M10D/npm_uninstall_acceptance.py#L476)
+- **Scenario:** Running the acceptance harness with `--scenario render` fails immediately at runtime with a Python `NameError` / `UnboundLocalError`.
+  ```python
+  475:         source = root / "render-host.swift"; source.write_text(RENDER_HOST_SOURCE)
+  476:         view = repo / "Sources/AgentLensApp/UninstallOperationView.swift"
+  477:         host = root / "render-host"
+  ```
+  `repo` is defined locally inside `public_scenario(args)` at line 639 (`repo = Path(__file__).resolve().parents[3]`), but it was never defined inside `render(args)` or in module global scope.
+- **Correction:** Define `repo = Path(__file__).resolve().parents[3]` inside `render(args)` or declare `REPO = Path(__file__).resolve().parents[3]` once at module scope and use it consistently in both `render` and `public_scenario`.
+
+### B2 — Native UI click-through & visual evidence blocked by host TCC (AC09 / AC11)
+- **Location:** [`walkthroughs/M10-D-implementation.md:121-128, 143-144`](file://<repo>/walkthroughs/M10-D-implementation.md#L121-L128)
+- **Scenario:** M10-D-R1 (§R1-4, [`briefs/M10-D-R1-review-corrections.md:50-55`](file://<repo>/briefs/M10-D-R1-review-corrections.md#L50-L55)) made M10-D-AC11 mandatory and non-waivable without explicit owner authorization ("A BLOCKED public fixture does not pass AC11 and does not allow M10 acceptance. If the public fixture is genuinely unavailable, implementation stops and the owner must decide the limitation explicitly; controlled-registry evidence cannot silently substitute"). While offscreen layout rendering and the headless public service host succeeded, actual native click-through and screen capture could not be obtained due to host TCC restrictions (`osascript is not allowed assistive access (-25211)`).
+- **Correction:** The coordinator must either obtain owner authorization for the native accessibility limitation or rerun the native journey in an accessibility-authorized environment to produce the required AC09/AC11 interaction receipts.
+
+---
+
+## NON-BLOCKING
+
+1. **`confirmSelectedUpdate` lacks the generation check present in `confirmSelectedUninstall`**
+   - **Location:** [`Sources/AgentLensAppSupport/InventoryViewModel.swift:380-389`](file://<repo>/Sources/AgentLensAppSupport/InventoryViewModel.swift#L380-L389)
+   - **Details:** In `confirmSelectedUninstall()`, line 531 includes `guard generation == self.uninstallGeneration else { return }` to guard publication symmetry. In `confirmSelectedUpdate()`, `updateGeneration` is incremented at line 372, but the detached task callback directly publishes without checking `guard generation == self.updateGeneration else { return }`. While slot exclusivity currently protects it, adding the guard provides symmetry and protects against stale completions.
+
+2. **Multi-hop dangling symlink resolution in `observeEntryRemoval`**
+   - **Location:** [`Sources/AgentLensCore/Operations/NpmUninstallOperation.swift:465-478`](file://<repo>/Sources/AgentLensCore/Operations/NpmUninstallOperation.swift#L465-L478)
+   - **Details:** If `selectedEntryPath` is an external symlink pointing to `{prefix}/bin/<tool>`, and `{prefix}/bin/<tool>` is itself a symlink to `{prefix}/lib/node_modules/<pkg>/...`: if npm deletes the package directory but leaves `{prefix}/bin/<tool>` as an unremoved dangling symlink, `lstat(target)` on `{prefix}/bin/<tool>` succeeds (returns 0). Line 478 evaluates to false, returning `.failed` (`observationFailed = true`), leading to `.uncertain`. This fails closed (prevents false success), but using `stat` on the target to test for `ENOENT` across symlink chains would directly observe whether the link destination is live or dangling.
+
+3. **Spurious cleanup warning on busy gate with replayed preparation**
+   - **Location:** [`Sources/AgentLensCore/Operations/NpmUninstallOperation.swift:190-198`](file://<repo>/Sources/AgentLensCore/Operations/NpmUninstallOperation.swift#L190-L198)
+   - **Details:** When `gate.acquire()` fails, `preparation.releaseUnconsumed()` is called. If the preparation was previously claimed (replayed), `releaseUnconsumed()` returns `false`. This `false` is passed to `cleanupOK: false` in `noProcessOutcome`, generating the warning `"The owned operation scratch root could not be removed safely."` even though the root is owned and in active use by the running operation.
+
+4. **Buffer sizing for `readlink` in `observeEntryRemoval`**
+   - **Location:** [`Sources/AgentLensCore/Operations/NpmUninstallOperation.swift:466-468`](file://<repo>/Sources/AgentLensCore/Operations/NpmUninstallOperation.swift#L466-L468)
+   - **Details:** `readlink` reads into a fixed `PATH_MAX` (1024-byte) buffer. If a symlink target reaches or exceeds `PATH_MAX`, `count < buffer.count` is false, falling through to `.failed` (`observationFailed = true`). This fails closed, but dynamically sizing or explicitly checking against `PATH_MAX` would prevent treating long paths as observation failures.
+
+---
+
+## TEST GAPS
+
+1. **ViewModel happy-path test for `confirmSelectedUninstall`**
+   - [`Tests/AgentLensAppSupportTests/InventoryViewModelTests.swift:1012-1085`](file://<repo>/Tests/AgentLensAppSupportTests/InventoryViewModelTests.swift#L1012-L1085) comprehensively tests the failed-rescan path (R1-2: `snapshot == nil` clears ownership). However, there is no ViewModel-level unit test verifying the happy path where `executeUninstall` returns a fresh non-nil snapshot, asserting that the ViewModel publishes the new snapshot, dismisses cleanly, and updates the view state. (The service-level happy path is covered in `InventoryServiceTests.swift:1158`).
+2. **Acceptance matrix rows AC05b, AC06b, AC06d in Python harness**
+   - In [`Tests/AgentLensCoreTests/NpmUninstallOperationTests.swift`](file://<repo>/Tests/AgentLensCoreTests/NpmUninstallOperationTests.swift), lines 835-973 and 975-1016 thoroughly test symlink store removal, package replacement, shared bin retargeting, and unreadable observations. However, they are not implemented as dedicated CLI subcommands in [`Tests/Fixtures/M10D/npm_uninstall_acceptance.py`](file://<repo>/Tests/Fixtures/M10D/npm_uninstall_acceptance.py).
+3. **Combined reverse-order scenario**
+   - D07.3 mentions running the reverse order where practical (Uninstall, then Update). The combined scenario in `npm_uninstall_acceptance.py:705-805` exercises only Update followed by Uninstall.
+
+---
+
+## VERIFIED STATIC INVARIANTS
+
+The following were verified as sound by static code analysis:
+1. **Tri-state removal observation:** `observePackageRemoval` and `observeEntryRemoval` distinguish absent (`ENOENT`/`ENOTDIR`), present-with-identity, replaced identity, released target, dangling residue, and observation failure. Exit 0 alone never results in `.succeeded`; `.succeeded` strictly requires exit 0, package absent, target released, and `!observationFailed`.
+2. **Ownership clearing after launched removal:** In `confirmSelectedUninstall` (`InventoryViewModel.swift:533-539`), if `result.snapshot` is nil and `result.outcome.processStarted` is true, `clearOwnership(for: registryID)` executes, removing verified ownership from the snapshot and disarming the Uninstall button in `ToolDetailView`.
+3. **Single mutation slot & sheet exclusion:** `prepareSelectedUninstall`, `confirmSelectedUninstall`, `prepareSelectedUpdate`, and `confirmSelectedUpdate` all guard against concurrent pipelines, and `invalidatePendingUpdate` safely tears down unconsumed preparations without interrupting launched mutations.
+4. **Argv and script semantics:** `NpmUninstallOperation.uninstallArguments` emits the exact literal argv specified in D03.3, correctly including scope pinning via `scopeOf` (`--@scope:registry=...`), `--global`, `--prefix`, `--no-save`, `--fetch-retries=0`, and `--fetch-timeout=30000`, with no `--force`, `--ignore-scripts`, `--dry-run`, metadata queries, or shell strings.
+
+---
+
+## UNVERIFIED
+
+Due to the strict read-only and static constraints of this review:
+- `swift build` and `swift test --no-parallel` were not executed.
+- `Tests/Fixtures/M10D/npm_uninstall_acceptance.py` was not executed.
+- Hosted CI gates were not checked.
+
+REVIEW-COMPLETE
+
+exit=0

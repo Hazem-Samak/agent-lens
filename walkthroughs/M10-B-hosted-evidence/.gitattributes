@@ -1,0 +1,3 @@
+# Preserve raw hosted output byte-for-byte.
+*.stdout -whitespace
+*.stderr -whitespace

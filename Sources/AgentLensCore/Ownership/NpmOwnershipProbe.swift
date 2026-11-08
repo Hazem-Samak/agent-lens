@@ -26,6 +26,33 @@ enum NpmOwnershipProbeTestHooks {
     @TaskLocal static var onBeforeBinObservation: (@Sendable () -> Void)?
 }
 
+extension ExecutableFingerprint {
+    /// Deterministic length-framed digest of EVERY field. A replacement, retarget, or metadata
+    /// change (mode/size/times) therefore produces a different digest. Never Swift's randomized
+    /// `Hasher`; internal, never public.
+    var digest: String {
+        let material: [String] = [
+            "device", String(device),
+            "inode", String(inode),
+            "mode", String(mode),
+            "size", String(size),
+            "mtime", "\(modifiedSeconds).\(modifiedNanoseconds)",
+            "ctime", "\(changedSeconds).\(changedNanoseconds)"
+        ]
+        return UpdateMetadataKey.stableDigest(material.map { "\($0.utf8.count):\($0)" }.joined())
+    }
+}
+
+extension DirectoryIdentity {
+    /// Deterministic length-framed digest of the stable directory identity (device/inode/mode).
+    /// `physicalPath` is deliberately excluded: an alias-dependent descriptor spelling is not
+    /// stable identity and never enters a persistent key. Internal, never public.
+    var digest: String {
+        let material: [String] = ["device", String(device), "inode", String(inode), "mode", String(mode)]
+        return UpdateMetadataKey.stableDigest(material.map { "\($0.utf8.count):\($0)" }.joined())
+    }
+}
+
 struct NpmOwnershipProbe {
 
     private static let maximumManifestBytes = 1024 * 1024
@@ -36,7 +63,7 @@ struct NpmOwnershipProbe {
     }
 
     private enum CandidateOutcome {
-        case verified(VerifiedInstallation, NpmProof)
+        case verified(VerifiedInstallation, NpmOwnershipProof)
         case failed(InstallationOwnershipReason)
     }
 
@@ -45,7 +72,10 @@ struct NpmOwnershipProbe {
         let binRelativePath: String
     }
 
-    private struct NpmProof {
+    /// Internal npm ownership proof: every identity needed to revalidate a verified selection,
+    /// plus a deterministic fingerprint that excludes `DirectoryIdentity.physicalPath` and manifest
+    /// content. Never public, never serialized, never a cache key.
+    struct NpmOwnershipProof: Equatable, Sendable {
         let manager: ObservedExecutable
         let selection: ObservedExecutable
         /// The exact paths npm reported, retained so a retargeted lexical spelling cannot keep an
@@ -99,17 +129,65 @@ struct NpmOwnershipProbe {
             }
             return nil
         }
+
+        /// Deterministic, length-framed digest over EVERY stable identity field of the recorded
+        /// proof: complete `ExecutableFingerprint`s for manager/selection/manifest/bin/managerBin,
+        /// device/inode/mode for each directory, and the canonical-and-lexical path spellings.
+        /// `DirectoryIdentity.physicalPath` is deliberately excluded from every persistent key: it
+        /// is an alias-dependent descriptor spelling, not stable identity. Manifest CONTENT is not
+        /// included — the manifest's fingerprint changes when the file is replaced, so a same-path
+        /// replacement invalidates this digest (and any cache key derived from it) while an
+        /// unchanged file keeps its identity. Never Swift's randomized `Hasher`.
+        var fingerprint: String {
+            var material = ""
+            func frame(_ text: String) { material += "\(text.utf8.count):\(text)" }
+            func frame(_ path: String, _ label: String) {
+                frame(label)
+                frame(path)
+            }
+            frame(manager.entryPath, "manager-entry")
+            frame(manager.canonicalTarget, "manager-target")
+            frame(manager.fingerprint.digest, "manager-fingerprint")
+            frame(selection.entryPath, "selection-entry")
+            frame(selection.canonicalTarget, "selection-target")
+            frame(selection.fingerprint.digest, "selection-fingerprint")
+            frame(prefixLexicalPath, "prefix-lexical")
+            frame(rootLexicalPath, "root-lexical")
+            frame(prefix.canonicalPath, "prefix-canonical")
+            frame(prefix.digest, "prefix-identity")
+            frame(root.canonicalPath, "root-canonical")
+            frame(root.digest, "root-identity")
+            frame(packageLexicalPath, "package-lexical")
+            frame(package.canonicalPath, "package-canonical")
+            frame(package.digest, "package-identity")
+            frame(prefixBinLexicalPath, "prefix-bin-lexical")
+            frame(prefixBin.canonicalPath, "prefix-bin-canonical")
+            frame(prefixBin.digest, "prefix-bin-identity")
+            frame(manifestLexicalPath, "manifest-lexical")
+            frame(manifest.canonicalPath, "manifest-canonical")
+            frame(manifest.fingerprint.digest, "manifest-fingerprint")
+            frame(bin.entryPath, "bin-entry")
+            frame(bin.canonicalTarget, "bin-target")
+            frame(bin.fingerprint.digest, "bin-fingerprint")
+            frame(managerBin.entryPath, "manager-bin-entry")
+            frame(managerBin.canonicalTarget, "manager-bin-target")
+            frame(managerBin.fingerprint.digest, "manager-bin-fingerprint")
+            return UpdateMetadataKey.stableDigest(material)
+        }
     }
 
-    static func verify(
+    /// Runs the full npm ownership verification and returns the outcome plus, on success, the
+    /// proof that must be revalidated before any metadata publication. The public `verify`
+    /// delegates here and discards the proof.
+    static func verifyWithProof(
         definition: DetectorDefinition,
         selection: ObservedExecutable,
         manager: ObservedExecutable,
         environment: ShellEnvironment,
         runner: UpdateCommandRunner
-    ) async -> InstallationOwnershipOutcome {
+    ) async -> (outcome: InstallationOwnershipOutcome, proof: NpmOwnershipProof?) {
         if let reason = revalidate(selection: selection, manager: manager) {
-            return .unknown(reason)
+            return (.unknown(reason), nil)
         }
 
         let prefixText: String
@@ -120,15 +198,15 @@ struct NpmOwnershipProbe {
             runner: runner
         ) {
         case .failure(let failure):
-            return .unknown(reason(for: failure))
+            return (.unknown(reason(for: failure)), nil)
         case .success(let data):
             guard let parsed = ManagerOutputParser.singleAbsolutePath(data) else {
-                return .unknown(.invalidManagerOutput)
+                return (.unknown(.invalidManagerOutput), nil)
             }
             prefixText = parsed
         }
         if let reason = revalidate(selection: selection, manager: manager) {
-            return .unknown(reason)
+            return (.unknown(reason), nil)
         }
 
         let rootText: String
@@ -139,15 +217,15 @@ struct NpmOwnershipProbe {
             runner: runner
         ) {
         case .failure(let failure):
-            return .unknown(reason(for: failure))
+            return (.unknown(reason(for: failure)), nil)
         case .success(let data):
             guard let parsed = ManagerOutputParser.singleAbsolutePath(data) else {
-                return .unknown(.invalidManagerOutput)
+                return (.unknown(.invalidManagerOutput), nil)
             }
             rootText = parsed
         }
         if let reason = revalidate(selection: selection, manager: manager) {
-            return .unknown(reason)
+            return (.unknown(reason), nil)
         }
 
         let prefixLexicalPath = URL(fileURLWithPath: prefixText).standardizedFileURL.path
@@ -155,26 +233,23 @@ struct NpmOwnershipProbe {
         guard let prefix = FileIdentityObserver.observeDirectory(path: prefixLexicalPath),
               let root = FileIdentityObserver.observeDirectory(path: rootLexicalPath)
         else {
-            return .unknown(.unsupportedInstallationLayout)
+            return (.unknown(.unsupportedInstallationLayout), nil)
         }
-        // Identity equality alone is insufficient: `<prefix>/lib/node_modules` may be a symlink
-        // into another prefix whose directory identity is then equal to the reported root. The
-        // canonical root must be exactly the prefix followed by `lib/node_modules`, by components.
         guard FileIdentityObserver.isExactDescendant(
             root.canonicalPath,
             of: prefix.canonicalPath,
             components: ["lib", "node_modules"]
         ) else {
-            return .unknown(.managerRootMismatch)
+            return (.unknown(.managerRootMismatch), nil)
         }
 
         let packages = definition.packages.filter { $0.manager == .npm }
-        guard !packages.isEmpty else { return .unknown(.noDeclaredPackage) }
+        guard !packages.isEmpty else { return (.unknown(.noDeclaredPackage), nil) }
 
-        var matches: [(VerifiedInstallation, NpmProof)] = []
+        var matches: [(VerifiedInstallation, NpmOwnershipProof)] = []
         var firstFailure: InstallationOwnershipReason?
         for package in packages {
-            if Task.isCancelled { return .unknown(.cancelled) }
+            if Task.isCancelled { return (.unknown(.cancelled), nil) }
             switch inspect(
                 package: package,
                 executableName: definition.executableName,
@@ -193,17 +268,62 @@ struct NpmOwnershipProbe {
         }
 
         guard !matches.isEmpty else {
-            return .unknown(firstFailure ?? .noMatchingPackage)
+            return (.unknown(firstFailure ?? .noMatchingPackage), nil)
         }
         guard matches.count == 1, let match = matches.first else {
-            return .unknown(.ambiguousOwnership)
+            return (.unknown(.ambiguousOwnership), nil)
         }
-        if Task.isCancelled { return .unknown(.cancelled) }
-        if let failure = match.1.revalidate() { return .unknown(failure) }
+        if Task.isCancelled { return (.unknown(.cancelled), nil) }
+        if let failure = match.1.revalidate() { return (.unknown(failure), nil) }
         if let reason = revalidate(selection: selection, manager: manager) {
-            return .unknown(reason)
+            return (.unknown(reason), nil)
         }
-        return .verified(match.0)
+        return (.verified(match.0), match.1)
+    }
+
+    /// Resolves the `npm` executable from the captured session environment, using the same
+    /// ordered-PATH rule as the ownership verifier. Returns nil when no live `npm` is on PATH.
+    static func resolveNpmManager(
+        environment: ShellEnvironment,
+        currentDirectory: String
+    ) -> ObservedExecutable? {
+        let workingDirectory = URL(
+            fileURLWithPath: currentDirectory,
+            isDirectory: true
+        ).standardizedFileURL
+        for directoryText in environment.pathEntries {
+            let directory = directoryText.isEmpty
+                ? workingDirectory
+                : URL(
+                    fileURLWithPath: directoryText,
+                    isDirectory: true,
+                    relativeTo: workingDirectory
+                ).standardizedFileURL
+            let entry = directory.appendingPathComponent("npm").standardizedFileURL.path
+            if let observed = FileIdentityObserver.observeExecutable(entryPath: entry) {
+                return observed
+            }
+        }
+        return nil
+    }
+
+    /// Public entry point: delegates to `verifyWithProof` and discards the proof, preserving
+    /// the existing `VerifiedInstallation`/internal initializer contract.
+    static func verify(
+        definition: DetectorDefinition,
+        selection: ObservedExecutable,
+        manager: ObservedExecutable,
+        environment: ShellEnvironment,
+        runner: UpdateCommandRunner
+    ) async -> InstallationOwnershipOutcome {
+        let (outcome, _) = await verifyWithProof(
+            definition: definition,
+            selection: selection,
+            manager: manager,
+            environment: environment,
+            runner: runner
+        )
+        return outcome
     }
 
     private static func reason(for failure: CommandFailure) -> InstallationOwnershipReason {
@@ -357,7 +477,7 @@ struct NpmOwnershipProbe {
                 fingerprint: selection.fingerprint
             )
         )
-        let proof = NpmProof(
+        let proof = NpmOwnershipProof(
             manager: manager,
             selection: selection,
             prefixLexicalPath: prefixLexicalPath,

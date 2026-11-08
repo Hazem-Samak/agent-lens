@@ -1,0 +1,18 @@
+Hosted CI run 42470655181
+Trigger: push to codex/m10-npm-management
+Exact SHA: 308b7d2bce8875752219f4dbe9a58d9492285c30
+Workflow: CI
+Result: success
+
+Gate summary (producer_exit=0, verification_exit=0 for every gate):
+- guard: passed
+- guard-fixtures: 21 passed, 0 skipped
+- swift-build: passed
+- isolation-gate: 1 passed, 0 skipped
+- full-test-suite: 532 passed, 0 skipped, combined Core+AppSupport
+- build-dev-app: passed
+- packaging: 9 passed, 0 skipped
+
+Runner observed: macOS arm64, Xcode 26.3, Apple Swift 6.2.4 (hosted receipt).
+No skips or failures. The earlier failure on 406b18e was the interrupted-operation classification
+test and is retained as history in the implementation walkthrough.

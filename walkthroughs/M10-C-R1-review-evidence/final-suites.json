@@ -1,0 +1,42 @@
+[
+  {
+    "gate": "final-suite-tty",
+    "argv": [
+      "swift",
+      "test",
+      "--build-system",
+      "swiftbuild",
+      "--scratch-path",
+      "/private/tmp/agent-lens-m10c-acceptance.TcBGo0/parent/coordinator-verification-products",
+      "--no-parallel",
+      "--skip-build",
+      "-Xswiftc",
+      "-load-plugin-library",
+      "-Xswiftc",
+      "/Library/Developer/CommandLineTools/usr/lib/swift/host/plugins/testing/libTestingMacros.dylib"
+    ],
+    "exit": 0,
+    "elapsed": 75.93,
+    "detached": false
+  },
+  {
+    "gate": "final-suite-detached",
+    "argv": [
+      "swift",
+      "test",
+      "--build-system",
+      "swiftbuild",
+      "--scratch-path",
+      "/private/tmp/agent-lens-m10c-acceptance.TcBGo0/parent/coordinator-verification-products",
+      "--no-parallel",
+      "--skip-build",
+      "-Xswiftc",
+      "-load-plugin-library",
+      "-Xswiftc",
+      "/Library/Developer/CommandLineTools/usr/lib/swift/host/plugins/testing/libTestingMacros.dylib"
+    ],
+    "exit": 0,
+    "elapsed": 71.215,
+    "detached": true
+  }
+]

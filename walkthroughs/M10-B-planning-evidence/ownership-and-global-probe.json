@@ -1,0 +1,96 @@
+[
+  {
+    "npm": "npm10",
+    "args": [
+      "config",
+      "get",
+      "registry",
+      "--global",
+      "--cache=/private/tmp/agent-lens-m10b-plan-b7klgulu/npm10-ownership-probe/global-config-_v27taql",
+      "--logs-dir=/private/tmp/agent-lens-m10b-plan-b7klgulu/npm10-ownership-probe/global-config-_v27taql/logs",
+      "--no-update-notifier"
+    ],
+    "exit": 0,
+    "stdout": "https://global.invalid/\n",
+    "stderr": "",
+    "mode": "0o700",
+    "removed": true
+  },
+  {
+    "npm": "npm10",
+    "args": [
+      "prefix",
+      "--global",
+      "--cache=/private/tmp/agent-lens-m10b-plan-b7klgulu/npm10-ownership-probe/prefix-azn3y9gz",
+      "--logs-dir=/private/tmp/agent-lens-m10b-plan-b7klgulu/npm10-ownership-probe/prefix-azn3y9gz/logs",
+      "--no-update-notifier"
+    ],
+    "exit": 0,
+    "stdout": "/private/tmp/agent-lens-m10b-plan-b7klgulu/npm10-ownership-probe/prefix\n",
+    "stderr": "",
+    "mode": "0o700",
+    "removed": true
+  },
+  {
+    "npm": "npm10",
+    "args": [
+      "root",
+      "--global",
+      "--cache=/private/tmp/agent-lens-m10b-plan-b7klgulu/npm10-ownership-probe/root-a7deijuq",
+      "--logs-dir=/private/tmp/agent-lens-m10b-plan-b7klgulu/npm10-ownership-probe/root-a7deijuq/logs",
+      "--no-update-notifier"
+    ],
+    "exit": 0,
+    "stdout": "/private/tmp/agent-lens-m10b-plan-b7klgulu/npm10-ownership-probe/prefix/lib/node_modules\n",
+    "stderr": "",
+    "mode": "0o700",
+    "removed": true
+  },
+  {
+    "npm": "npm11",
+    "args": [
+      "config",
+      "get",
+      "registry",
+      "--global",
+      "--cache=/private/tmp/agent-lens-m10b-plan-b7klgulu/npm11-ownership-probe/global-config-afvn5fzx",
+      "--logs-dir=/private/tmp/agent-lens-m10b-plan-b7klgulu/npm11-ownership-probe/global-config-afvn5fzx/logs",
+      "--no-update-notifier"
+    ],
+    "exit": 0,
+    "stdout": "https://global.invalid/\n",
+    "stderr": "",
+    "mode": "0o700",
+    "removed": true
+  },
+  {
+    "npm": "npm11",
+    "args": [
+      "prefix",
+      "--global",
+      "--cache=/private/tmp/agent-lens-m10b-plan-b7klgulu/npm11-ownership-probe/prefix-pewzguil",
+      "--logs-dir=/private/tmp/agent-lens-m10b-plan-b7klgulu/npm11-ownership-probe/prefix-pewzguil/logs",
+      "--no-update-notifier"
+    ],
+    "exit": 0,
+    "stdout": "/private/tmp/agent-lens-m10b-plan-b7klgulu/npm11-ownership-probe/prefix\n",
+    "stderr": "",
+    "mode": "0o700",
+    "removed": true
+  },
+  {
+    "npm": "npm11",
+    "args": [
+      "root",
+      "--global",
+      "--cache=/private/tmp/agent-lens-m10b-plan-b7klgulu/npm11-ownership-probe/root-fpkji0_3",
+      "--logs-dir=/private/tmp/agent-lens-m10b-plan-b7klgulu/npm11-ownership-probe/root-fpkji0_3/logs",
+      "--no-update-notifier"
+    ],
+    "exit": 0,
+    "stdout": "/private/tmp/agent-lens-m10b-plan-b7klgulu/npm11-ownership-probe/prefix/lib/node_modules\n",
+    "stderr": "",
+    "mode": "0o700",
+    "removed": true
+  }
+]

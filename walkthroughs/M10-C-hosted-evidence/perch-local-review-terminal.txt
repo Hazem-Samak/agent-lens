@@ -1,0 +1,150 @@
+tool·       read 1 file · /.../parent/harness-r3-controlled3-root.txt · done
+
+tool·       read 3 files · done · ctrl-e
+
+tool·       read 2 files · done · ctrl-e
+
+tool·       read 2 files · done · ctrl-e
+
+tool·       read 1 file · walkthroughs/M10-C-implementation.md · done
+
+tool·       read 1 file · walkthroughs/M10-C-implementation.md · done
+
+tool·       read 2 files · done · ctrl-e
+
+tool·       read 2 files · done · ctrl-e
+
+tool·       searched 1 path · "permission" in /.../harness-r3-controlled3-1793645739/controlled-failures.json · done
+
+tool·       read 1 file · /.../harness-r3-controlled3-1793645739/controlled-failures.json · done
+
+thinking›   thinking… · ctrl-e
+
+saffron›    Final delta review complete. Report below; holding.
+
+            ────────────────────────────────────────
+
+            M10-C final delta review (MainWindow d1e1b324, fixture 6079e909, walkthrough b2fca9f4, brief ae031f9c; all other hashes unchanged from the parent-matched 22; glm-5.3-flash-starter, effort
+            max)
+
+            Source: PASS on the delta.
+
+            • B6 verified: the WindowCloseObserver no longer takes canClose, no longer installs itself as NSWindow.delegate, and the forwardingTarget/responds(to:) proxy is gone (MainWindow 333-381).
+              It is now a passive willCloseNotification observer that releases pending preview state; termination and the actual join belong to AgentLensTerminationDelegate/AppLifecycleGate. The
+              delegate-replacement hazard I flagged earlier is fully removed, not patched.
+            • Gate coverage widened correctly: shouldWait now includes model.isUpdateSheetPresented (line 71) and cancelAndJoin calls both model.cancel() and model.cancelUpdate() (72-76). This closes
+              the prepared-sheet gap: an idle sheet holding a claimed operation root now makes the app wait and releases the root before termination. That matches the measured prepared-close green.
+            • Core/AppSupport/tests unchanged from the previously passed pin; nothing to re-review there.
+
+            Local evidence: verified in content.
+
+            • active-close-green.txt: pid 3824, window 6127, trigger=direct_nswindow_close, delayed child 4006 gone, app gone, operation_base_entries: empty. Same trigger as the preserved red; no
+              AXPress-red claim anywhere.
+            • prepared-preview-green-final.txt: pid 4127, prepared sheet confirmed before close, root held, after close app gone and operation base empty. The old 2c1 trial is correctly described as
+              a race the old cleanup won, with no new red claimed from it.
+            • native-result.json: real native journey 1.0.0→2.0.0 succeeded; nativeSeed shows a distinct real-npm-installed native-prefix with npm_created_bin: true and a real bin inode; argv record
+              shows original public base/scope registry flags preserved with registryGuard: reviewed-public-base-and-scope before the loopback rewrite; registry PID 4355 stopped, thread joined;
+              operation base empty; owning root recorded.
+            • Compile receipts: native swiftc ran under sandbox-exec -f ordinary-app.sb with -module-cache-path inside the owned root, exit 0; the recipe is an executable /bin/sh script using env -i
+              with owned HOME/ZDOTDIR/CFFIXED/TMPDIR/npm config, registry wait, and recorded-PID stop-native cleanup trap. All the reopened helper defects I endorsed are closed in the receipts I can
+              read.
+            • idle-close.txt (public6): ordinary app Cmd-W, app gone. public-final-result.txt: public journey success 0.166.0, app gone after.
+
+            Material findings (tied to hash)
+
+            1. MEDIUM: the "permission" scenario is still not a permission denial (fixture 6079e909, receipt controlled-failures.json:104-137). Its stderr is ENODATA — Cache input stream was empty
+               against the loopback, byte-for-byte the same failure shape as the registry scenario. npm failed on the empty packument before any prefix write was attempted, so the chmod-555 denial
+               path was still never exercised. The walkthrough's AC06 row (line 160) lists "permission" as covered: that specific sub-claim remains unproven. Everything else in AC06 (engine
+               EBADENGINE, lifecycle exit 9, tarball 404, network ECONNREFUSED, registry ENODATA) is genuine.
+            2. LOW (citation integrity): the red pointer still cites an empty file. The manifest (line 92-93) and walkthrough (134-136) cite parent/harness-r2-controlled34-1793633662/close-app.err
+               for the red ppid-1 orphan fact; I read that file at the prior pin and it is zero bytes. The red fact is coordinator-attested live observation, and the green receipts are now real
+               files, but the red citation should point at a receipt that actually contains the observation.
+
+            Verdict
+
+            • SOURCE: PASS on the final delta and the complete frozen pin.
+            • LOCAL-EVIDENCE: PASS with limits, subject to finding 1: either reset the packument before the permission scenario and rerun that one case, or relabel it and drop the permission-denial
+              sub-claim from AC06. Finding 2 is a one-line citation repair.
+            • Standing limits unchanged: repeated-termination coalescing implemented but not runtime-measured (parent will exercise); AC14 hosted exact-SHA CI external; no whole-milestone acceptance
+              issued.
+
+            Holding. Model/effort as displayed: glm-5.3-flash-starter, effort max.
+
+╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│   describe a task · / commands · ↑ history · /keys for shortcuts                                                                                                                                     │
+│                                                                                                                                                                                                      │
+│ saffron · ask · plan                                                                                                                         glm-5.3-flash-starter · effort max · 297k / 1049k · 28% │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+
+you›        [Pasted text #8 · 1,863 chars]
+
+            ────────────────────────
+thinking›   thinking… · ctrl-e
+
+saffron›    Final evidence-only closure review. Reading the changed fixture region, the new permission receipt, the red attestation, and the updated walkthrough.
+
+tool·       read 2 files · done · ctrl-e
+
+tool·       read 2 files · done · ctrl-e
+
+tool·       read 1 file · /.../failure-permission/result.json · done
+
+tool·       searched 1 path · permission|EACCES|attestation|96872ab2|d551ebb2|controlled5 in walkthroughs/M10-C-implementation.md · done
+
+tool·       read 1 file · walkthroughs/M10-C-implementation.md · done
+
+saffron›    Final bounded closure review complete. Report below; holding.
+
+            ────────────────────────────────────────
+
+            M10-C final evidence-only closure (fixture d551ebb2, walkthrough 96872ab2, manifest 0741a703; all Swift source/tests unchanged from the parent-matched 22;
+            glm-5.3-flash-starter, effort max)
+
+            Fixture AST change: verified correct.
+
+            • run_controlled_failure gains require_permission_error: bool (line 788); when set, it asserts the operation stderr actually contains EACCES or EPERM
+              (863-866), failing the fixture otherwise. controlled() now resets a valid packument and both tarballs immediately before the permission scenario (955-959),
+              closing the stale-empty-packument defect I reported twice. The permission label also drives the host runner's chmod-555 path as before. The failure is now
+              genuinely a permission denial, not a registry artifact.
+            • The new receipt proves it: harness-r3-controlled5-1793649569/failure-permission/result.json shows npm error code EACCES, syscall rename, errno -13 on
+              prefix/bin/codex → .codex-…, exit 243, afterVersion 1.0.0, versionMatchesTarget false, processStarted true, retained streams, one operation record
+              (noRetry=true), unchanged sentinels. That is a real npm permission failure at the prefix, exactly what AC06's permission row requires. My finding 1 from the
+              previous pin is closed.
+
+            Red citation: closed.
+
+            • worker/AC08-red-attestation.md explicitly states the zero-byte close-app.err/.out are not cited as raw output, quotes the original worker report (app PID
+              86953 / window 5412, child 87296 ppid 1), names the provenance, and states no old failure was rerun. The walkthrough (145-148) carries the same correction.
+              My finding 2 is closed. The attestation is honest about its nature: attested live observation, not a raw receipt, with the green evidence carrying the
+              measured post-close facts.
+
+            Walkthrough 96872ab2: consistent with the receipts I read. The permission-correction section (120-129) matches the fixture code and the receipt; the AC06 row
+            (172) now says exactly what the evidence shows, including the EACCES rename specificity; the lifecycle section preserves the no-new-red-claim discipline and
+            the repeated-coalescing limitation.
+
+            Repeated-termination question: agreed with the parent's disposition. Cmd-Q inputs while the modal sheet was up did not invoke quit, and the extra
+            NSApp.terminate control attempt was blocked inside the nested modal run loop: that is an invalid test harness path, not a product defect. Apple's termination
+            contract keeps the modal run loop spinning until the global reply; the existing first-reply task (applicationShouldTerminate → terminateLater → async join →
+            reply(true)) covers a coalesced pending request by construction. No speculation-driven new code is warranted; the Qoder per-callback-reply claim is
+            unsupported as described. The limitation stays honestly disclosed rather than claimed green.
+
+            Parent own-products smoke (as reported, not independently rerun): native 1→2 exit 0 with separate outputs and exact sheet AX/image binding, Cancel leaving the
+            prefix unchanged; packaged public 0.165→0.166 exit 0 with same-env CLI parity, both sentinels, immutable profile, Done + idle close; original active
+            direct-close child 13434 gone, app 12453 gone, root empty; fully-ready preview held the owned root before close and released it after. These are consistent
+            with the fixture receipts I verified directly and require no source change.
+
+            Verdict
+
+            • SOURCE: PASS (unchanged pin; no new source findings).
+            • LOCAL-EVIDENCE: PASS. Both material findings from the prior pin are closed with real receipts; the AC06 permission row is now backed by an actual EACCES
+              rename denial; the red citation is truthful about provenance. Remaining limits, all previously agreed and honestly disclosed: repeated-termination
+              coalescing implemented but not runtime-measured (parent will exercise); AC14 hosted exact-SHA CI external; no whole-milestone acceptance issued from this
+              reviewer.
+
+            No material findings outstanding on this pin. Holding. Model/effort as displayed: glm-5.3-flash-starter, effort max.
+
+╭─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│   describe a task · / commands · ↑ history · /keys for shortcuts                                                                                                        │
+│                                                                                                                                                                         │
+│ saffron · ask · plan                                                                                            glm-5.3-flash-starter · effort max · 322k / 1049k · 31% │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯

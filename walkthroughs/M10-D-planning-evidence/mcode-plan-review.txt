@@ -1,0 +1,56 @@
+Independent read-only review complete. Findings below; every code claim is anchored to a file:line I read in this session.
+
+**VERDICT: BLOCK**
+
+**BLOCKING**
+
+1. **Unreadable observations are indistinguishable from removal → false `.succeeded`.**
+   `Sources/AgentLensCore/Operations/NpmUninstallOperation.swift:432-439`
+   ```swift
+   let currentPackage = FileIdentityObserver.observeDirectory(path: plan.proof.packageLexicalPath)
+   let packageDirectoryAbsent = currentPackage == nil
+   let currentEntry = FileIdentityObserver.observeExecutable(entryPath: plan.selectedEntryPath)
+   let selectedTargetReleased = currentEntry?.canonicalTarget != plan.selectedTarget
+   ```
+   `FileIdentityObserver.observeDirectory`/`observeExecutable` (`Sources/AgentLensCore/Process/ExecutableIdentity.swift:59-83,98-126`) return `nil` for *absent*, *EACCES/permission-denied on an ancestor*, *raced rename*, *non-directory* — there is no "observation failed" case distinct from "not there". So a prefix on which the process cannot `stat` (or any transient I/O error) yields `packageDirectoryAbsent == true` and `selectedTargetReleased == true`, and the operation reports `.succeeded` for a package that is still fully installed. This is the worst failure class for this feature: a false removal success. The brief D05.2 explicitly requires the opposite ("an unreadable/failed observation is not proof of clean removal"), so the plan is right and the implementation does not satisfy it.
+   **Required correction:** introduce a tri-state observation (present-with-identity / observed-absent / observation-failed) for both the package directory and the selected entry, and map observation-failed to `.uncertain`, never to removal.
+
+2. **Ownership stays armed after a launched removal whose reconciliation fails.**
+   `Sources/AgentLensAppSupport/InventoryService.swift` (`executeUninstall`, `snapshotBox` populated only inside `reconcileAfterLaunch`) and `Sources/AgentLensAppSupport/InventoryViewModel.swift` (`confirmSelectedUninstall`: `if let snapshot = result.snapshot { self.publish(snapshot, updateFailure: nil) }`).
+   `reconcileAfterLaunch` uses `try? await service.refreshedLocalSnapshot()`. On the cancel-after-launch path — the ordinary case when a user hits Cancel during the npm run — `refreshedLocalSnapshot()` throws `CancellationError` (the detached task is cancelled by `withTaskCancellationHandler`), `fresh` is `nil`, `snapshotBox` stays empty, and the VM publishes nothing. The pre-existing snapshot therefore keeps `ownership: .verified(...)`, and `ToolDetailView.managementSection` keeps rendering the live destructive **"Uninstall…"** button for a package that may already be gone. This contradicts D05.4 ("After any launched Uninstall, clear the prior verified ownership observation in the published snapshot and require a fresh Verify before another ownership-gated action") and D06.5.
+   **Required correction:** when `outcome.processStarted == true`, publish a snapshot with the affected entry's ownership cleared even if the rescan failed (or clear ownership on the existing published entry), and require a fresh Verify before re-arming the action.
+
+3. **The acceptance matrix never exercises the removal-criterion edge cases the plan itself depends on.**
+   `briefs/M10-D-npm-uninstall.md` §6 (AC01–AC13).
+   The plan's removal proof (D05.2) is written against four situations that no row covers: (a) a package directory that is a symlink into an in-root store (`proof.packageLexicalPath` is explicitly documented as "a link into an in-root store" in `Sources/AgentLensCore/Ownership/NpmOwnershipProbe.swift:87`); (b) a second package that owns the same bin name in the same prefix; (c) a dangling bin symlink left in `{prefix}/bin` after removal; (d) an unreadable/failed observation. AC05 covers only the plain "identity gone" case. Under the current matrix the gate can pass while the app misreports removal, and the false-positive path of BLOCKING 1 is untested.
+   **Required correction:** add matrix rows (or extend AC06) covering the symlinked/in-root store package, the shared-bin second package, dangling-bin residue, and an unreadable-prefix observation, each with raw receipts.
+
+4. **The acceptance gate contradicts itself on the public-npm row, which is the row most likely to fail.**
+   §9 says "Done only when M10-D-AC01–13 all pass"; D07.3 and AC11 permit "a truthful BLOCKED limitation" for the public fixture, and AC11's own pass requirement says "public limitation recorded if unavoidable". A BLOCKED row therefore neither passes AC11 nor blocks acceptance — the plan never says which wins. Since AC11 depends on "public Codex old stable" being installable from the public registry into a disposable prefix, this ambiguity sits directly on the critical path.
+   **Required correction:** state explicitly whether AC11 is waivable; if waivable, name the substitute evidence (e.g. controlled-registry row only + recorded limitation) and change §9's "all pass" accordingly.
+
+**NON-BLOCKING**
+
+1. `briefs/M10-D-npm-uninstall.md` §3 correctly records that npm ignores `--no-save` in global mode, but D03.4 says "Global mode and `--no-save` protect project files" — the protection comes from global mode alone. Drop the `--no-save` claim or reword it; the argv flag itself is harmless.
+2. `NpmUninstallOperation.swift:131` binds `installedVersion` from `diagnostic.detectedTool.version` — the tool's own `--version` output, not the package manifest version (the proof records the manifest identity but not its parsed version). The sheet labels it "Installed" next to the package name (`UninstallOperationView.swift:96`), which can misattribute a CLI-reported version to the package. Label it as tool-reported, or bind the manifest version.
+3. `NpmUninstallDelta` (`OperationModels.swift:383-412`) has no field distinguishing "entry removed" from "entry now owned by another package" or "dangling bin residue in `{prefix}/bin`". `selectedTargetReleased == true` covers both, so a leftover symlink that will shadow a future reinstall is invisible in the delta.
+4. `UninstallOperationView.swift:73-75` applies both `.keyboardShortcut(.cancelAction)` and `.keyboardShortcut(.defaultAction)` to the same Cancel button; which wins is platform-dependent. Use one modifier (`.defaultAction` alone is enough for D06.2) or place them on separate buttons.
+5. `Sources/AgentLensAppSupport/InventoryViewModel.swift` — `confirmSelectedUninstall`'s pipeline assigns `self.uninstallOutcome` and publishes the snapshot with no `generation` check, unlike `prepareSelectedUninstall` which checks `generation == self.uninstallGeneration`. A late completion can currently only overlap another uninstall because the slot guards block it, but the asymmetry is fragile; add the generation guard for symmetry with D06.4 ("No stale completion may attach to another selection or generation").
+6. `briefs/M10-D-npm-uninstall.md` §5 lists "scope/decisions/roadmap" under DO NOT TOUCH while the same section says "Coordinator owns roadmap/status records." Clarify that the coordinator's roadmap/status write is the sole exception.
+
+**PLAN/CODE MISMATCHES**
+
+- D05.2 "unreadable/failed observation is not proof of clean removal" — not implemented (BLOCKING 1).
+- D05.4 / D06.5 ownership cleared after any launched Uninstall — implemented only on the successful-reconcile path (BLOCKING 2).
+- D06.1 "the delta" in the result view: the view renders the delta, but the delta lacks the residue fields noted in NON-BLOCKING 3.
+- D03.3 argv vs `NpmUninstallOperation.uninstallArguments` (`NpmUninstallOperation.swift:500-527`): the literal argv matches the brief's shape exactly, including the scoped pin for scoped packages via `scopeOf` (`Sources/AgentLensCore/Updates/NpmUpdateProbe.swift:184-190`), and `--prefix` is fed `installation.managerRoot`, which the ownership probe binds to npm's `prefix --global` canonical path (`NpmOwnershipProbe.swift:472`) — consistent with the proof's `<prefix>/lib/node_modules` descendant check (`NpmOwnershipProbe.swift:240-245`). No mismatch found.
+- D01.3 "no metadata cache or latest query is read or written" — consistent with the code: `verifyWithProof` issues only `npm prefix --global` and `npm root --global` (`NpmOwnershipProbe.swift:194-227`) and the cache/log/notifier environment is redirected to the owned root by `npmEnvironment` (`NpmUpdateProbe.swift:327-341`).
+- D03.4 "The working directory is the owned operation scratch root" — the implementation passes `currentDirectory: plan.root.url.path` ✓, and `--cache`/`--logs-dir` point at the same root, which `NpmScratchCleanupLedger.release` removes recursively with an identity recheck (`NpmUpdateProbe.swift:523-540`) ✓.
+- D04.3/D04.4 cancellation and TERM/KILL/reap — satisfied by the shared runner: `ProcessOperationCommandRunner` converts task cancellation into the poll-loop flag and the runner owns the process group (`Sources/AgentLensCore/Operations/OperationProcessRunner.swift:32-84`). D03.2's single-gate requirement is satisfied at the Core level (`OperationExecutionGate`, `OperationModels.swift:259-276`) and in the VM via the shared slot.
+- Not verified within this read-only budget: the `4b828c72` planning baseline SHA, the exact 1 MiB per-stream cap in the shared runner, and the seven hosted CI gates. The brief's "510 pre-existing Swift tests" figure is consistent with what I counted (527 `@Test` in `Tests/` minus the 17 new uninstall tests).
+
+No Swift concurrency or API error was found in the new code: `NpmUninstallPlan`'s stored types (`UpdateCommandRunner`, `DetectorDefinition`, `ToolPathDiagnostic`, `ObservedExecutable`, `ShellEnvironment`, `VerifiedInstallation`, `NpmOwnershipProof`, `NpmScratchRoot`) are all `Sendable`, `npmEnvironment`/`scopeOf`/`capturedTemporaryDirectory` are internal to `AgentLensCore` and therefore reachable, `DiagnosticScanner` is synchronous so the `scan:` closure in `InventoryService.executeUninstall` type-checks, and `OperationCommandRunner.run`'s signature matches the call site.
+
+REVIEW-COMPLETE
+
+exit=0

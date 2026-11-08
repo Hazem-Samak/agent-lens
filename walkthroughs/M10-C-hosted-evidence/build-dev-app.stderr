@@ -1,0 +1,168 @@
+build-dev-app: building AgentLensApp with SwiftPM (debug)...
+Building for debugging...
+[0/9] Copying DefaultDetectors.json
+[0/9] Write sources
+[4/9] Write AgentLensApp-entitlement.plist
+[5/9] Write swift-version-1977FEB4D2752686.txt
+[7/32] Compiling AgentLensCore AgentLensCore.swift
+/Users/runner/work/agent-lens/agent-lens/Sources/AgentLensCore/Environment/ShellEnvironmentResolver.swift:114:27: warning: 'init(validatingUTF8:)' is deprecated: replaced by 'String.init(validatingCString:)' [#DeprecatedDeclaration]
+112 |         guard let passwd = getpwuid(getuid()) else { return nil }
+113 |         guard let shell = passwd.pointee.pw_shell else { return nil }
+114 |         let shellString = String(validatingUTF8: shell)
+    |                           |- warning: 'init(validatingUTF8:)' is deprecated: replaced by 'String.init(validatingCString:)' [#DeprecatedDeclaration]
+    |                           `- note: use 'String.init(validatingCString:)' instead
+115 |         guard let shellString, !shellString.isEmpty else { return nil }
+116 |         return shellString
+
+[#DeprecatedDeclaration]: <https://docs.swift.org/compiler/documentation/diagnostics/deprecated-declaration>
+[8/32] Compiling AgentLensCore DetectorMetadata.swift
+/Users/runner/work/agent-lens/agent-lens/Sources/AgentLensCore/Environment/ShellEnvironmentResolver.swift:114:27: warning: 'init(validatingUTF8:)' is deprecated: replaced by 'String.init(validatingCString:)' [#DeprecatedDeclaration]
+112 |         guard let passwd = getpwuid(getuid()) else { return nil }
+113 |         guard let shell = passwd.pointee.pw_shell else { return nil }
+114 |         let shellString = String(validatingUTF8: shell)
+    |                           |- warning: 'init(validatingUTF8:)' is deprecated: replaced by 'String.init(validatingCString:)' [#DeprecatedDeclaration]
+    |                           `- note: use 'String.init(validatingCString:)' instead
+115 |         guard let shellString, !shellString.isEmpty else { return nil }
+116 |         return shellString
+
+[#DeprecatedDeclaration]: <https://docs.swift.org/compiler/documentation/diagnostics/deprecated-declaration>
+[9/32] Compiling AgentLensCore DetectorMetadataRenderer.swift
+/Users/runner/work/agent-lens/agent-lens/Sources/AgentLensCore/Environment/ShellEnvironmentResolver.swift:114:27: warning: 'init(validatingUTF8:)' is deprecated: replaced by 'String.init(validatingCString:)' [#DeprecatedDeclaration]
+112 |         guard let passwd = getpwuid(getuid()) else { return nil }
+113 |         guard let shell = passwd.pointee.pw_shell else { return nil }
+114 |         let shellString = String(validatingUTF8: shell)
+    |                           |- warning: 'init(validatingUTF8:)' is deprecated: replaced by 'String.init(validatingCString:)' [#DeprecatedDeclaration]
+    |                           `- note: use 'String.init(validatingCString:)' instead
+115 |         guard let shellString, !shellString.isEmpty else { return nil }
+116 |         return shellString
+
+[#DeprecatedDeclaration]: <https://docs.swift.org/compiler/documentation/diagnostics/deprecated-declaration>
+[10/32] Compiling AgentLensCore DetectorRegistry.swift
+/Users/runner/work/agent-lens/agent-lens/Sources/AgentLensCore/Environment/ShellEnvironmentResolver.swift:114:27: warning: 'init(validatingUTF8:)' is deprecated: replaced by 'String.init(validatingCString:)' [#DeprecatedDeclaration]
+112 |         guard let passwd = getpwuid(getuid()) else { return nil }
+113 |         guard let shell = passwd.pointee.pw_shell else { return nil }
+114 |         let shellString = String(validatingUTF8: shell)
+    |                           |- warning: 'init(validatingUTF8:)' is deprecated: replaced by 'String.init(validatingCString:)' [#DeprecatedDeclaration]
+    |                           `- note: use 'String.init(validatingCString:)' instead
+115 |         guard let shellString, !shellString.isEmpty else { return nil }
+116 |         return shellString
+
+[#DeprecatedDeclaration]: <https://docs.swift.org/compiler/documentation/diagnostics/deprecated-declaration>
+[11/32] Compiling AgentLensCore ScanRenderer.swift
+/Users/runner/work/agent-lens/agent-lens/Sources/AgentLensCore/Environment/ShellEnvironmentResolver.swift:114:27: warning: 'init(validatingUTF8:)' is deprecated: replaced by 'String.init(validatingCString:)' [#DeprecatedDeclaration]
+112 |         guard let passwd = getpwuid(getuid()) else { return nil }
+113 |         guard let shell = passwd.pointee.pw_shell else { return nil }
+114 |         let shellString = String(validatingUTF8: shell)
+    |                           |- warning: 'init(validatingUTF8:)' is deprecated: replaced by 'String.init(validatingCString:)' [#DeprecatedDeclaration]
+    |                           `- note: use 'String.init(validatingCString:)' instead
+115 |         guard let shellString, !shellString.isEmpty else { return nil }
+116 |         return shellString
+
+[#DeprecatedDeclaration]: <https://docs.swift.org/compiler/documentation/diagnostics/deprecated-declaration>
+[12/32] Compiling AgentLensCore ToolDetector.swift
+/Users/runner/work/agent-lens/agent-lens/Sources/AgentLensCore/Environment/ShellEnvironmentResolver.swift:114:27: warning: 'init(validatingUTF8:)' is deprecated: replaced by 'String.init(validatingCString:)' [#DeprecatedDeclaration]
+112 |         guard let passwd = getpwuid(getuid()) else { return nil }
+113 |         guard let shell = passwd.pointee.pw_shell else { return nil }
+114 |         let shellString = String(validatingUTF8: shell)
+    |                           |- warning: 'init(validatingUTF8:)' is deprecated: replaced by 'String.init(validatingCString:)' [#DeprecatedDeclaration]
+    |                           `- note: use 'String.init(validatingCString:)' instead
+115 |         guard let shellString, !shellString.isEmpty else { return nil }
+116 |         return shellString
+
+[#DeprecatedDeclaration]: <https://docs.swift.org/compiler/documentation/diagnostics/deprecated-declaration>
+[13/32] Compiling AgentLensCore DiagnosticsScanRenderer.swift
+/Users/runner/work/agent-lens/agent-lens/Sources/AgentLensCore/Environment/ShellEnvironmentResolver.swift:114:27: warning: 'init(validatingUTF8:)' is deprecated: replaced by 'String.init(validatingCString:)' [#DeprecatedDeclaration]
+112 |         guard let passwd = getpwuid(getuid()) else { return nil }
+113 |         guard let shell = passwd.pointee.pw_shell else { return nil }
+114 |         let shellString = String(validatingUTF8: shell)
+    |                           |- warning: 'init(validatingUTF8:)' is deprecated: replaced by 'String.init(validatingCString:)' [#DeprecatedDeclaration]
+    |                           `- note: use 'String.init(validatingCString:)' instead
+115 |         guard let shellString, !shellString.isEmpty else { return nil }
+116 |         return shellString
+
+[#DeprecatedDeclaration]: <https://docs.swift.org/compiler/documentation/diagnostics/deprecated-declaration>
+[14/32] Compiling AgentLensCore InstallationVersionCollector.swift
+/Users/runner/work/agent-lens/agent-lens/Sources/AgentLensCore/Environment/ShellEnvironmentResolver.swift:114:27: warning: 'init(validatingUTF8:)' is deprecated: replaced by 'String.init(validatingCString:)' [#DeprecatedDeclaration]
+112 |         guard let passwd = getpwuid(getuid()) else { return nil }
+113 |         guard let shell = passwd.pointee.pw_shell else { return nil }
+114 |         let shellString = String(validatingUTF8: shell)
+    |                           |- warning: 'init(validatingUTF8:)' is deprecated: replaced by 'String.init(validatingCString:)' [#DeprecatedDeclaration]
+    |                           `- note: use 'String.init(validatingCString:)' instead
+115 |         guard let shellString, !shellString.isEmpty else { return nil }
+116 |         return shellString
+
+[#DeprecatedDeclaration]: <https://docs.swift.org/compiler/documentation/diagnostics/deprecated-declaration>
+[15/32] Compiling AgentLensCore InstallationVersionObservation.swift
+/Users/runner/work/agent-lens/agent-lens/Sources/AgentLensCore/Environment/ShellEnvironmentResolver.swift:114:27: warning: 'init(validatingUTF8:)' is deprecated: replaced by 'String.init(validatingCString:)' [#DeprecatedDeclaration]
+112 |         guard let passwd = getpwuid(getuid()) else { return nil }
+113 |         guard let shell = passwd.pointee.pw_shell else { return nil }
+114 |         let shellString = String(validatingUTF8: shell)
+    |                           |- warning: 'init(validatingUTF8:)' is deprecated: replaced by 'String.init(validatingCString:)' [#DeprecatedDeclaration]
+    |                           `- note: use 'String.init(validatingCString:)' instead
+115 |         guard let shellString, !shellString.isEmpty else { return nil }
+116 |         return shellString
+
+[#DeprecatedDeclaration]: <https://docs.swift.org/compiler/documentation/diagnostics/deprecated-declaration>
+[16/32] Compiling AgentLensCore PathDiagnostics.swift
+/Users/runner/work/agent-lens/agent-lens/Sources/AgentLensCore/Environment/ShellEnvironmentResolver.swift:114:27: warning: 'init(validatingUTF8:)' is deprecated: replaced by 'String.init(validatingCString:)' [#DeprecatedDeclaration]
+112 |         guard let passwd = getpwuid(getuid()) else { return nil }
+113 |         guard let shell = passwd.pointee.pw_shell else { return nil }
+114 |         let shellString = String(validatingUTF8: shell)
+    |                           |- warning: 'init(validatingUTF8:)' is deprecated: replaced by 'String.init(validatingCString:)' [#DeprecatedDeclaration]
+    |                           `- note: use 'String.init(validatingCString:)' instead
+115 |         guard let shellString, !shellString.isEmpty else { return nil }
+116 |         return shellString
+
+[#DeprecatedDeclaration]: <https://docs.swift.org/compiler/documentation/diagnostics/deprecated-declaration>
+[17/32] Compiling AgentLensCore ShellEnvironmentResolver.swift
+/Users/runner/work/agent-lens/agent-lens/Sources/AgentLensCore/Environment/ShellEnvironmentResolver.swift:114:27: warning: 'init(validatingUTF8:)' is deprecated: replaced by 'String.init(validatingCString:)' [#DeprecatedDeclaration]
+112 |         guard let passwd = getpwuid(getuid()) else { return nil }
+113 |         guard let shell = passwd.pointee.pw_shell else { return nil }
+114 |         let shellString = String(validatingUTF8: shell)
+    |                           |- warning: 'init(validatingUTF8:)' is deprecated: replaced by 'String.init(validatingCString:)' [#DeprecatedDeclaration]
+    |                           `- note: use 'String.init(validatingCString:)' instead
+115 |         guard let shellString, !shellString.isEmpty else { return nil }
+116 |         return shellString
+
+[#DeprecatedDeclaration]: <https://docs.swift.org/compiler/documentation/diagnostics/deprecated-declaration>
+[18/32] Emitting module AgentLensCore
+[19/32] Compiling AgentLensCore NpmUpdateOperation.swift
+[20/32] Compiling AgentLensCore OperationModels.swift
+[21/32] Compiling AgentLensCore OperationProcessRunner.swift
+[22/32] Compiling AgentLensCore HomebrewOwnershipProbe.swift
+[23/32] Compiling AgentLensCore InstallationOwnership.swift
+[24/32] Compiling AgentLensCore InstallationOwnershipRenderer.swift
+[25/32] Compiling AgentLensCore InstallationOwnershipVerifier.swift
+[26/32] Compiling AgentLensCore NpmOwnershipProbe.swift
+[27/32] Compiling AgentLensCore BoundedProcessRunner.swift
+[28/32] Compiling AgentLensCore ExecutableIdentity.swift
+[29/32] Compiling AgentLensCore HomebrewIdentity.swift
+[30/42] Compiling AgentLensCore HomebrewUpdateProbe.swift
+[31/42] Compiling AgentLensCore NpmUpdateMetadataCache.swift
+[32/42] Compiling AgentLensCore NpmUpdateProbe.swift
+[33/42] Compiling AgentLensCore ProcessUpdateCommandRunner.swift
+[34/42] Compiling AgentLensCore UpdateMetadataCache.swift
+[35/42] Compiling AgentLensCore UpdateProbeCoordinator.swift
+[36/42] Compiling AgentLensCore UpdateScanRenderer.swift
+[37/42] Compiling AgentLensCore VersionComparison.swift
+[38/42] Compiling AgentLensCore VersionStatus.swift
+[39/42] Compiling AgentLensCore resource_bundle_accessor.swift
+[40/47] Emitting module AgentLensAppSupport
+[41/47] Compiling AgentLensAppSupport InventoryService.swift
+[42/47] Compiling AgentLensAppSupport InventorySnapshot.swift
+[43/47] Compiling AgentLensAppSupport InventoryViewModel.swift
+[44/47] Compiling AgentLensAppSupport PathActionTarget.swift
+[45/48] Compiling AgentLensAppSupport SessionEnvironmentProvider.swift
+[46/55] Compiling AgentLensApp OwnershipVerificationView.swift
+[47/55] Compiling AgentLensApp PathActions.swift
+[48/55] Compiling AgentLensApp ToolDetailView.swift
+[49/55] Emitting module AgentLensApp
+[50/55] Compiling AgentLensApp AgentLensApp.swift
+[51/55] Compiling AgentLensApp DiagnosticsView.swift
+[52/55] Compiling AgentLensApp MainWindow.swift
+[53/57] Compiling AgentLensApp ToolListView.swift
+[54/57] Compiling AgentLensApp UpdateOperationView.swift
+[54/57] Write Objects.LinkFileList
+[55/57] Linking AgentLensApp
+[56/57] Applying AgentLensApp
+Build of product 'AgentLensApp' complete! (19.40s)

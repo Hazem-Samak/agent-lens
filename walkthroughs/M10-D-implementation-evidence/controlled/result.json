@@ -1,0 +1,36 @@
+{
+  "afterInstallState" : "notInstalled",
+  "cleanupWarnings" : [
+
+  ],
+  "exit" : 0,
+  "message" : null,
+  "observationFailed" : false,
+  "packageDirectoryAbsent" : true,
+  "previewArguments" : [
+    "--cache",
+    "\/private\/tmp\/agent-lens-m10d-acceptance.47587\/final-controlled\/operation-base\/55E72B18-21EF-4872-9B7C-BBC74EBF329B",
+    "--logs-dir",
+    "\/private\/tmp\/agent-lens-m10d-acceptance.47587\/final-controlled\/operation-base\/55E72B18-21EF-4872-9B7C-BBC74EBF329B",
+    "--no-update-notifier",
+    "uninstall",
+    "@openai\/codex",
+    "--global",
+    "--prefix",
+    "\/tmp\/agent-lens-m10d-acceptance.47587\/final-controlled\/prefix",
+    "--registry=https:\/\/registry.npmjs.org\/",
+    "--@openai:registry=https:\/\/registry.npmjs.org\/",
+    "--no-audit",
+    "--no-fund",
+    "--package-lock=false",
+    "--no-save",
+    "--fetch-retries=0",
+    "--fetch-timeout=30000"
+  ],
+  "processStarted" : true,
+  "selectedEntryResidue" : true,
+  "selectedTargetReleased" : true,
+  "state" : "succeeded",
+  "stderr" : "",
+  "stdout" : "\nremoved 1 package in 200ms\n"
+}

@@ -1,0 +1,6 @@
+shell:       /bin/zsh
+degraded:    false
+path_joined: /usr/bin:/bin
+path_entries:
+  /usr/bin
+  /bin

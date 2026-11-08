@@ -1,0 +1,19 @@
+{
+  "argv": [
+    "swift",
+    "test",
+    "--no-parallel",
+    "--build-system",
+    "swiftbuild",
+    "--scratch-path",
+    "/private/tmp/agent-lens-m10b-implementation-9jaujmja/parent/qoder-r1-batch3/products",
+    "-Xswiftc",
+    "-load-plugin-library",
+    "-Xswiftc",
+    "/Library/Developer/CommandLineTools/usr/lib/swift/host/plugins/testing/libTestingMacros.dylib"
+  ],
+  "exit": 0,
+  "seconds": 105.10418287499851,
+  "AgentLens_test_overrides": "both unset",
+  "TMPDIR": "/var/folders/tf/jsdyxcts6y72fs98s7wl3dfm0000gn/T/"
+}

@@ -295,8 +295,13 @@ private func relativePath(from base: URL, to target: URL) -> String {
     try Data("not executable\n".utf8).write(to: invalidExtraEntry)
     try FileManager.default.setAttributes([.posixPermissions: 0o644], ofItemAtPath: invalidExtraEntry.path)
     let extraEntry = try makeDiagnosticsExecutable(in: extraRoot, named: "fixture-tool")
-    let home = NSHomeDirectory()
-    let tildeRoot = "~" + String(extraRoot.path.dropFirst(home.count))
+    // Derive a real `~/` route from the actual home to the owned extra root. Byte-slicing the
+    // home prefix assumed scratch lives below HOME; under the ordinary TMPDIR it does not
+    // (`/var/folders/...`), and that slice named a nonexistent location. `relativePath` walks up
+    // with `..`, so tilde coverage is retained even when the scratch root is outside HOME, and no
+    // fixture files are created under personal HOME/configuration/install roots.
+    let home = URL(fileURLWithPath: NSHomeDirectory(), isDirectory: true)
+    let tildeRoot = "~/" + relativePath(from: home, to: extraRoot)
     let detector = ToolDetector(
         displayName: "Fixture Tool",
         executableName: "fixture-tool",

@@ -1,0 +1,12 @@
+{
+  "argv": [
+    "swift",
+    "build",
+    "--scratch-path",
+    "/private/tmp/agent-lens-m10b-implementation-9jaujmja/parent/river-corrections/final-products"
+  ],
+  "exit": 0,
+  "seconds": 27.94913975000236,
+  "AgentLens_test_overrides": "both unset",
+  "TMPDIR": "/var/folders/tf/jsdyxcts6y72fs98s7wl3dfm0000gn/T/"
+}

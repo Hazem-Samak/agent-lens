@@ -1,0 +1,5 @@
+# M10-B hosted acceptance receipts
+
+Run [40558867751](https://github.com/Hazem-Samak/agent-lens/actions/runs/40558867751), attempt1, passed all seven gates on implementation commit `72ffb1e0b52ffe65dfb8616e648dec9c46d48ae4`. The 33 original artifact files are retained byte-for-byte. `artifact.json` identifies the original GitHub ZIP and its independently matched SHA256 digest. `coordinator-verification.json` records the seven-gate, skip/count, exact-SHA and local/hosted passed-event multiset checks. The hosted native backend prints one combined468-test summary; the local backend printed397Core+71AppSupport. No target-specific hosted split is claimed.
+
+`verify-hosted.py` can revalidate these receipts using `python3 verify-hosted.py . 72ffb1e0b52ffe65dfb8616e648dec9c46d48ae4 local-passed-events.json` (write verification output to a disposable copy if preserving this evidence tree). `SHA256.json` fingerprints the complete retained set. Scoped attributes exclude raw output files from whitespace linting so compiler diagnostic bytes remain intact. No product, CI or packaging source changes were made for this closeout.

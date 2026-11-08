@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 import AgentLensAppSupport
 import AgentLensCore
@@ -28,10 +29,13 @@ public struct MainWindow: View {
         nonmutating set { _activeActionTask.wrappedValue = newValue }
     }
 
+    private var _lifecycleToken: State<UUID?> = State(initialValue: nil)
+
     public init(service: InventoryService = Self.makeDefaultService()) {
         self._model = State(initialValue: InventoryViewModel(service: service))
         self._selectedDestination = State(initialValue: .inventory)
         self._activeActionTask = State(initialValue: nil)
+        self._lifecycleToken = State(initialValue: nil)
     }
 
     public static func makeDefaultService() -> InventoryService {
@@ -61,11 +65,86 @@ public struct MainWindow: View {
         .toolbar {
             toolbarItems
         }
+        .onAppear {
+            if _lifecycleToken.wrappedValue == nil {
+                _lifecycleToken.wrappedValue = AppLifecycleGate.shared.register(
+                    shouldWait: {
+                        model.isBusy || activeActionTask != nil
+                            || model.isUpdateSheetPresented || model.isUninstallSheetPresented
+                    },
+                    cancelAndJoin: {
+                        cancelActiveAction()
+                        await model.cancel()
+                        await model.cancelUpdate()
+                        await model.cancelUninstall()
+                    }
+                )
+            }
+        }
         .task {
             await model.launch()
         }
+        .sheet(isPresented: updateSheetBinding, onDismiss: {
+            model.dismissUpdate()
+        }) {
+            UpdateOperationView(
+                preview: model.updatePreview ?? model.updatePreparation?.preview,
+                outcome: model.updateOutcome,
+                unavailable: model.updateUnavailableReason,
+                isExecuting: model.isExecutingUpdate,
+                isCancelling: model.isCancelling,
+                onConfirm: {
+                    runAction {
+                        await model.confirmSelectedUpdate()
+                    }
+                },
+                onCancel: {
+                    Task { @MainActor in
+                        await model.cancelUpdate()
+                    }
+                },
+                onDismiss: {
+                    model.dismissUpdate()
+                }
+            )
+            .interactiveDismissDisabled(model.isExecutingUpdate)
+        }
+        .sheet(isPresented: uninstallSheetBinding, onDismiss: {
+            model.dismissUninstall()
+        }) {
+            UninstallOperationView(
+                preview: model.uninstallPreview ?? model.uninstallPreparation?.preview,
+                outcome: model.uninstallOutcome,
+                unavailable: model.uninstallUnavailableReason,
+                isExecuting: model.isExecutingUninstall,
+                isCancelling: model.isCancelling,
+                onConfirm: {
+                    runAction {
+                        await model.confirmSelectedUninstall()
+                    }
+                },
+                onCancel: {
+                    Task { @MainActor in
+                        await model.cancelUninstall()
+                    }
+                },
+                onDismiss: {
+                    model.dismissUninstall()
+                }
+            )
+            .interactiveDismissDisabled(model.isExecutingUninstall)
+        }
+        .background(WindowCloseObserver(onClose: {
+            cancelActiveAction()
+            await model.cancelUpdate()
+            await model.cancelUninstall()
+        }))
         .onDisappear {
             cancelActiveAction()
+            Task { @MainActor in
+                await model.cancelUpdate()
+                await model.cancelUninstall()
+            }
         }
     }
 
@@ -85,9 +164,10 @@ public struct MainWindow: View {
 
     private func cancelCurrentAction() {
         guard model.isBusy || activeActionTask != nil else { return }
-        if model.phase == .verifyingOwnership {
-            // Verification reports `Cancelling` immediately through the model, then lets the
-            // owned cleanup finish; do not bypass that state by only cancelling the action task.
+        if model.phase == .verifyingOwnership || model.isPreparingUpdate || model.isExecutingUpdate
+            || model.isPreparingUninstall || model.isExecutingUninstall {
+            // These actions report `Cancelling` immediately through the model, then let owned
+            // bounded cleanup finish; do not bypass that state by only cancelling the action task.
             Task { @MainActor in
                 await model.cancel()
             }
@@ -166,6 +246,10 @@ public struct MainWindow: View {
                 updateFailure: model.updateFailure,
                 isVerifyingOwnership: model.phase == .verifyingOwnership,
                 isCancellingOwnership: model.isCancelling,
+                isPreparingUpdate: model.isPreparingUpdate,
+                isExecutingUpdate: model.isExecutingUpdate,
+                isPreparingUninstall: model.isPreparingUninstall,
+                isExecutingUninstall: model.isExecutingUninstall,
                 isBusy: model.isBusy,
                 onVerifyOwnership: {
                     runAction {
@@ -174,6 +258,16 @@ public struct MainWindow: View {
                 },
                 onCancelOwnership: {
                     cancelCurrentAction()
+                },
+                onPrepareUpdate: {
+                    runAction {
+                        await model.prepareSelectedUpdate()
+                    }
+                },
+                onPrepareUninstall: {
+                    runAction {
+                        await model.prepareSelectedUninstall()
+                    }
                 }
             )
         case .diagnostics:
@@ -185,10 +279,32 @@ public struct MainWindow: View {
         }
     }
 
+    private var updateSheetBinding: Binding<Bool> {
+        Binding(
+            get: { model.isUpdateSheetPresented },
+            set: { presented in
+                if !presented { model.dismissUpdate() }
+            }
+        )
+    }
+
+    private var uninstallSheetBinding: Binding<Bool> {
+        Binding(
+            get: { model.isUninstallSheetPresented },
+            set: { presented in
+                if !presented { model.dismissUninstall() }
+            }
+        )
+    }
+
     // MARK: - Toolbar
 
     private var busyLabel: String {
-        switch model.phase {
+        if model.isPreparingUpdate { return model.isCancelling ? "Cancelling…" : "Preparing Update…" }
+        if model.isExecutingUpdate { return model.isCancelling ? "Cancelling…" : "Updating…" }
+        if model.isPreparingUninstall { return model.isCancelling ? "Cancelling…" : "Preparing Uninstall…" }
+        if model.isExecutingUninstall { return model.isCancelling ? "Cancelling…" : "Uninstalling…" }
+        return switch model.phase {
         case .verifyingOwnership:
             model.isCancelling ? "Cancelling…" : "Verifying…"
         case .loadingLocal:
@@ -260,5 +376,132 @@ public struct MainWindow: View {
             .disabled(model.isBusy)
             .help("Bypass cache and refresh update metadata")
         }
+    }
+}
+
+
+/// Observes the hosting NSWindow for the normal will-close notification. Termination is owned by
+/// `AgentLensTerminationDelegate`/`AppLifecycleGate`; this observer does not replace the window
+/// delegate, so optional AppKit delegate methods continue to belong to the real owner.
+private struct WindowCloseObserver: NSViewRepresentable {
+    let onClose: @MainActor () async -> Void
+
+    func makeCoordinator() -> Coordinator { Coordinator(onClose: onClose) }
+
+    func makeNSView(context: Context) -> NSView {
+        let view = HostingWindowView()
+        view.onWindowChange = { window in context.coordinator.attach(to: window) }
+        return view
+    }
+
+    func updateNSView(_ nsView: NSView, context: Context) {}
+
+    final class Coordinator: NSObject, @unchecked Sendable {
+        private let onClose: @MainActor () async -> Void
+        private weak var window: NSWindow?
+        private var observer: NSObjectProtocol?
+
+        init(onClose: @escaping @MainActor () async -> Void) {
+            self.onClose = onClose
+        }
+
+        @MainActor
+        func attach(to window: NSWindow?) {
+            guard self.window !== window else { return }
+            if let observer { NotificationCenter.default.removeObserver(observer) }
+            self.window = window
+            guard let window else { return }
+            observer = NotificationCenter.default.addObserver(
+                forName: NSWindow.willCloseNotification, object: window, queue: .main
+            ) { [weak self] _ in
+                MainActor.assumeIsolated { self?.onCloseSynchronously() }
+            }
+        }
+
+        private func onCloseSynchronously() {
+            // The willClose notification is synchronous; release any pending preview here. The
+            // application termination gate separately joins an active operation/reconciliation.
+            Task { @MainActor [weak self] in await self?.onClose() }
+        }
+
+        deinit {
+            if let observer { NotificationCenter.default.removeObserver(observer) }
+        }
+    }
+}
+
+private final class HostingWindowView: NSView {
+    var onWindowChange: ((NSWindow?) -> Void)?
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        onWindowChange?(window)
+    }
+}
+
+/// One application-wide termination seam. The window owns the state/model; this gate only keeps the
+/// existing lifecycle hook and lets the AppKit termination delegate await that same cancellation/join.
+@MainActor
+public final class AppLifecycleGate {
+    public static let shared = AppLifecycleGate()
+
+    private struct Entry {
+        let shouldWait: @MainActor () -> Bool
+        let cancelAndJoin: @MainActor () async -> Void
+    }
+
+    private var entries: [UUID: Entry] = [:]
+    private var terminationInProgress = false
+
+    private init() {}
+
+    public func register(
+        shouldWait: @escaping @MainActor () -> Bool,
+        cancelAndJoin: @escaping @MainActor () async -> Void
+    ) -> UUID {
+        let token = UUID()
+        entries[token] = Entry(shouldWait: shouldWait, cancelAndJoin: cancelAndJoin)
+        return token
+    }
+
+    public func unregister(_ token: UUID) {
+        entries.removeValue(forKey: token)
+    }
+
+    public var needsWait: Bool {
+        entries.values.contains { $0.shouldWait() }
+    }
+
+    /// True exactly once for the first termination request that has active work.
+    public func beginTermination() -> Bool {
+        guard !terminationInProgress, needsWait else { return false }
+        terminationInProgress = true
+        return true
+    }
+
+    public func prepareForTermination() async {
+        for entry in Array(entries.values) {
+            guard entry.shouldWait() else { continue }
+            await entry.cancelAndJoin()
+        }
+    }
+}
+
+/// Actual product termination delegate. It is shared by the shipping App and the controlled native
+/// host; there is no copied lifecycle approximation in the fixture.
+@MainActor
+public class AgentLensTerminationDelegate: NSObject, NSApplicationDelegate {
+    public func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
+        true
+    }
+
+    public func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        if AppLifecycleGate.shared.beginTermination() {
+            Task { @MainActor in
+                await AppLifecycleGate.shared.prepareForTermination()
+                sender.reply(toApplicationShouldTerminate: true)
+            }
+            return .terminateLater
+        }
+        return AppLifecycleGate.shared.needsWait ? .terminateLater : .terminateNow
     }
 }

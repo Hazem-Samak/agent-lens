@@ -1,0 +1,284 @@
+{
+  "run_id": 41519177534,
+  "head_sha": "fff287d79884bf2163642dfa6ef3543da5682565",
+  "attempt": 1,
+  "conclusion": "success",
+  "url": "https://github.com/Hazem-Samak/agent-lens/actions/runs/41519177534",
+  "artifact": {
+    "id": 13176798168,
+    "size_in_bytes": 29253,
+    "digest": "sha256:a7d72e1a326eccc186081d92d55a18431b7df6243b123ee4296b44a0e461e9b2",
+    "zip_sha256": "a7d72e1a326eccc186081d92d55a18431b7df6243b123ee4296b44a0e461e9b2",
+    "file_count": 33,
+    "all_extracted_files_match_digest_verified_zip": true
+  },
+  "gates": [
+    {
+      "gate": "guard",
+      "state": "passed",
+      "producer_exit": 0,
+      "verification_exit": 0,
+      "elapsed_seconds": 0.204,
+      "counts": null,
+      "verification_problems": []
+    },
+    {
+      "gate": "guard-fixtures",
+      "state": "passed",
+      "producer_exit": 0,
+      "verification_exit": 0,
+      "elapsed_seconds": 2.052,
+      "counts": "cases=21 skipped=0",
+      "verification_problems": []
+    },
+    {
+      "gate": "swift-build",
+      "state": "passed",
+      "producer_exit": 0,
+      "verification_exit": 0,
+      "elapsed_seconds": 33.283,
+      "counts": null,
+      "verification_problems": []
+    },
+    {
+      "gate": "isolation-gate",
+      "state": "passed",
+      "producer_exit": 0,
+      "verification_exit": 0,
+      "elapsed_seconds": 48.366,
+      "counts": "cases=[1] skipped=0 summaries=1 matched=[isolation>=1(saw 1)]",
+      "verification_problems": []
+    },
+    {
+      "gate": "full-test-suite",
+      "state": "passed",
+      "producer_exit": 0,
+      "verification_exit": 0,
+      "elapsed_seconds": 75.961,
+      "counts": "cases=[510] skipped=0 summaries=1 matched=[combined(Core+AppSupport)>=406(saw 510)]",
+      "verification_problems": []
+    },
+    {
+      "gate": "build-dev-app",
+      "state": "passed",
+      "producer_exit": 0,
+      "verification_exit": 0,
+      "elapsed_seconds": 21.042,
+      "counts": null,
+      "verification_problems": []
+    },
+    {
+      "gate": "packaging",
+      "state": "passed",
+      "producer_exit": 0,
+      "verification_exit": 0,
+      "elapsed_seconds": 0.575,
+      "counts": "cases=9 skipped=0",
+      "verification_problems": []
+    }
+  ],
+  "full_suite": {
+    "starts": 510,
+    "passes": 510,
+    "matches_all_510_local_events_with_multiplicity": true,
+    "all_469_R1_events_retained": true,
+    "local_plugin_fallback": false
+  },
+  "metrics": {
+    "guard": {
+      "gate": "guard",
+      "kind": "plain",
+      "expected_floor": null,
+      "target_floors": [],
+      "parsed": {
+        "kind": "plain"
+      },
+      "skipped": 0,
+      "producer_exit": 0,
+      "verification_exit": 0,
+      "effective_exit": 0,
+      "elapsed_seconds": 0.204,
+      "verification_problems": [],
+      "verified_at": "2026-11-02T20:31:30Z"
+    },
+    "guard-fixtures": {
+      "gate": "guard-fixtures",
+      "kind": "unittest",
+      "expected_floor": 21,
+      "target_floors": [],
+      "parsed": {
+        "kind": "unittest",
+        "tests": 21,
+        "ran_lines": 1,
+        "skipped": 0,
+        "verdicts": [
+          "OK"
+        ]
+      },
+      "skipped": 0,
+      "producer_exit": 0,
+      "verification_exit": 0,
+      "effective_exit": 0,
+      "elapsed_seconds": 2.052,
+      "verification_problems": [],
+      "verified_at": "2026-11-02T20:31:32Z"
+    },
+    "swift-build": {
+      "gate": "swift-build",
+      "kind": "plain",
+      "expected_floor": null,
+      "target_floors": [],
+      "parsed": {
+        "kind": "plain"
+      },
+      "skipped": 0,
+      "producer_exit": 0,
+      "verification_exit": 0,
+      "effective_exit": 0,
+      "elapsed_seconds": 33.283,
+      "verification_problems": [],
+      "verified_at": "2026-11-02T20:32:06Z"
+    },
+    "isolation-gate": {
+      "gate": "isolation-gate",
+      "kind": "swift",
+      "expected_floor": null,
+      "target_floors": [
+        {
+          "label": "isolation",
+          "floor": 1
+        }
+      ],
+      "parsed": {
+        "kind": "swift",
+        "summaries": [
+          {
+            "tests": 1,
+            "suites": 0,
+            "verdict": "passed"
+          }
+        ],
+        "totals": [
+          1
+        ],
+        "layout": "components",
+        "target_matches": [
+          {
+            "label": "isolation",
+            "floor": 1,
+            "matched_count": 1,
+            "satisfied": true
+          }
+        ],
+        "passed_event_count": 1,
+        "failure_event_count": 0,
+        "issue_event_count": 0,
+        "executed_zero_lines": [],
+        "skipped": 0,
+        "stream_bytes": {
+          "stdout": 1162,
+          "stderr": 12290
+        }
+      },
+      "skipped": 0,
+      "producer_exit": 0,
+      "verification_exit": 0,
+      "effective_exit": 0,
+      "elapsed_seconds": 48.366,
+      "verification_problems": [],
+      "verified_at": "2026-11-02T20:32:54Z"
+    },
+    "full-test-suite": {
+      "gate": "full-test-suite",
+      "kind": "swift",
+      "expected_floor": 406,
+      "target_floors": [
+        {
+          "label": "Core",
+          "floor": 335
+        },
+        {
+          "label": "AppSupport",
+          "floor": 71
+        }
+      ],
+      "parsed": {
+        "kind": "swift",
+        "summaries": [
+          {
+            "tests": 510,
+            "suites": 5,
+            "verdict": "passed"
+          }
+        ],
+        "totals": [
+          510
+        ],
+        "layout": "combined",
+        "target_matches": [
+          {
+            "label": "combined(Core+AppSupport)",
+            "floor": 406,
+            "matched_count": 510,
+            "satisfied": true
+          }
+        ],
+        "passed_event_count": 476,
+        "failure_event_count": 0,
+        "issue_event_count": 0,
+        "executed_zero_lines": [],
+        "skipped": 0,
+        "stream_bytes": {
+          "stdout": 88048,
+          "stderr": 118
+        }
+      },
+      "skipped": 0,
+      "producer_exit": 0,
+      "verification_exit": 0,
+      "effective_exit": 0,
+      "elapsed_seconds": 75.961,
+      "verification_problems": [],
+      "verified_at": "2026-11-02T20:34:11Z"
+    },
+    "build-dev-app": {
+      "gate": "build-dev-app",
+      "kind": "plain",
+      "expected_floor": null,
+      "target_floors": [],
+      "parsed": {
+        "kind": "plain"
+      },
+      "skipped": 0,
+      "producer_exit": 0,
+      "verification_exit": 0,
+      "effective_exit": 0,
+      "elapsed_seconds": 21.042,
+      "verification_problems": [],
+      "verified_at": "2026-11-02T20:34:32Z"
+    },
+    "packaging": {
+      "gate": "packaging",
+      "kind": "unittest",
+      "expected_floor": 9,
+      "target_floors": [],
+      "parsed": {
+        "kind": "unittest",
+        "tests": 9,
+        "ran_lines": 1,
+        "skipped": 0,
+        "verdicts": [
+          "OK"
+        ]
+      },
+      "skipped": 0,
+      "producer_exit": 0,
+      "verification_exit": 0,
+      "effective_exit": 0,
+      "elapsed_seconds": 0.575,
+      "verification_problems": [],
+      "verified_at": "2026-11-02T20:34:33Z"
+    }
+  },
+  "runner_and_toolchain": "github_repository: Hazem-Samak/agent-lens\ngithub_ref: refs/heads/codex/m10-npm-management\ngithub_sha: fff287d79884bf2163642dfa6ef3543da5682565\ngithub_workflow_ref: Hazem-Samak/agent-lens/.github/workflows/ci.yml@refs/heads/codex/m10-npm-management\ngithub_event_name: push\nrunner_image: macos15\nrunner_image_version: 20261028.0489.1\nrunner_arch: arm64\nrunner_os: Darwin\nsw_vers:\nProductName:\t\tmacOS\nProductVersion:\t\t15.8.2\nBuildVersion:\t\t24H232\nDEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer\nxcodebuild -version:\nXcode 26.3\nBuild version 17C529\nxcrun --find swift: /Applications/Xcode_26.3.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swift\nxcrun swift --version:\nApple Swift version 6.2.4 (swiftlang-6.2.4.1.4 clang-1700.6.4.2)\nTarget: arm64-apple-macosx15.0\npython3: Python 3.15.2\n"
+}

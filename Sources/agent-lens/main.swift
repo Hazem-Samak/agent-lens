@@ -78,8 +78,7 @@ case "scan":
         // — never by display name and never by the executable basename.
         let subjects = zip(definitions, reports).map { definition, report in
             UpdateProbeSubject(
-                registryID: definition.id,
-                displayName: definition.displayName,
+                definition: definition,
                 diagnostic: report
             )
         }

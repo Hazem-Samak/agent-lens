@@ -61,7 +61,7 @@ public enum UpdateScanRenderer {
         case .updateAvailable(_, let latest):
             return "\(result.displayName)  installed \(installed)  latest known \(latest.text)  update available"
         case .unknown(_, let reason):
-            return "\(result.displayName)  installed \(installed)  latest known —  unknown — \(explanation(for: reason, mode: mode))"
+            return "\(result.displayName)  installed \(installed)  latest known —  unknown — \(explanation(for: reason, mode: mode, npm: result.npmPackage != nil))"
         }
     }
 
@@ -75,6 +75,18 @@ public enum UpdateScanRenderer {
     }
 
     private static func provenanceLine(for result: ToolUpdateResult) -> String? {
+        // A result carrying an npm package is an npm observation; everything else is Homebrew.
+        if let package = result.npmPackage, let registry = result.npmRegistry, let tag = result.npmTag {
+            let identity = "npm package \(package) registry \(registry) tag \(tag); npm version \(result.npmVersion ?? "unknown")"
+            switch result.provenance {
+            case .none:
+                return nil
+            case .freshProbe(let observedAt):
+                return "source: npm metadata (\(identity)); checked at \(timestamp(observedAt))"
+            case .cache(let observedAt):
+                return "source: npm metadata cache (\(identity)); observed at \(timestamp(observedAt))"
+            }
+        }
         switch result.provenance {
         case .none:
             return nil
@@ -86,7 +98,7 @@ public enum UpdateScanRenderer {
     }
 
     /// Neutral explanations per typed reason. Offline mode is named explicitly.
-    static func explanation(for reason: UnknownReason, mode: UpdateProbeMode) -> String {
+    static func explanation(for reason: UnknownReason, mode: UpdateProbeMode, npm: Bool = false) -> String {
         switch reason {
         case .noRegistry: "no registry"
         case .networkUnavailable:
@@ -101,11 +113,16 @@ public enum UpdateScanRenderer {
         case .unsupportedSource: "unsupported installation manager"
         case .installedVersionUnavailable: "installed version unavailable"
         case .unsupportedVersion: "unsupported version format"
-        case .managerUnavailable: "Homebrew not available on PATH"
+        case .managerUnavailable: npm ? "npm not available on PATH" : "Homebrew not available on PATH"
         case .managerMismatch: "selected executable is not in the Homebrew Cellar"
         case .identityUnverified: "selected package could not be verified"
         case .diagnosticInconsistent: "PATH diagnostics are inconsistent"
         case .newerThanKnownMetadata: "installed version is newer than known metadata"
+        case .unsupportedRegistry: "unsupported registry"
+        case .unsupportedChannel: "unsupported update channel"
+        case .budgetExhausted: "update stage budget exhausted"
+        case .metadataInvalid: "invalid metadata"
+        case .queryTimedOut: "metadata query timed out"
         }
     }
 

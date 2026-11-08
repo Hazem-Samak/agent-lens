@@ -1,0 +1,15 @@
+{
+  "repo": "Hazem-Samak/agent-lens",
+  "run_id": 40558867751,
+  "run_attempt": 1,
+  "event": "push",
+  "head_sha": "72ffb1e0b52ffe65dfb8616e648dec9c46d48ae4",
+  "conclusion": "success",
+  "artifact_id": 12756859791,
+  "name": "check-receipts",
+  "size_in_bytes": 27984,
+  "archive_sha256": "0cddfa86e9874cf70e1cb0c16d06392fc2abab28031a093d7fc03f2f3b137252",
+  "archive_digest_verified": true,
+  "original_archive_files": 33,
+  "run_url": "https://github.com/Hazem-Samak/agent-lens/actions/runs/40558867751"
+}

@@ -1,0 +1,47 @@
+SELF-REVIEW PASS 2 — 2026-11-08
+Implementer/sole reviewer: River DeepSeek V4.1 Flash 1017 (owner-authorized D-014 exception).
+Scope: final R2 tree on top of 878ee9a, including the docs/self-review commit and exact-SHA CI.
+
+FINAL-DIFF CHECKS
+1. Scratch default: InventoryService passes only npmScratchBaseURL; NpmUpdateProbe.observeFresh and
+   NpmUpdateProbe.run fall back to Foundation temporaryDirectory. Operation callers still pass their
+   explicitly validated owned roots. The 0777-TMPDIR regression passes.
+2. Update busy-gate: NpmUpdateOperation mirrors NpmUninstallOperation's isConsumed guard; the
+   consumed-preparation replay test asserts state .cancelled, no process, and no cleanup warnings.
+3. Pre-spawn cancellation: runDualStream checks isCancelled after all setup and before posix_spawn;
+   the deterministic two-call closure test asserts cancelled, processStarted false, no exit status,
+   and no marker. Deferred descriptors/attributes are still released on this return path.
+4. Preview identity: both sheets display preview.registryID beside the display name.
+5. Combined acceptance: the wrapper marker makes the concurrent-confirm and interruption cases
+   deterministic; the real run produced update succeeded, competing cancelled/no process/no warning,
+   interrupted with reconciliation and installed state intact, final uninstall succeeded with
+   residue/observation fields, one update and two uninstall invocations, sentinels unchanged, and a
+   clean operation base.
+6. CI floors: 456 Core / 79 AppSupport / 535 total match the measured final suite. The workflow YAML
+   parses; the multiset and combined-summary paths both accept the final counts.
+7. Evidence: the two regenerated SHA256 manifests validate 42/42 and 46/46; PR-added text evidence
+   has no /Users/corvette or ~/.hermes paths; the frozen M10-B dispatch brief is byte-identical to
+   its historical version; redaction is disclosed in the evidence READMEs.
+8. Governance: ROADMAP, DECISIONS, briefs/README, the M10-D walkthrough, and the review README record
+   the owner waiver, both self-reviews, and merge authorization. No independent PASS is claimed.
+
+FINDINGS
+- No blocking finding in the final diff.
+- The pre-existing busy-gate release/claim race noted in pass 1 remains: two truly simultaneous
+  executes can yield zero processes, never two. The combined scenario deliberately starts the second
+  confirm after the first has claimed and is inside its process; this matches the frozen safety
+  requirement. Not changed in R2.
+- The combined harness uses a wrapper manager to hold the process open; it delegates to real npm for
+  the update and the final uninstall. This is acceptance-harness substitution, not product behavior.
+
+VERIFICATION OBSERVED
+- Exact-SHA hosted CI: https://github.com/Hazem-Samak/agent-lens/actions/runs/42494151542 at b7362b28369fe9b1a5986cc775621e64e5fe1974 — success; 535 combined Swift tests, 21 guard fixtures, 9 packaging checks, zero skips/failures; PR-event run 42494156745 also success.
+- Full local suite: 456 Core + 79 AppSupport = 535, zero failures/skips, exit 0.
+- Extended combined scenario: COMBINED-CONTROLLED OK.
+- Targeted regressions: passed.
+- Manifest validation: 42/42 and 46/46.
+- No PR-added text evidence contains the local absolute user/repository path.
+
+VERDICT
+The R2 corrections are complete, the measured suite and extended acceptance pass, and the remaining
+gate is the owner-authorized merge. Merge is authorized.

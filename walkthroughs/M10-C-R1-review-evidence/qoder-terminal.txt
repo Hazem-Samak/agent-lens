@@ -1,0 +1,390 @@
+ │ Also need to check `agentLensCoreProducts()` and `agentLensCoreCompileArguments` helpers exist and how they work (used by the new test).
+ │ Also verify `pathJoined` and `isDegraded` exist on the environment type.
+ │ Let me read these in parallel.
+ ▪ Now reading the changed source and the surrounding test/build context.
+
+ ▪ Read(.../ShellEnvironmentResolver.swift)
+   └ Read 228 lines
+ ▪ Read(/Use/.../BoundedProcessRunner.swift)
+   └ Read 326 lines
+ ▪ Read(ShellEnvironmentResolverTests.swift)
+   └ Read 301 lines
+
+ Thinking
+ │ Now let me examine the test helpers `agentLensCoreProducts()` and `agentLensCoreCompileArguments(for:)`, and the UpdateCLIIntegrationTests context around line 1317. Also I
+ │ want to check the existing `runCaptured` in UpdateCLIIntegrationTests.
+ │ Let me grep for those.
+ ▪ Grep('func agentLensCoreProducts|func agentLensCoreCompileArguments|agentLensCoreProducts\(\)|agentLensCoreCompileArguments' within /Users/.../Agent Lens/Tests)
+   └ Found 250 matches (limit: 250) (Ctrl+O to expand)
+
+     Tests/AgentLensCoreTests/ShellEnvironmentResolverTests.swift-255-    try payload.write(to: zdot.appendingPathComponent(".zshrc"))
+     Tests/AgentLensCoreTests/ShellEnvironmentResolverTests.swift-256-    try payload.write(to: home.appendingPathComponent(".bash_profile"))
+     Tests/AgentLensCoreTests/ShellEnvironmentResolverTests.swift-257-
+     Tests/AgentLensCoreTests/ShellEnvironmentResolverTests.swift-258-    let source = root.appendingPathComponent("pty-capture-probe.swift")
+     Tests/AgentLensCoreTests/ShellEnvironmentResolverTests.swift-259-    let helper = root.appendingPathComponent("pty-capture-probe")
+     Tests/AgentLensCoreTests/ShellEnvironmentResolverTests.swift-260-    let helperSource = #"""
+     Tests/AgentLensCoreTests/ShellEnvironmentResolverTests.swift-261-    import AgentLensCore
+     Tests/AgentLensCoreTests/ShellEnvironmentResolverTests.swift-262-    import Darwin
+     Tests/AgentLensCoreTests/ShellEnvironmentResolverTests.swift-263-
+     Tests/AgentLensCoreTests/ShellEnvironmentResolverTests.swift-264-    let shell = CommandLine.arguments[1]
+     ... and 91 more
+
+
+     (Output saved to: <home>/.qoder/tmp/-Users-corvette-Documents-Projects-Coding-Agent-Lens/tool-outputs/session-091fd542-b79f-44b4-80a0-21e27ce3318c/grep_call_7db
+     Tests/AgentLensCoreTests/ShellEnvironmentResolverTests.swift-257-
+     Tests/AgentLensCoreTests/ShellEnvironmentResolverTests.swift-258-    let source = root.appendingPathComponent("pty-capture-probe.swift")
+     Tests/AgentLensCoreTests/ShellEnvironmentResolverTests.swift-259-    let helper = root.appendingPathComponent("pty-capture-probe")
+     Tests/AgentLensCoreTests/ShellEnvironmentResolverTests.swift-260-    let helperSource = #"""
+     Tests/AgentLensCoreTests/ShellEnvironmentResolverTests.swift-261-    import AgentLensCore
+     Tests/AgentLensCoreTests/ShellEnvironmentResolverTests.swift-262-    import Darwin
+     Tests/AgentLensCoreTests/ShellEnvironmentResolverTests.swift-263-
+     Tests/AgentLensCoreTests/ShellEnvironmentResolverTests.swift-264-    let shell = CommandLine.arguments[1]
+     ... and 91 more
+
+
+     (Output saved to: <home>/.qoder/tmp/-Users-corvette-Documents-Projects-Coding-Agent-Lens/tool-outputs/session-091fd542-b79f-44b4-80a0-21e27ce3318c/grep_call_7db
+     1b5599fb340aa95686f89.txt)
+
+ ▪ Grep('func runCaptured|login-shell-|isolationBlocker' within .../UpdateCLIIntegrationTests.swift)
+   └ Found 151 matches (Ctrl+O to expand)
+
+ Thinking
+ │ Now let me look at the persisted grep output for `agentLensCoreProducts` / `agentLensCoreCompileArguments` definitions. Let me read the persisted file, or better, grep
+ │ specifically for the definitions.
+ │ Let me grep with a narrower pattern for the definitions only.
+ ▪ Grep('^(private )?func agentLensCoreProducts|^(private )?func agentLensCoreCompileArguments' within /Users/.../Agent Lens/Tests)
+   └ Found 40 matches (Ctrl+O to expand)
+
+ Thinking
+ │ `script` is being relied on to provide a controlling terminal, but the test runs under `swift test` which may itself already have a controlling terminal or not.
+ │ Good — the helpers exist and are non-private (`func agentLensCoreProducts()` and `func agentLensCoreCompileArguments(for:)` at module scope in the test target), so the new
+ │ … +225 rows (Ctrl+O)
+ │ - Grep walkthroughs/M10-A* for TestingMacros fallback documented command
+ │ - `cliRunBudget` value in UpdateCLIIntegrationTests
+ │ Let me batch these.
+ ▪ Now checking receipts, shell-support documentation, and the M10-A fallback procedure.
+
+ ▪ Glob('/private/tmp/agent-lens-m10c-acceptance.TcBGo0/parent/repair-*')
+   └ Found 22 matching file(s) (Ctrl+O to expand)
+ ▪ Glob('/private/tmp/agent-lens-m10c-acceptance.TcBGo0/parent/r1-*')
+   └ Found 12 matching file(s) (Ctrl+O to expand)
+ ▪ Grep('fish|tcsh|nu shell|nushell|supported (login )?shell|zsh and bash|bash or zsh' in *.md within /Users/.../Agent Lens)
+   └ Found 9 matches (Ctrl+O to expand)
+ ▪ Grep('cliRunBudget|let sandboxExec' within .../UpdateCLIIntegrationTests.swift)
+   └ Found 43 matches (Ctrl+O to expand)
+
+ Thinking
+ │ `cliRunBudget` unchanged at 120 — no deadline increase. Good.
+ │ Now: the shell-support documentation grep didn't find anything about fish/tcsh/supported shells in .md files. Let me check AGENT_LENS_SCOPE.md §20 and README for login-shell
+ │ resolution statements. Let me grep for "login shell" and "getpwuid" and "pw_shell" across docs and sources.
+ │ Also read repair-gates.json, r1-red3 json, r1-green json, and the PTY context json.
+ │ Let me batch.
+ ▪ Read(/private/.../repair-gates.json)
+   └ Read 165 lines
+ ▪ Read(/r1-red3-pty-production-seam.json)
+   └ Read 23 lines
+ ▪ Read(/r1-green-pty-production-seam.json)
+   └ Read 23 lines
+ ▪ Read(.../repair-suite-pty.context.json)
+   └ Read 34 lines
+
+ Thinking
+ │ Important observation: `repair-gates.json` shows the `suite-pty` gate ran `/usr/bin/script -q /dev/null /bin/sh repair_suite_pty.sh` — exit 0, elapsed 70.516s. But the
+ │ walkthrough claims "Full suite, PTY (/usr/bin/script) — 398 Core + 71 AppSupport passed, 0 failures; 398 in 65.481s, 71 in 4.488s". 65.481 + 4.488 = 69.969, plus overhead ≈
+ │ … +23 rows (Ctrl+O)
+ │ Also need to verify the claimed test counts (398 Core, 71 AppSupport, 0 failures). Let me grep the stdout files for "Test Suite" / "passed" / "failed" summary lines.
+ │ Also I still need to check: does the project document which login shells are supported? Let me grep AGENT_LENS_SCOPE.md §20 and README for "login shell".
+ │ Let me batch these.
+ ▪ Read(/private/.../repair_suite_pty.sh)
+   └ Read 35 lines
+ ▪ Read(/pr.../.../repair-suite-pty.run.txt)
+   └ Read 7 lines
+ ▪ Read(.../repair-suite-notty.context.json)
+   └ Read 11 lines
+ ▪ Grep('Executed \d+ test|Test Suite '(All tests|AgentLens\w+Tests\.xctest)' (passed|failed)|tests? (passed|failed)|◇ Test run started|✔ Test run' within
+   /pri.../.../repair-suite-pty.stdout)
+   └ Found 8 matches (Ctrl+O to expand)
+
+ Thinking
+ │ PTY suite: 398 Core tests passed in 65.481s, 71 AppSupport passed in 4.488s. Exit 0. Confirmed.
+ │ Important detail: the PTY gate used `--skip-build` while the no-TTY gate built. And `repair_suite_pty.sh` sets `start_new_session: true` per the notty context... wait no,
+ │ … +28 rows (Ctrl+O)
+ │ 4. Read README.md around the changed hunk.
+ │ Let me also check `minimal-pty-84d7b7b8...` receipt for debug-env.
+ │ I'll do 4 calls now.
+ ▪ Grep('✔ Test run with|✘ Test run|Test run with .* failed' within /p.../.../repair-suite-notty.stdout)
+   └ Found 2 matches (Ctrl+O to expand)
+ ▪ Read(/r1-red3-pty-production-seam.stdout)
+   └ Read 36 lines
+ ▪ Glob('/private/tmp/agent-lens-m10c-acceptance.TcBGo0/parent/minimal-pty-*/*')
+   └ Found 34 matching file(s) (Ctrl+O to expand)
+ ▪ Grep('login-shell|login shell|getpwuid' within /Users/.../Agent Lens/README.md)
+   └ Found 27 matches (Ctrl+O to expand)
+
+ > <hc from="t1n">Coordinator independent fresh verification passed all469 test events with no missing baseline names in both TTY/detached runs, guard21, packaging9 and actual
+    HC-terminal CLI exact fixture PATH. Perch hit quota; owner explicitly authorized Qoder-only verdict for repair (brief amendment). Finish your independent review from
+   current evidence now, no more broad searching. Return blocking findings or PASS with limitations; do not require hosted CI (separate Git authorization). If findings, report
+    exact file/line and required change. Candidate remains frozen.</hc>
+
+ Thinking
+ │ I need to finish now. Let me quickly verify the last remaining item: the minimal-pty post-fix receipt (debug-env under PTY), and check whether the red3 stdout reveals an
+ │ important detail — I noticed `result.stdout` starts with `^D`. That's interesting: `^D` (0x04) appears in the helper's captured stdout. That's `script` writing an EOT echo
+ │ … +8 rows (Ctrl+O)
+ │ AGENT_LENS_SCOPE.md §20 for shell statements. I said "no more broad searching" but this is one targeted grep and it's material to a finding. Let me combine it into the
+ │ batch.
+ │ Let me run the final batch.
+ ▪ Read(/private/.../pty.result.json)
+   └ Read 19 lines
+ ▪ Read(/private/.../pty.stdout)
+   └ Read 9 lines
+ ▪ Grep('login shell|-l -i|pw_shell|shell family|supported shell' within /Users/.../AGENT_LENS_SCOPE.md)
+   └ Found 15 matches (Ctrl+O to expand)
+
+ Thinking
+ │ A. Spec/scope compliance
+ │ I have everything I need. Let me now form the verdict.
+ │ … +70 rows (Ctrl+O)
+ │ terminal text. Keep it organized and complete but not bloated.
+ │ I must not use colons before tool calls — no tool calls now. Just text.
+ │ Length: this is a formal review verdict; it needs the detail. I'll aim for thorough but tight.
+ ▪ INDEPENDENT READ-ONLY REVIEW — M10-C R1 baseline repair candidate
+   Reviewer: Qoder slot (model/effort not self-attestable; see limitation L5). Baseline 7ff71b6, candidate uncommitted and frozen.
+
+   VERDICT: PASS with limitations. No blocking findings. One documentation change required before acceptance is recorded (F1); the rest are optional.
+
+   Note on method: read-only throughout. I inspected the amended brief, the walkthrough, repair-review.diff, the three changed files in their full current state,
+   BoundedProcessRunner.swift, ToolDetectorTests.swift helper definitions, repair-gates.json, repair_suite_pty.sh, both context receipts, both full-suite stdout files,
+   r1-red3/r1-green json+stdout, and the post-fix minimal-pty-84d7b7b8 receipt. I did not run any command, so I could not recompute SHA-256; see L5.
+
+   1. ROOT-CAUSE CORRECTION — sound and independently corroborated
+
+   The mechanism holds end to end. BoundedProcessRunner.run spawns with POSIX_SPAWN_SETPGROUP and pgroup 0 (BoundedProcessRunner.swift:84-85), so the shell child lands in a new
+    background process group; stdin is dup2'd to /dev/null (line 73) but no setsid occurs, so the session's controlling terminal is inherited. Interactive zsh with MONITOR
+   enabled calls tcsetpgrp() during job-control init, and tcsetpgrp from a background group delivers SIGTTOU to the caller — the shell stops, capture exhausts its 3s budget,
+   buildEnvironment finds no PATH (ShellEnvironmentResolver.swift:197) and returns the degraded fallback. Every CLI fixture asserting the closed fixture PATH then fails, and
+   the direct portability control hangs until its 120s cliRunBudget. +m removes the tcsetpgrp attempt while leaving -l -i and therefore rc-file loading intact.
+
+   Evidence I verified directly, not taken on trust:
+   - r1-red3-pty-production-seam.stdout:6-28 — zsh leg reports degraded=true and path=/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin, byte-identical to fallbackPath; 2 issues;
+   exit 1. Bash leg passed, matching the walkthrough's claim.
+   - r1-red3 line 5 — core-probe: layout=aggregate ... objects=1 compiler=/usr/bin/swiftc confirms the helper linked the real Core objects. The regression exercises the
+   production capture seam rather than reimplementing shell flags in test code, which is what brief line 42 demanded.
+   - minimal-pty-84d7b7b8/pty.stdout — post-fix degraded: false with the exact fixture PATH; pty.result.json exit 0, elapsed 0.092s, timed_out: false. The pre-fix
+   minimal-pty-d2d3799b receipt is retained.
+   - repair-suite-pty.context.json — fd0 /dev/ttys005 with isatty: true, and tty_pgrp == pgrp == sid == 34928, so the PTY run genuinely held the foreground group of a real
+   terminal. The reproduction condition was real, not assumed.
+   - repair-suite-notty.stdout:816,972 — 398 passed / 71 passed. repair-suite-pty.stdout:816,972 — 398 in 65.481s / 71 in 4.488s. repair-gates.json — all eight gates exit 0,
+   timed_out: false. Core went 397 → 398, i.e. inventory preserved plus exactly one added regression; 469 total matches the coordinator's fresh count.
+
+   This is a genuine consumer-visible product defect — agent-lens launched from Terminal.app silently degraded to the fallback PATH — corrected in product code at its actual
+   cause. It is not symptom-hiding, not test isolation, and it satisfies brief line 57's "plausible consumer-visible behavior" bar for a permanent regression.
+
+   2. SCOPE — clean
+
+   The diff touches exactly the four authorized paths (ShellEnvironmentResolver.swift, ShellEnvironmentResolverTests.swift, UpdateCLIIntegrationTests.swift, README.md) plus the
+    authorized new walkthrough. Verified absent: any BoundedProcessRunner change, any Package.swift change, any deadline increase (cliRunBudget is still 120 at
+   UpdateCLIIntegrationTests.swift:38), any weakened or skipped assertion, any target/topology split, any forced TMPDIR (repair_suite_pty.sh:10 unsets both Agent Lens
+   overrides), and any detector/catalogue or product Update work. The +m addition to the portability control at UpdateCLIIntegrationTests.swift:1320 keeps that control's argv
+   aligned with the production argv, which preserves its value as an independent reproduction. The README paragraph (lines 111-116) is accurate and states the both-contexts run
+    requirement.
+
+   3. PTY REGRESSION AND BOUNDED PROCESS SAFETY — acceptable
+
+   The test creates its own pty via /usr/bin/script, so it reproduces the defect deterministically regardless of how the suite is launched, and it self-validates that premise
+   with the tty=1 assertion at ShellEnvironmentResolverTests.swift:296. Without that leg the test would pass vacuously in a detached context; including it is the right call.
+
+   Boundedness: no fork inside the Swift test process, capture to files rather than pipes (lines 210-213) so there is no pipe-buffer deadlock, FileHandle.nullDevice stdin, 60s
+   compile and 15s run watchdogs (lines 281, 293), and SIGTERM → 2s → SIGKILL escalation (lines 221-225). On a future +m regression the helper's own capture times out at 3s and
+    killAndReapProcessGroup SIGKILLs the entire spawned group (BoundedProcessRunner.swift:181, 284-301), so even a stopped shell is reaped — the failing case cannot orphan.
+   Only the test's own direct child PID is signalled; scratch is confined under resolverFixtureRoot() and removed by defer (line 245). Production stderr is routed to /dev/null
+   (BoundedProcessRunner.swift:68-74), so bash's "no job control" banner cannot pollute sentinel-parsed stdout; the pre-existing comment at
+   UpdateCLIIntegrationTests.swift:1326-1327 remains accurate.
+
+   4. FINDINGS — all non-blocking
+
+   F1 (medium; documentation change required before acceptance is recorded, code change NOT authorized). Non-zsh/bash login shells become permanently degraded. resolve() takes
+   the shell from getpwuid with no family allow-list (ShellEnvironmentResolver.swift:100, mandated by AGENT_LENS_SCOPE.md §20.2 step 1), and capture now passes +m
+   unconditionally (line 173). +m is a zsh/bash//bin/sh option; a login shell such as fish, nushell or tcsh rejects the unknown option, exits nonzero, and capture returns a nil
+    dump (lines 181-183) → unconditional degraded fallback. Consequence: such a user would lose PATH discovery in every launch context, not just under a terminal. Mitigating
+   facts: the approved slice pinned +m and scoped verification to "supported zsh/bash behavior" (brief line 41); nothing in the record establishes that -l -i -c worked for
+   those shells previously, since that argv is itself not portable to them; and a shell-family branch would fall outside the authorized slice and must return to the
+   coordinator. Required correction: add this to "Remaining limitations" in walkthroughs/M10-C-R1-baseline-repair.md (lines 118-124) and log a follow-up item. Do not alter the
+   code in this candidate.
+
+   F2 (low; optional). ShellEnvironmentResolverTests.swift:297 asserts !result.stdout.contains("degraded=true"), a negative substring check. Brief line 42 asks to prove
+   "non-degraded status." If the helper died before printing, this leg passes vacuously and is rescued only by the status and PATH legs at :295 and :298. Optional correction:
+   assert result.stdout.contains("degraded=false").
+
+   F3 (low; optional). ShellEnvironmentResolverTests.swift:298 asserts contains("path=\(expectedPath)"), a substring match. A captured <fixture>:/usr/bin:/bin:<leaked-suffix>
+   would satisfy it. This is precisely the weakness the project's own control documents at UpdateCLIIntegrationTests.swift:1293-1295. It does not weaken the SIGTTOU regression
+   — the fallback PATH cannot contain the fixture prefix, which red3 proves — so this is a strength-alignment item only. Optional correction: require the whole line, e.g.
+   contains("path=\(expectedPath)\n").
+
+   F4 (low; optional). +m prevents the shell from seizing the terminal but the child still inherits the controlling terminal, since no setsid was added. A user rc file or
+   grandchild performing its own tty-ownership ioctls, or writing with TOSTOP set, could still stop and consume the 3s budget. The probe correctly found POSIX_SPAWN_SETSID
+   broader than needed, and the approved slice forbade a BoundedProcessRunner change, so this is residual risk to record, not to fix. Optional correction: note it under
+   "Remaining limitations."
+
+   F5 (low; evidence note). The suite-pty entry in repair-gates.json (lines 107-121) carries no product array, and repair_suite_pty.sh:21-27 passes --skip-build, so the PTY run
+    reuses the no-TTY gate's binaries from the shared scratch root. The coordinator's own fresh verification (469 events, both TTY and detached, exact fixture PATH in a real HC
+    terminal) closes this independently; informational only.
+
+   F6 (trivial; optional). Walkthrough line 120 has a duplicated word ("native native TestingMacros discovery"). Walkthrough lines 82-83 record the fallback as local-only but
+   do not restate the native non-discovery observation that brief line 56 requires be recorded first; that fact currently lives only in the brief at line 17. Optional: restate
+   it so the evidence file is self-contained.
+
+   5. LIMITATIONS OF THIS REVIEW
+
+   L1. Read-only and command-free by instruction. I could not recompute the pinned SHA-256 values for e4154a6f…, 443cc097…, 8cb44582…, so I verified file content against the
+   diff, not hash identity. The coordinator should confirm the three hashes and that git status --porcelain shows no change beyond the four diffed paths plus the new untracked
+   walkthrough and the preserved .workbuddy-ai/memory/2026-10-28.md. git diff does not display untracked files, so the diff alone cannot prove that.
+   L2. I verified local receipts only. I did not run any suite and make no claim about native hosted CI or native TestingMacros discovery; per instruction, hosted CI is not
+   required here and remains under separate Git authorization.
+   L3. I did not audit the earlier Python flags probe discrepancy beyond accepting the brief's record (line 37) that it was not an exact runner reproduction. Its differing
+   result stays on the record and does not affect this verdict.
+   L4. Perch hit quota; this is a Qoder-only verdict under the owner's explicit authorization as conveyed by the coordinator. It is not a two-reviewer consensus and should not
+   be recorded as one.
+   L5. I cannot self-attest to the active model or reasoning effort — the harness does not expose either to me from inside the session, and reading session configuration would
+   require a command I am not permitted to run. The pairing Qwen3.8-Max / Extra High should be confirmed coordinator-side from the session config.
+
+   RECOMMENDATION: accept the candidate as frozen. Require only the F1 limitation note in walkthroughs/M10-C-R1-baseline-repair.md, which is a writer action for River, not a
+   code change. F2-F6 are optional and may be deferred or dropped. M10-C product dispatch remains blocked until the coordinator records this prerequisite acceptance.
+
+ > <hc from="t1n">Review received. Coordinator independently confirmed requested Qwen3.8-Max / Extra High in live UI and file hashes matched handoff. River is correcting only
+   test assertions to positive degraded=false + exact complete PATH line, and walkthrough limitations/typo/native macro failure/coordinator evidence. Production +m unchanged.
+   We will not state non-zsh/bash is proven newly broken: unverified support/possible flag rejection is accurate, old argv portability not established. No source behavior
+   expansion. Wait for revised frozen hashes/diff; recheck only those changes, previous source verdict remains applicable if hash unchanged. No commands/writes/tests.</hc>
+
+ Thinking
+ │ The coordinator is telling me to wait for revised frozen hashes/diff, then recheck only those changes. So right now I should acknowledge and hold. No commands, no writes, no
+ │ tests.
+ │ … +22 rows (Ctrl+O)
+ │ Also: the walkthrough hash is self-referential (walkthrough line 116 notes its own hash is in the handoff report). Changing the walkthrough changes its hash — they need to
+ │ re-pin it in the handoff, not inside the file. Worth a one-line reminder.
+ │ Keep it tight. Plain text.
+ ▪ Acknowledged. Holding for the revised frozen candidate. No commands, writes, or tests in the interim.
+
+   I agree with the F1 reframing. The accurate statement is that support for non-zsh/bash login shells is unverified, that +m may be rejected by shells that do not implement
+   it, and that the portability of the previous -l -i -c argv to those shells was never established. Asserting a proven new regression would overstate the evidence, and
+   asserting proven safety would understate it. Recording it as an unverified-support limitation with a follow-up item is the right disposition. Confirming also that the source
+    +m behavior stays as reviewed and there is no scope expansion.
+
+   Recheck scope when the revision lands, limited to the delta:
+   - Tests/AgentLensCoreTests/ShellEnvironmentResolverTests.swift — verify only that line 297 became a positive degraded=false assertion and line 298 became a complete-line
+   PATH comparison, with no other assertion added, removed, or loosened, and no change to the watchdogs, capture-to-file pattern, or shell list.
+   - walkthroughs/M10-C-R1-baseline-repair.md — the non-zsh/bash limitation, the residual controlling-terminal note, the "native native" typo, and the native macro
+   non-discovery restatement.
+   - Confirm Sources/AgentLensCore/Environment/ShellEnvironmentResolver.swift still hashes to e4154a6f… and Tests/AgentLensCoreTests/UpdateCLIIntegrationTests.swift to
+   8cb44582…. If either is unchanged, my prior source verdict carries forward as-is and I will not re-derive it.
+
+   Three evidence points to settle before recheck, so the revision does not arrive with stale receipts:
+   1. The existing r1-green-pty-production-seam stdout was captured against the pre-revision assertion text, so it no longer corresponds to the frozen test source. A fresh
+   green run against the revised file is needed. The red3 evidence should still hold its meaning — the helper printed all three lines and exited 0, so the zsh leg fails on
+   exactly the same two legs under the positive and line-exact forms — but please retain the original red3 rather than regenerating it.
+   2. Because a test file changed, the previously recorded full-suite gates describe a different candidate. Either a fresh both-context full suite or your own independent fresh
+    verification of the revised candidate should back the acceptance record; the earlier 398/71 receipts should stay on file as history, not be reinterpreted as covering the
+   revision.
+   3. The walkthrough's own hash cannot live inside itself (it already notes this at line 116). Please re-pin the revised walkthrough hash in the handoff report rather than in
+   the file.
+
+   Send the revised hashes and delta diff and I will report on those changes only.
+
+ > <hc from="t1n">REVISED frozen repair ready for narrow recheck. Production hash unchanged e4154a6fb136b389f7f507346e05cbd466a57b0ef936e3ab611c14f7a0cf6284. Resolver tests
+   new hash dd89a82201fbecc54fab66cfbb52ab1263cae7f13ef3290a2b7be362d279c945 (only assertions CRLF-normalized positive full lines tty=1,degraded=false,path=exact). Walkthrough
+    new hash 40e170388e9f683c5663233c16af02794d853b39342881ca9695c7f435916f3e, F1/F4/F6 limitations and coordinator verification evidence updated. CLI tests and README
+   unchanged. Read only changed final assertions and walkthrough section Remaining limitations plus appended coordinator section; inspect parent/rev-checks.json or rev-suite
+   summaries if needed. Worker sequential rechecks pass targeted1/full469 both contexts. No more broad source audit required. Return final PASS or required correction
+   promptly, no commands/writes/tests.</hc>
+
+ Thinking
+ │ Narrow recheck. Read:
+ │ 1. The changed assertions in Tests/AgentLensCoreTests/ShellEnvironmentResolverTests.swift (the tail — final assertions).
+ │ … +2 rows (Ctrl+O)
+ │ Let me read the test file tail (lines ~240-301) and the walkthrough from line ~110 onward, plus rev-checks.json.
+ │ Note: the coordinator says "only assertions CRLF-normalized positive full lines tty=1, degraded=false, path=exact". So they now do full-line matching. Let me verify.
+ │ Let me batch reads.
+ ▪ Narrow recheck of the two changed files and the revision receipts.
+
+ ▪ Read(ShellEnvironmentResolverTests.swift · from line 236)
+   └ Read lines 236-308 of 308
+ ▪ Read(/Us/.../M10-C-R1-baseline-repair.md · from line 106)
+   └ Read lines 106-159 of 159
+ ▪ Read(/private/.../parent/rev-checks.json)
+   └ Read 74 lines
+
+ Thinking
+ │ Let me assess the revised assertions carefully.
+ │ ```swift
+ │ … +106 rows (Ctrl+O)
+ │ So: FINAL PASS. No required corrections. One optional residual (F6 restatement half). Plus my standing review limitations (no commands → hashes not recomputed by me;
+ │ Qoder-only verdict; local evidence only, hosted CI out of scope by instruction).
+ │ Let me write it concisely and promptly, as asked.
+ ▪ FINAL VERDICT: PASS. No required corrections. Production +m unchanged and my prior source verdict carries forward.
+
+   Recheck of the two changed files only, as instructed.
+
+   ASSERTION REVISION — Tests/AgentLensCoreTests/ShellEnvironmentResolverTests.swift
+
+   Both findings are closed and the revision is strictly stronger than what I reviewed:
+   - Line 302: lines.contains("degraded=false") — positive, complete-line equality. F2 closed.
+   - Line 304: lines.contains("path=\(expectedPath)") — complete-line equality, so path=<expected>:extra is a distinct line and fails. F3 closed, and it now matches the
+   standard the project documents for its own portability control at UpdateCLIIntegrationTests.swift:1293-1295.
+   - Lines 296-298: CRLF/CR normalization is well motivated. /usr/bin/script puts the helper's output through a pty line discipline, and the retained red3 receipt shows the
+   resulting control-character artifacts (raw stdout began ^D before tty=1). Normalizing before splitting is the correct way to make complete-line matching robust to that.
+   - Line 300: hasSuffix("tty=1") rather than exact equality is the right call, not a weakening. It absorbs the same ^D prefix artifact, and it cannot false-pass: isatty yields
+    only 1, 0, or -1, so neither tty=0 nor tty=-1 ends with tty=1, and no other emitted line can collide — the helper prints exactly three lines and expectedPath ends in /bin.
+   The premise leg still fails closed if the controlling terminal is ever absent.
+
+   Scope of the delta confirmed structurally. Everything through line 294 sits at identical line numbers to the version I reviewed — same helper source, same
+   agentLensCoreProducts() compile step, same 60s/15s budgets, same file-based capture, same FileHandle.nullDevice stdin, same synthetic HOME/ZDOTDIR/PATH, same [zsh, bash]
+   list, same defer cleanup, same runBoundedFixtureProcess/waitForFixtureProcess. The entire change is the assertion block growing from 3 lines to 10 (+7, matching the file's
+   new end at 307). No assertion was added, removed, or loosened elsewhere; failure messages still print fixture-only synthetic paths, so no credential or real-environment
+   leak.
+
+   RED SIGNAL STILL VALID AGAINST THE REVISED ASSERTIONS
+
+   The frozen red3 receipt was captured against the old assertion text, so I checked whether the failing-before signal transfers. It does, and I can attest to it analytically
+   from the retained receipt rather than by re-running: red3's zsh result.stdout contained the complete lines degraded=true and
+   path=/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin. Under the revised code, lines.contains("degraded=false") is false and lines.contains("path=<fixture>:/usr/bin:/bin") is
+   false — the same two issues, more directly than before. Production hash e4154a6f… is identical across red3 and the revision, so the red/green pair remains a genuine
+   before/after signal for one unchanged product change. Retaining red3 as history and adding a green-only revision section (walkthrough lines 110-123) is the correct
+   disposition.
+
+   WALKTHROUGH — walkthroughs/M10-C-R1-baseline-repair.md
+
+   - F1 closed with exactly the agreed framing (lines 150-152). It states that only zsh and bash were measured, that +m is unverified for other passwd shells and may be
+   rejected, and that the old -l -i -c form was also not universally verified, so no proven new regression is claimed. That is accurate in both directions — it neither asserts
+   a break that was not demonstrated nor asserts a safety that was not tested.
+   - F4 closed (lines 153-154), and it correctly identifies the existing bounded capture timeout as the residual safety bound rather than implying the terminal is detached.
+   - F6 typo closed (line 155).
+   - Coordinator verification section (lines 136-146) records 469 event identities in both contexts with no missing baseline names, guard 21, packaging 9, and the real
+   HC-terminal debug-env non-degraded exact PATH, with named receipts. This independently closes the product-identity gap I noted for the earlier PTY gate (prior F5), so F5 is
+   resolved.
+   - Touched-path table (lines 129-132) is consistent with your handoff: new resolver-test hash dd89a822…, with production e4154a6f…, CLI tests 8cb44582…, and README b29f4f25…
+   unchanged. Line 134 correctly keeps the walkthrough's own hash in the handoff rather than in the file.
+   - rev-checks.json corroborates the walkthrough: four gates, all exit 0, timed_out: false, with the targeted filter matching the frozen test name and the PTY gate again
+   launched through /usr/bin/script.
+
+   ONE OPTIONAL RESIDUAL, NOT A REQUIRED CORRECTION
+
+   The second half of my earlier F6 is still open and remains optional. Line 155 and lines 82-83 both record that native TestingMacros discovery is not claimed; neither
+   restates the positive observation that native discovery was attempted and failed with the missing plugin, which is what brief line 56 requires be recorded before the
+   fallback is used. That fact is recorded in the coordinator-owned brief at line 17, so the phase record is complete and the fallback was properly authorized. Restating it in
+   the walkthrough would only make the evidence file self-contained. Your call; it does not affect the verdict.
+
+   STANDING LIMITATIONS OF THIS REVIEW
+
+   Unchanged from my prior report and still applicable: I ran no commands, so I verified content and structure but did not recompute any SHA-256 — you have confirmed the hashes
+    and the live model/effort, and I accept that. This is a Qoder-only verdict under the owner's explicit authorization after Perch hit quota; it is not a two-reviewer
+   consensus and should not be recorded as one. I make no claim about native hosted CI or native TestingMacros discovery, which remain under separate Git authorization and are
+   correctly disclaimed.
+
+   The candidate is acceptable as frozen. M10-C product dispatch remains blocked until you record this prerequisite acceptance.
+
+                                                                                                                                                                ? for shortcuts
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+ Default Shift+Tab to Accept Edits                                                                                                                   2 MCP servers · 102 skills
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── m10c-baseline-review ─
+ >   Type your message or @path/to/file
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+ Qwen3.8-Max Model · Extra High · ctx ▓▓▓▓▓░░░░░ 48% · ~/Documents/Projects Coding/Agent Lens

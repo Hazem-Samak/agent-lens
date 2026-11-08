@@ -1,0 +1,8 @@
+◇ Test run started.
+↳ Testing Library Version: 2084
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Test everyNpmInvocationOverridesInheritedCacheLogsAndNotifierIncludingFourOwnershipQueries() started.
+✔ Test everyNpmInvocationOverridesInheritedCacheLogsAndNotifierIncludingFourOwnershipQueries() passed after 0.013 seconds.
+◇ Test metadataDeadlineRefusalUsesBudgetReasonWhileTaskCancellationStaysNeutral() started.
+✔ Test metadataDeadlineRefusalUsesBudgetReasonWhileTaskCancellationStaysNeutral() passed after 0.009 seconds.
+✔ Test run with 2 tests in 0 suites passed after 0.023 seconds.

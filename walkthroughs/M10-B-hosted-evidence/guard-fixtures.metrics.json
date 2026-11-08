@@ -1,0 +1,22 @@
+{
+  "gate": "guard-fixtures",
+  "kind": "unittest",
+  "expected_floor": 21,
+  "target_floors": [],
+  "parsed": {
+    "kind": "unittest",
+    "tests": 21,
+    "ran_lines": 1,
+    "skipped": 0,
+    "verdicts": [
+      "OK"
+    ]
+  },
+  "skipped": 0,
+  "producer_exit": 0,
+  "verification_exit": 0,
+  "effective_exit": 0,
+  "elapsed_seconds": 2.926,
+  "verification_problems": [],
+  "verified_at": "2026-10-27T18:19:44Z"
+}

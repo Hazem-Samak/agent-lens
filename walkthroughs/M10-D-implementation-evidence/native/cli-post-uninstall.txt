@@ -1,0 +1,59 @@
+AI AGENTS                         3
+
+– Codex          –    –
+– OpenCode          –    –
+– Grok CLI          –    –
+
+PATH DIAGNOSTICS
+
+Codex
+  live entry paths: 0; canonical targets: 0
+  repeated PATH slots: 0; same-target aliases: 0; shadowed installations: 0
+  selection: no live executable in PATH or declared extra roots
+  canonical installation versions:
+    none observed
+  PATH candidates: none observed
+
+OpenCode
+  live entry paths: 0; canonical targets: 0
+  repeated PATH slots: 0; same-target aliases: 0; shadowed installations: 0
+  selection: no live executable in PATH or declared extra roots
+  canonical installation versions:
+    none observed
+  PATH candidates: none observed
+
+Grok CLI
+  live entry paths: 0; canonical targets: 0
+  repeated PATH slots: 0; same-target aliases: 0; shadowed installations: 0
+  selection: no live executable in PATH or declared extra roots
+  canonical installation versions:
+    none observed
+  PATH candidates: none observed
+
+Count definitions: repeated PATH slots are extra occurrences of an observed normalized entry path; same-target aliases are distinct live entry paths beyond the first for one canonical target; shadowed installations are distinct live canonical targets outside the verified winner's target group.
+
+DETECTOR METADATA
+Declared package candidates are supported package names, not proof of installation ownership.
+
+Codex  category: AI Agent
+  declared package: npm @openai/codex (declaration only)
+  declared package: Homebrew cask codex (declaration only)
+  official information: https://developers.openai.com/codex/cli
+
+OpenCode  category: AI Agent
+  declared package: npm @opencode/cli (declaration only)
+  declared package: npm opencode-ai (declaration only)
+  declared package: Homebrew formula anomalyco/tap/opencode-v2 (declaration only)
+  declared package: Homebrew formula anomalyco/tap/opencode (declaration only)
+  official information: https://opencode.ai/v2/docs/
+  uninstall instructions: https://opencode.ai/v2/docs/cli/#uninstall
+
+Grok CLI  category: AI Agent
+  declared packages: none
+  official information: https://docs.x.ai/build/overview
+
+VERSION / UPDATE STATUS
+Codex  installed —  latest known —  unknown — not installed
+OpenCode  installed —  latest known —  unknown — not installed
+Grok CLI  installed —  latest known —  unknown — not installed
+0 updates available

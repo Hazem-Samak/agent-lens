@@ -23,6 +23,12 @@ struct PathActionRow: View {
     /// Short row label, e.g. "Selected Entry" or "Resolved Target".
     let rowLabel: String
 
+    init(target: PathActionTarget, toolName: String, rowLabel: String) {
+        self.target = target
+        self.toolName = toolName
+        self.rowLabel = rowLabel
+    }
+
     // Avoid `@State` macro syntax (the builder toolchain's SwiftUIMacros
     // plugin is unavailable for the app target); use the explicit
     // `State(initialValue:)` wrapper pattern already used by MainWindow.

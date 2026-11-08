@@ -1,0 +1,49 @@
+{
+  "gate": "isolation-gate",
+  "kind": "swift",
+  "expected_floor": null,
+  "target_floors": [
+    {
+      "label": "isolation",
+      "floor": 1
+    }
+  ],
+  "parsed": {
+    "kind": "swift",
+    "summaries": [
+      {
+        "tests": 1,
+        "suites": 0,
+        "verdict": "passed"
+      }
+    ],
+    "totals": [
+      1
+    ],
+    "layout": "components",
+    "target_matches": [
+      {
+        "label": "isolation",
+        "floor": 1,
+        "matched_count": 1,
+        "satisfied": true
+      }
+    ],
+    "passed_event_count": 1,
+    "failure_event_count": 0,
+    "issue_event_count": 0,
+    "executed_zero_lines": [],
+    "skipped": 0,
+    "stream_bytes": {
+      "stdout": 1162,
+      "stderr": 11540
+    }
+  },
+  "skipped": 0,
+  "producer_exit": 0,
+  "verification_exit": 0,
+  "effective_exit": 0,
+  "elapsed_seconds": 43.95,
+  "verification_problems": [],
+  "verified_at": "2026-10-27T18:20:58Z"
+}

@@ -1,0 +1,11 @@
+{
+  "args": [
+    "config",
+    "get",
+    "@openai:registry",
+    "--global"
+  ],
+  "exit": 0,
+  "stdout": "undefined\n",
+  "stderr": ""
+}

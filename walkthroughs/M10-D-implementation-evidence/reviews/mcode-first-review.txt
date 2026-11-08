@@ -1,0 +1,70 @@
+## VERDICT: **BLOCK**
+
+Implementation review 1 for M10-D (npm Uninstall + combined npm acceptance). Read-only: no repository file was edited, created, deleted, staged, or committed; no npm/app/personal-path mutations were run; no web tools were used. I did **not** execute `swift test` or the acceptance harness (time-bounded), so all findings below are from static reading and are labeled accordingly.
+
+---
+
+## BLOCKING findings
+
+### B1 — R1-3's four mandatory acceptance rows are not implemented anywhere
+`Tests/Fixtures/M10D/npm_uninstall_acceptance.py:524-533` defines exactly two scenarios, `controlled` and `combined`. `AC05b`, `AC06b`, `AC06c`, `AC06d` exist only in `briefs/M10-D-R1-review-corrections.md:45-48` — `grep -rn "AC05b\|AC06b\|AC06c\|AC06d" briefs/ walkthroughs/ Tests/ Sources/` matches no implementation, test, or evidence file.
+
+- **Failure scenario:** the implementation cannot demonstrate (a) removal facts binding to the recorded package identity under a symlink/in-root store layout (AC05b), (b) a second package owning the same bin name in the same prefix being *reported* rather than misattributed (AC06b), (c) residue being surfaced in the result (AC06c), or (d) a permission-denied observation producing `.uncertain` with the raw failure recorded (AC06d). R1-3 declares these rows blocking; §9's "all pass" is literal.
+- **Required correction:** implement four additional harness scenarios (or an equivalent receipt-producing runner) with raw argv/stdout/stderr/exit records, before/after identity manifests, and unchanged-sentinel assertions; record them under an M10-D implementation walkthrough. Note that AC05b specifically stresses `observePackageRemoval` (`Sources/AgentLensCore/Operations/NpmUninstallOperation.swift:440-448`), which compares **existence** at `proof.packageLexicalPath` and never compares the observed directory identity to the recorded proof identity — conservative (never a false success), but unproven for the symlink layout.
+
+### B2 — R1-2's ownership-clearing path has no test and no actual-app observation
+R1-2 (`briefs/M10-D-R1-review-corrections.md:32-37`) requires "a test or an actual-app observation" for the launched-removal-whose-rescan-failed path. The clearing logic lives in `Sources/AgentLensAppSupport/InventoryViewModel.swift:535-538` (`else if result.outcome.processStarted { self.clearOwnership(for: registryID) }`) and `InventoryViewModel.swift:877` (`clearOwnership(for:)`).
+
+- `Tests/AgentLensAppSupportTests/InventoryViewModelTests.swift` has 13 tests and **no** Uninstall coverage (no match for `ninstall`).
+- `Tests/AgentLensAppSupportTests/InventoryServiceTests.swift` has exactly one Uninstall test, `uninstallPreparationAndExecutionPublishTheFreshRemovalDelta` (line 1158), which exercises the *successful-snapshot* path, not the failed-rescan path.
+- No implementation walkthrough exists (`walkthroughs/` contains only `M10-D-planning.md` and `M10-D-planning-evidence/`), so no actual-app observation either.
+
+**Required correction:** add a ViewModel-level test that injects a service returning `processStarted == true` with `snapshot == nil` and asserts (i) the affected entry's `ownership` becomes `nil`, (ii) the Uninstall button is disarmed, and (iii) a subsequent `prepareSelectedUninstall()` is refused until a fresh Verify. Static reading says the code path is *present* and the button is in fact disarmed — `ToolDetailView.swift:281-287` only renders the destructive button when `entry.ownership?.verifiedInstallation` is npm, and `InventoryService.swift:195` makes every entry in a freshly scanned snapshot `ownership: nil` — but "present in code" is not the evidence R1-2 demands, so this is blocking rather than non-blocking.
+
+### B3 — The controlled harness hides the residue and observation-failure facts
+`Tests/Fixtures/M10D/npm_uninstall_acceptance.py:126-138` — the controlled host's result JSON records `packageDirectoryAbsent`, `selectedTargetReleased`, `afterInstallState`, but **not** `selectedEntryResidue` and **not** `observationFailed`. The combined host does record both (lines 304-305).
+
+- **Failure scenario:** in the controlled scenario the selected entry is the alias symlink `alias-bin/codex → prefix/bin/codex` (harness line 446). A successful `npm uninstall` removes `prefix/bin/codex`, so the alias becomes **dangling** → Core returns `.dangling` → `selectedTargetReleased == true` *and* `selectedEntryResidue == true` (`NpmUninstallOperation.swift:501`). The harness asserts only the former (line 482) and never asserts `observationFailed is False`, so the controlled receipts would show a "clean" removal while a dangling residue actually remains. This is precisely what R1-3/AC06c forbids: "residue is visible in the result, never hidden." The core unit test does assert `selectedEntryResidue == true` (`Tests/AgentLensCoreTests/NpmUninstallOperationTests.swift:349`), so the *Core* reports it — the external oracle drops it.
+- **Required correction:** add `selectedEntryResidue` and `observationFailed` to the controlled host's result JSON, assert `observationFailed is False` for the success row, and make the residue fact an explicit asserted outcome (assert-residue-present, or assert-residue-absent — either is fine; silently omitting it is not).
+
+### B4 — No public-npm (AC11) evidence and no implementation walkthrough exists
+R1-4 (`briefs/M10-D-R1-review-corrections.md:50-55`) makes M10-D-AC11 mandatory and states that a BLOCKED public fixture does **not** pass AC11 and cannot be silently substituted by controlled-registry evidence. The harness has no public-npm scenario (`--scenario` accepts only `controlled`/`combined`), and the repository contains no M10-D implementation walkthrough recording either a passing AC11 run or a truthfully recorded BLOCKED limitation.
+
+- **Required correction:** run AC11 against the shipping detector registry and public npm with a disposable prefix and synthetic HOME/config/cache, and record raw argv/stdout/stderr/exit receipts plus the shipping-CLI `scan --offline` parity comparison; or record the BLOCKED limitation explicitly with evidence. The combined controlled run cannot substitute.
+
+---
+
+## NON-BLOCKING findings
+
+- **N1** — `NpmUninstallOperation.swift:462-477`: the dangling branch reads the link target with `readlink` into a fixed `PATH_MAX` buffer. A link target longer than `PATH_MAX` is truncated, the constructed absolute path then does not exist, and the entry is misreported as `.dangling` (residue) instead of `.failed`. Use `readlink` with a dynamically sized buffer or `PATH_MAX`-checked length.
+- **N2** — `NpmUninstallOperation.swift:440-448`: `observePackageRemoval` reports `.present` for *any* directory at the recorded lexical path; the recorded proof identity is never compared. A replacement package at the same path is therefore reported as "not absent" → `.uncertain`, which is the conservative behavior D05.2 demands, but the delta field is named `packageDirectoryAbsent` while meaning "not present in any form". Consider comparing against `plan.proof`'s recorded directory identity and emitting an explicit "replaced" fact (directly serves AC05b).
+- **N3** — `Sources/AgentLensCore/Operations/OperationModels.swift:408-418`: `NpmUninstallDelta.changed` omits `selectedEntryResidue`, so a delta whose only change is residue reports `changed == false`. Add it for symmetry with `observationFailed`.
+- **N4** — `NpmUninstallOperation.swift:190-198`: on the busy-gate path, `preparation.releaseUnconsumed()` returns `false` for a *replayed* preparation that is already claimed, and that `false` is reported as "The owned operation scratch root could not be removed safely." The root is in fact owned by the concurrent execution. Distinguish "already consumed" from "cleanup refused".
+- **N5** — `NpmUninstallOperation.swift:212-243`: the `finish` helper's `releaseRoot` parameter is never passed as `false`; it is dead API surface.
+- **N6** — `Sources/AgentLensAppSupport/InventoryViewModel.swift:535-538` vs `InventoryService.swift:195`: the failed-rescan path clears ownership for **one** entry, while the successful path publishes a snapshot with ownership cleared for **every** entry. The asymmetry is defensible but undocumented and unverified (see B2).
+- **N7** — `Tests/Fixtures/M10D/npm_uninstall_acceptance.py:496-506`: the external argv oracle asserts only a subset of the mandated shape — `--cache`, `--logs-dir`, `--no-update-notifier`, `--no-audit`, `--no-fund`, `--package-lock=false`, `--no-save`, `--fetch-retries=0`, `--fetch-timeout=30000` are never required, `--cache`/`--logs-dir` are never checked against the owned operation root, and the `rm` alias is not in the forbidden list. §7 makes the external harness the argv oracle ("Production operation argv must first be asserted by the external harness"); the Swift unit test covers the exact argv, but the external proof is partial.
+- **N8** — `Tests/Fixtures/M10D/npm_uninstall_acceptance.py:507-508` and `401-402`: the "uninstall did not touch the registry" assertion matches the byte `uninstall` anywhere in the recorded HTTP request; a packument or tarball URL containing that substring for an unrelated reason would produce a false failure (not a false pass), but the check is substring-based rather than path-based.
+- **N9** — `Tests/Fixtures/M10D/npm_uninstall_acceptance.py:335` (controlled) vs `282` (combined): the combined install omits `--fetch-retries=0 --fetch-timeout=30000` that the controlled install includes — cosmetic fixture drift, not a product defect.
+
+---
+
+## TEST GAPS
+
+1. **AC05b / AC06b / AC06c / AC06d** — no harness scenario and (except AC06d's unit analogue) no unit test. See B1.
+2. **R1-2** — no test for "launched removal whose rescan failed clears the affected entry's verified ownership and disarms the destructive button". See B2.
+3. **Dangling-residue cases not covered:** `Tests/AgentLensCoreTests/NpmUninstallOperationTests.swift` asserts `selectedEntryResidue == true` for the alias-dangling success case, but there is no case where a **still-live reviewed target** must *not* count as released (`.stillPresent` → `selectedTargetReleased == false` → `.uncertain`), and no case where a dangling residue coexists with a failed package observation.
+4. **`observePackageRemoval` identity-replacement case** — no test where the package path is occupied by a *different* directory after removal; expected `.uncertain` with `packageDirectoryAbsent == false` and `observationFailed == false` (currently unreachable-by-test).
+5. **`observeEntryRemoval` `.failed` via wrong-type entry** — no test where the selected path is a regular file rather than a symlink/executable.
+6. **Cancellation/interruption after launch with a failed rescan** — `cancellingAfterSpawnInterruptsAndReconcilesWithoutOrphan` (line 778) covers interruption, but not the intersection with a `nil` reconciliation snapshot and the resulting ViewModel ownership clearing.
+7. **Harness assertion-strength gaps** — no scenario asserts the operation scratch root's *path* matches the `--cache`/`--logs-dir` argv values, nor that no second npm invocation occurred after a nonzero exit (no-retry evidence beyond the invocation count in the controlled scenario).
+8. **Combined-scenario reverse order** (Uninstall first, then Update) — brief D07.3 says "where practical"; the harness only runs Update→Uninstall, and no reverse-order scenario exists.
+
+---
+
+**Verified as correct by reading** (no restatement of code, only to bound the verdict): the tri-state/dangling observation model at `NpmUninstallOperation.swift:424-482` matches R1-1's semantics; the `.succeeded` predicate at lines 386-391 requires exit 0 **and** package absent **and** target released **and** no observation failure; nonzero exit → `.failed`, interrupted → `.interrupted`; pre-launch refusals all consume the plan with zero mutation and release the owned root; the gate prevents two mutations; argv contains the public registry pin, the scoped pin for `@scope/name`, `--global --prefix <verified-prefix>`, and no `--force`/`--ignore-scripts`/`--dry-run`/metadata query; the Uninstall button is gated on a verified npm ownership observation and disappears once ownership is cleared (`ToolDetailView.swift:281-287`); Update and Uninstall share one mutation slot with mutually exclusive sheet presentation.
+
+**Unverified:** `swift build`, `swift test --no-parallel`, `scripts/check-core-ui-imports.py`, `Tests/Packaging/test_core_ui_imports.py`, the packaging gates, and both acceptance harness scenarios were not executed in this review; all four blocking findings above are from source inspection and are independent of whether the current suite passes.
+
+REVIEW-COMPLETE
+
+exit=0

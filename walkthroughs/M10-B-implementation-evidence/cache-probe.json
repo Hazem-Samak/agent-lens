@@ -1,0 +1,5 @@
+{
+  "exit": 0,
+  "stdout": "before-unrelated-save hit=false\nsave-B success=true\nafter-unrelated-save hit=false\n",
+  "stderr": ""
+}

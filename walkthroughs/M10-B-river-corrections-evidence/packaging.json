@@ -1,0 +1,12 @@
+{
+  "argv": [
+    "python3",
+    "Tests/Packaging/test_dev_app_bundle.py",
+    "--app",
+    "/private/tmp/agent-lens-m10b-implementation-9jaujmja/parent/river-corrections/devapp/AgentLensApp-debug.app"
+  ],
+  "exit": 0,
+  "seconds": 1.7566039169978467,
+  "AgentLens_test_overrides": "both unset",
+  "TMPDIR": "/var/folders/tf/jsdyxcts6y72fs98s7wl3dfm0000gn/T/"
+}

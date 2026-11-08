@@ -1,0 +1,24 @@
+{
+  "baseline": "b667be6a177d42f26def815e9acd6f801aa6d52c",
+  "baseline_files_compared": 134,
+  "changed_baseline_paths": [
+    "README.md",
+    "ROADMAP.md",
+    "Sources/AgentLensApp/ToolDetailView.swift",
+    "Sources/AgentLensAppSupport/InventoryService.swift",
+    "Sources/AgentLensCore/Ownership/NpmOwnershipProbe.swift",
+    "Sources/AgentLensCore/Updates/UpdateProbeCoordinator.swift",
+    "Sources/AgentLensCore/Updates/UpdateScanRenderer.swift",
+    "Sources/AgentLensCore/Updates/VersionStatus.swift",
+    "Sources/agent-lens/main.swift",
+    "Tests/AgentLensCoreTests/UpdateProbeCoordinatorTests.swift",
+    "briefs/README.md",
+    "briefs/M10-B-implementer-selection.md",
+    "walkthroughs/M10-B-planning.md"
+  ],
+  "unexpected_changed_baseline_paths": [],
+  "reviewed_12_product_and_test_hashes_unchanged": true,
+  "coordinator_docs": "Planning/implementer selection contain prior authorized dispatch/failure/route updates. Final status edits affect README/ROADMAP/briefs index only. No protected implementation change.",
+  "post_review_change": "coordinator milestone docs/evidence only; README worker snapshot hash remains historical in hashes.json",
+  "unrelated_sentinel_current_sha256": "a5e80865376b7d6daf6a6e4f404d2b315ddf21095db5f8bd05961483ee39fc97"
+}

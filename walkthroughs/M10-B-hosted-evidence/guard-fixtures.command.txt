@@ -1,0 +1,6 @@
+gate: guard-fixtures
+argv: ["python3", "Tests/Packaging/test_core_ui_imports.py"]
+cwd: /Users/runner/work/agent-lens/agent-lens
+started_epoch: 1793125181
+elapsed_seconds: 2.926
+producer_exit: 0

@@ -261,6 +261,367 @@ enum BoundedProcessRunner {
         }
     }
 
+
+    // MARK: - Operation-specific dual-stream API
+
+    /// Operation-only result. The existing single-stream `Result` and every read-only caller keep
+    /// their exact behavior; this result adds a second captured stream, explicit per-stream
+    /// truncation, cancellation, and an operation root working directory.
+    struct DualStreamResult: Sendable {
+        let standardOutput: Data
+        let standardError: Data
+        let exitStatus: Int32?
+        let timedOut: Bool
+        let outputLimitExceeded: Bool
+        let stdoutTruncated: Bool
+        let stderrTruncated: Bool
+        let cancelled: Bool
+        let processStarted: Bool
+        let cleanupWarning: Bool
+    }
+
+    /// Runs one operation process with separate stdout/stderr capture, a captured working
+    /// directory, a bounded 1 MiB prefix per stream, and a process-group-bound cancellation path.
+    /// Both pipes are polled together so a noisy stderr cannot deadlock stdout. `nil` means spawn
+    /// failed before a process was created.
+    static func runDualStream(
+        executablePath: String,
+        arguments: [String],
+        environment: [String: String]? = nil,
+        currentDirectory: String? = nil,
+        timeout: TimeInterval,
+        isCancelled: @escaping @Sendable () -> Bool = { false }
+    ) -> DualStreamResult? {
+        if isCancelled() {
+            return DualStreamResult(
+                standardOutput: Data(), standardError: Data(), exitStatus: nil,
+                timedOut: false, outputLimitExceeded: false,
+                stdoutTruncated: false, stderrTruncated: false,
+                cancelled: true, processStarted: false, cleanupWarning: false
+            )
+        }
+
+        var stdoutDescriptors = [Int32](repeating: -1, count: 2)
+        var stderrDescriptors = [Int32](repeating: -1, count: 2)
+        guard stdoutDescriptors.withUnsafeMutableBufferPointer({ pipe($0.baseAddress!) }) == 0,
+              stderrDescriptors.withUnsafeMutableBufferPointer({ pipe($0.baseAddress!) }) == 0
+        else {
+            for descriptor in stdoutDescriptors + stderrDescriptors where descriptor >= 0 {
+                close(descriptor)
+            }
+            return nil
+        }
+        let stdoutRead = stdoutDescriptors[0]
+        var stdoutWrite = stdoutDescriptors[1]
+        let stderrRead = stderrDescriptors[0]
+        var stderrWrite = stderrDescriptors[1]
+        var nullDescriptor = open("/dev/null", O_RDWR)
+        guard nullDescriptor >= 0 else {
+            for descriptor in [stdoutRead, stdoutWrite, stderrRead, stderrWrite] where descriptor >= 0 {
+                close(descriptor)
+            }
+            return nil
+        }
+        defer {
+            if stdoutRead >= 0 { close(stdoutRead) }
+            if stdoutWrite >= 0 { close(stdoutWrite) }
+            if stderrRead >= 0 { close(stderrRead) }
+            if stderrWrite >= 0 { close(stderrWrite) }
+            if nullDescriptor >= 0 { close(nullDescriptor) }
+        }
+
+        for descriptor in [stdoutRead, stdoutWrite, stderrRead, stderrWrite] {
+            let flags = fcntl(descriptor, F_GETFD)
+            guard flags >= 0, fcntl(descriptor, F_SETFD, flags | FD_CLOEXEC) >= 0 else {
+                return nil
+            }
+        }
+        for descriptor in [stdoutRead, stderrRead] {
+            let flags = fcntl(descriptor, F_GETFL)
+            guard flags >= 0, fcntl(descriptor, F_SETFL, flags | O_NONBLOCK) >= 0 else {
+                return nil
+            }
+        }
+
+        var fileActions: posix_spawn_file_actions_t? = nil
+        guard posix_spawn_file_actions_init(&fileActions) == 0 else { return nil }
+        defer { posix_spawn_file_actions_destroy(&fileActions) }
+        let actionStatuses = [
+            posix_spawn_file_actions_adddup2(&fileActions, stdoutWrite, STDOUT_FILENO),
+            posix_spawn_file_actions_adddup2(&fileActions, stderrWrite, STDERR_FILENO),
+            posix_spawn_file_actions_adddup2(&fileActions, nullDescriptor, STDIN_FILENO),
+            posix_spawn_file_actions_addclose(&fileActions, stdoutRead),
+            posix_spawn_file_actions_addclose(&fileActions, stdoutWrite),
+            posix_spawn_file_actions_addclose(&fileActions, stderrRead),
+            posix_spawn_file_actions_addclose(&fileActions, stderrWrite),
+            posix_spawn_file_actions_addclose(&fileActions, nullDescriptor),
+        ]
+        guard actionStatuses.allSatisfy({ $0 == 0 }) else { return nil }
+        if let currentDirectory {
+            let status = currentDirectory.withCString {
+                posix_spawn_file_actions_addchdir_np(&fileActions, $0)
+            }
+            guard status == 0 else { return nil }
+        }
+
+        var spawnAttributes: posix_spawnattr_t? = nil
+        guard posix_spawnattr_init(&spawnAttributes) == 0 else { return nil }
+        defer { posix_spawnattr_destroy(&spawnAttributes) }
+        guard posix_spawnattr_setflags(&spawnAttributes, Int16(POSIX_SPAWN_SETPGROUP)) == 0,
+              posix_spawnattr_setpgroup(&spawnAttributes, 0) == 0
+        else {
+            return nil
+        }
+
+        let environmentValues = environment.map { values in
+            values.keys.sorted().map { "\($0)=\(values[$0] ?? "")" }
+        } ?? inheritedEnvironmentValues()
+        guard let argumentVector = CStringVector([executablePath] + arguments),
+              let environmentVector = CStringVector(environmentValues)
+        else {
+            return nil
+        }
+
+        // Cancellation can arrive after the entry check while the pipes, file actions, and
+        // argument vectors are being prepared. Recheck at the last possible point so a
+        // pre-launch cancel never spawns npm; the deferred descriptors and attributes are
+        // released on this return like every other setup failure.
+        if isCancelled() {
+            return DualStreamResult(
+                standardOutput: Data(), standardError: Data(), exitStatus: nil,
+                timedOut: false, outputLimitExceeded: false,
+                stdoutTruncated: false, stderrTruncated: false,
+                cancelled: true, processStarted: false, cleanupWarning: false
+            )
+        }
+
+        let startedAt = DispatchTime.now().uptimeNanoseconds
+        let safeTimeout = timeout.isFinite ? max(0, timeout) : 0
+        let maximumTimeout = Double(UInt64.max - startedAt) / 1_000_000_000
+        let timeoutNanoseconds = UInt64(min(safeTimeout, maximumTimeout) * 1_000_000_000)
+        let deadline = startedAt + timeoutNanoseconds
+
+        var processIdentifier: pid_t = 0
+        let spawnStatus = executablePath.withCString { executableCString in
+            argumentVector.pointers.withUnsafeBufferPointer { argumentBuffer in
+                environmentVector.pointers.withUnsafeBufferPointer { environmentBuffer in
+                    posix_spawn(
+                        &processIdentifier,
+                        executableCString,
+                        &fileActions,
+                        &spawnAttributes,
+                        argumentBuffer.baseAddress!,
+                        environmentBuffer.baseAddress!
+                    )
+                }
+            }
+        }
+        guard spawnStatus == 0 else { return nil }
+
+        close(stdoutWrite)
+        stdoutWrite = -1
+        close(stderrWrite)
+        stderrWrite = -1
+        close(nullDescriptor)
+        nullDescriptor = -1
+
+        var stdoutData = Data()
+        var stderrData = Data()
+        var stdoutEOF = false
+        var stderrEOF = false
+        var stdoutTruncated = false
+        var stderrTruncated = false
+        var childWasReaped = false
+        var exitStatus: Int32?
+        var cleanupWarning = false
+        var buffer = [UInt8](repeating: 0, count: 16_384)
+
+        func drain(_ descriptor: Int32, into data: inout Data, eof: inout Bool,
+                   truncated: inout Bool) {
+            guard !eof else { return }
+            while true {
+                let remaining = Self.maximumStandardOutputBytes - data.count
+                let bytesRead = buffer.withUnsafeMutableBytes { rawBuffer in
+                    Darwin.read(
+                        descriptor,
+                        rawBuffer.baseAddress!,
+                        min(rawBuffer.count, remaining + 1)
+                    )
+                }
+                if bytesRead > 0 {
+                    let count = Int(bytesRead)
+                    if count > remaining {
+                        if remaining > 0 { data.append(contentsOf: buffer.prefix(remaining)) }
+                        truncated = true
+                        break
+                    }
+                    data.append(contentsOf: buffer.prefix(count))
+                } else if bytesRead == 0 {
+                    eof = true
+                    break
+                } else if errno == EINTR {
+                    continue
+                } else if errno == EAGAIN || errno == EWOULDBLOCK {
+                    break
+                } else {
+                    eof = true
+                    break
+                }
+            }
+        }
+
+        func reap() {
+            guard !childWasReaped else { return }
+            var status: Int32 = 0
+            let result = waitpid(processIdentifier, &status, WNOHANG)
+            if result == processIdentifier {
+                childWasReaped = true
+                exitStatus = Self.exitStatus(from: status)
+            } else if result < 0, errno == ECHILD {
+                childWasReaped = true
+            }
+        }
+
+        func pollPipes(milliseconds: Int32) {
+            var descriptors: [pollfd] = []
+            if !stdoutEOF, stdoutRead >= 0 {
+                descriptors.append(pollfd(
+                    fd: stdoutRead, events: Int16(POLLIN | POLLHUP | POLLERR), revents: 0
+                ))
+            }
+            if !stderrEOF, stderrRead >= 0 {
+                descriptors.append(pollfd(
+                    fd: stderrRead, events: Int16(POLLIN | POLLHUP | POLLERR), revents: 0
+                ))
+            }
+            if descriptors.isEmpty {
+                _ = poll(nil, 0, milliseconds)
+            } else {
+                descriptors.withUnsafeMutableBufferPointer {
+                    _ = poll($0.baseAddress, nfds_t($0.count), milliseconds)
+                }
+            }
+        }
+
+        func terminateAndDrain() -> DualStreamResult {
+            _ = kill(-processIdentifier, SIGTERM)
+            let graceDeadline = DispatchTime.now().uptimeNanoseconds + 2_000_000_000
+            while DispatchTime.now().uptimeNanoseconds < graceDeadline {
+                drain(stdoutRead, into: &stdoutData, eof: &stdoutEOF, truncated: &stdoutTruncated)
+                drain(stderrRead, into: &stderrData, eof: &stderrEOF, truncated: &stderrTruncated)
+                reap()
+                if childWasReaped, stdoutEOF, stderrEOF,
+                   !Self.processGroupExists(processIdentifier) {
+                    break
+                }
+                pollPipes(milliseconds: 20)
+            }
+            if !childWasReaped || Self.processGroupExists(processIdentifier) {
+                _ = kill(-processIdentifier, SIGKILL)
+                let killDeadline = DispatchTime.now().uptimeNanoseconds + 1_000_000_000
+                while DispatchTime.now().uptimeNanoseconds < killDeadline {
+                    drain(stdoutRead, into: &stdoutData, eof: &stdoutEOF, truncated: &stdoutTruncated)
+                    drain(stderrRead, into: &stderrData, eof: &stderrEOF, truncated: &stderrTruncated)
+                    reap()
+                    if childWasReaped, stdoutEOF, stderrEOF,
+                       !Self.processGroupExists(processIdentifier) {
+                        break
+                    }
+                    pollPipes(milliseconds: 20)
+                }
+            }
+            cleanupWarning = !childWasReaped || Self.processGroupExists(processIdentifier)
+            return DualStreamResult(
+                standardOutput: stdoutData,
+                standardError: stderrData,
+                exitStatus: exitStatus,
+                timedOut: false,
+                outputLimitExceeded: false,
+                stdoutTruncated: stdoutTruncated,
+                stderrTruncated: stderrTruncated,
+                cancelled: false,
+                processStarted: true,
+                cleanupWarning: cleanupWarning
+            )
+        }
+
+        while true {
+            if isCancelled() {
+                var result = terminateAndDrain()
+                result = DualStreamResult(
+                    standardOutput: result.standardOutput,
+                    standardError: result.standardError,
+                    exitStatus: result.exitStatus,
+                    timedOut: false,
+                    outputLimitExceeded: false,
+                    stdoutTruncated: result.stdoutTruncated,
+                    stderrTruncated: result.stderrTruncated,
+                    cancelled: true,
+                    processStarted: true,
+                    cleanupWarning: result.cleanupWarning
+                )
+                return result
+            }
+
+            drain(stdoutRead, into: &stdoutData, eof: &stdoutEOF, truncated: &stdoutTruncated)
+            drain(stderrRead, into: &stderrData, eof: &stderrEOF, truncated: &stderrTruncated)
+            if stdoutTruncated || stderrTruncated {
+                var result = terminateAndDrain()
+                result = DualStreamResult(
+                    standardOutput: result.standardOutput,
+                    standardError: result.standardError,
+                    exitStatus: result.exitStatus,
+                    timedOut: false,
+                    outputLimitExceeded: true,
+                    stdoutTruncated: result.stdoutTruncated,
+                    stderrTruncated: result.stderrTruncated,
+                    cancelled: false,
+                    processStarted: true,
+                    cleanupWarning: result.cleanupWarning
+                )
+                return result
+            }
+
+            reap()
+            if childWasReaped, stdoutEOF, stderrEOF,
+               !Self.processGroupExists(processIdentifier) {
+                return DualStreamResult(
+                    standardOutput: stdoutData,
+                    standardError: stderrData,
+                    exitStatus: exitStatus,
+                    timedOut: false,
+                    outputLimitExceeded: false,
+                    stdoutTruncated: false,
+                    stderrTruncated: false,
+                    cancelled: false,
+                    processStarted: true,
+                    cleanupWarning: cleanupWarning
+                )
+            }
+
+            let now = DispatchTime.now().uptimeNanoseconds
+            if now >= deadline {
+                var result = terminateAndDrain()
+                result = DualStreamResult(
+                    standardOutput: result.standardOutput,
+                    standardError: result.standardError,
+                    exitStatus: result.exitStatus,
+                    timedOut: true,
+                    outputLimitExceeded: false,
+                    stdoutTruncated: result.stdoutTruncated,
+                    stderrTruncated: result.stderrTruncated,
+                    cancelled: false,
+                    processStarted: true,
+                    cleanupWarning: result.cleanupWarning
+                )
+                return result
+            }
+
+            let remaining = Int32(min(50, max(1, (deadline - now) / 1_000_000)))
+            pollPipes(milliseconds: remaining)
+        }
+    }
+
     private static func inheritedEnvironmentValues() -> [String] {
         var values: [String] = []
         var cursor = environ

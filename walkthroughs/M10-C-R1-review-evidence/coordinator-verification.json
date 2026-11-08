@@ -1,0 +1,115 @@
+[
+  {
+    "gate": "verify-guard",
+    "argv": [
+      "python3",
+      "scripts/check-core-ui-imports.py"
+    ],
+    "exit": 0,
+    "started": 1793614972.998643,
+    "ended": 1793614973.075295,
+    "elapsed": 0.077,
+    "detached": false
+  },
+  {
+    "gate": "verify-guard-fixtures",
+    "argv": [
+      "python3",
+      "Tests/Packaging/test_core_ui_imports.py"
+    ],
+    "exit": 0,
+    "started": 1793614973.075526,
+    "ended": 1793614974.1538339,
+    "elapsed": 1.078,
+    "detached": false
+  },
+  {
+    "gate": "verify-build",
+    "argv": [
+      "swift",
+      "build",
+      "--build-system",
+      "swiftbuild",
+      "--scratch-path",
+      "/private/tmp/agent-lens-m10c-acceptance.TcBGo0/parent/coordinator-verification-products"
+    ],
+    "exit": 0,
+    "started": 1793614974.1540601,
+    "ended": 1793615000.8023481,
+    "elapsed": 26.648,
+    "detached": false
+  },
+  {
+    "gate": "verify-suite-tty",
+    "argv": [
+      "swift",
+      "test",
+      "--build-system",
+      "swiftbuild",
+      "--scratch-path",
+      "/private/tmp/agent-lens-m10c-acceptance.TcBGo0/parent/coordinator-verification-products",
+      "--no-parallel",
+      "-Xswiftc",
+      "-load-plugin-library",
+      "-Xswiftc",
+      "/Library/Developer/CommandLineTools/usr/lib/swift/host/plugins/testing/libTestingMacros.dylib"
+    ],
+    "exit": 0,
+    "started": 1793615000.802717,
+    "ended": 1793615086.2578828,
+    "elapsed": 85.455,
+    "detached": false
+  },
+  {
+    "gate": "verify-suite-detached",
+    "argv": [
+      "swift",
+      "test",
+      "--build-system",
+      "swiftbuild",
+      "--scratch-path",
+      "/private/tmp/agent-lens-m10c-acceptance.TcBGo0/parent/coordinator-verification-products",
+      "--no-parallel",
+      "--skip-build",
+      "-Xswiftc",
+      "-load-plugin-library",
+      "-Xswiftc",
+      "/Library/Developer/CommandLineTools/usr/lib/swift/host/plugins/testing/libTestingMacros.dylib"
+    ],
+    "exit": 0,
+    "started": 1793615086.258379,
+    "ended": 1793615156.751879,
+    "elapsed": 70.493,
+    "detached": true
+  },
+  {
+    "gate": "verify-app",
+    "argv": [
+      "python3",
+      "scripts/build-dev-app.py",
+      "--scratch-root",
+      "/private/tmp/agent-lens-m10c-acceptance.TcBGo0/parent/coordinator-verification-app",
+      "--configuration",
+      "debug"
+    ],
+    "exit": 0,
+    "started": 1793615156.7524228,
+    "ended": 1793615183.1964002,
+    "elapsed": 26.444,
+    "detached": false
+  },
+  {
+    "gate": "verify-packaging",
+    "argv": [
+      "python3",
+      "Tests/Packaging/test_dev_app_bundle.py",
+      "--app",
+      "/private/tmp/agent-lens-m10c-acceptance.TcBGo0/parent/coordinator-verification-app/AgentLensApp-debug.app"
+    ],
+    "exit": 0,
+    "started": 1793615183.196685,
+    "ended": 1793615185.027902,
+    "elapsed": 1.831,
+    "detached": false
+  }
+]

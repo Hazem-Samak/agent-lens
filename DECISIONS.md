@@ -285,6 +285,56 @@ Record each milestone result here. Include the T3 Code build string so a regress
 | M7 — First UI | 2026-10-16 | **passed** — initial native SwiftUI macOS app accepted; user visual approval 2026-10-16 (Africa/Cairo) for initial UI; DeepSeek R4/final PASS with no blocking findings; parent independent technical acceptance. 222 Swift (184 Core +38 AppSupport) +9 Python packaging, all exit 0; hosted selfchecks 8/8 exit 0. All 29 Core/CLI source and test files unchanged. The historical documentation closeout preserved 65 of 68 pinned files, changed only the 3 approved docs (`DECISIONS.md`, `README.md`, `briefs/README.md`), and added one walkthrough (`walkthroughs/M7-first-ui.md`, 69 total). That closeout phase made no source expansion or Git mutation; subsequent Git delivery is recorded in Notes. No signing, notarization, or app release. | 0.1.1-nightly.20261016.3218 (observed at documentation closeout 2026-10-16; earlier acceptance-gate T3 build not recorded) — macOS 27.0.1 build 26A434; Swift 6.4 (swiftlang-6.4.0.34.1), swift-driver 1.168.6, arm64-apple-macosx27.0.0 | Closeout docs: `walkthroughs/M7-first-ui.md` (measured implementation/acceptance), `briefs/README.md`, `README.md`, `DECISIONS.md`. Delivered to `main` and GitHub as `36a3f1cd4ce3c926deadb2565d8e2a6938161c9f` (`feat(ui): complete M7 native macOS app`). Local `main`, `origin/main`, and remote `main` matched in a read-only check on 2026-10-17; worktree clean before the delivery-note/M8-plan update. M8 path actions are a separate draft; implementation has not started. |
 | M8 — Copy Path and Reveal in Finder | 2026-10-18 | **user-approved for delivery** — parent independently observed 246 Swift tests, fresh app build, 9 packaging tests, and invalid-target probe pass; Gemini High and MiMo final PASS; user visual approval and commit/push/cleanup authorization. Native keyboard-only activation remains unverified, not a passed gate. | n/a — Zeron orchestration (0.2.113 observed at preflight); Swift 6.4; macOS 27.0.1 (26A434) | Sole implementer: DeepSeek V4.1 Flash free / WorkBuddy Pi. Exactly four implementation files; all 69 protected baseline files unchanged before documentation closeout. See `walkthroughs/M8-path-actions.md` for native evidence and limits. No system keyboard preference changed; no signed/notarized app release. |
 | M9 — Verified installation details and per-installation versions | 2026-10-25 | **technically accepted, user-UI-approved and delivered to `main`** — corrected A/B/C plus parent combined gate: 329 Swift (258 Core +71 AppSupport), fresh app build and 9 packaging; actual CLI/native, read-only real npm/Homebrew, isolated identity/budget/lifecycle scenarios; final independent safety/contract reviews clear | n/a — omp orchestration; installed T3 Code Nightly `0.1.3-nightly.20261024.3630` observed from public bundle metadata, not claimed as the orchestration build; Swift 6.4 | Sole implementer: DeepSeek V4.1 Flash Free / OpenCode, maximum effort. User approved M9 UI, then separately authorized branch delivery and main integration. Feature `eb4f586` reached `origin/main` through the fast-forward of milestone tip `1ac22c4`. See `walkthroughs/M9-verified-installations.md` for accepted hashes, corrections, raw evidence and delivery. No tool Update/Uninstall or signed distribution. M8 keyboard-only activation remains unverified. |
+| M10-A — Clean CI and default-TMPDIR portability | 2026-10-26 | **technically accepted on the M10 feature branch** — parent independent local406 Swift, both real bundle layouts/9 packaging each, parser39 on Python3.9/3.15, guard21, workflow controls; hosted exact candidate all7 gates including406 Swift and original9 packaging, zero skips/failures | n/a — Codex desktop orchestration, no T3 build claimed; hosted Xcode26.3/Swift6.2.4 on macOS15.7.9 arm64 | Sole implementer DeepSeekV4.1Flash/WorkBuddy/OMP; final Qwen3.8Flash/Qoder and user-authorized replacement Gemini3.8FlashHigh/agy PASS. Feature `f442aa25f513afd2ae92af7da544b405791fafa7`; [run40389308783](https://github.com/Hazem-Samak/agent-lens/actions/runs/40389308783), attempt1; artifact digest/33 receipts independently verified. See [acceptance](walkthroughs/M10-A-acceptance.md). M10-B unstarted; no PR/main merge/release. M8 keyboard-only gate remains unverified. |
+| M10-C R1 — Terminal-context baseline repair | 2026-11-02 | **locally technically accepted, uncommitted** — final coordinator 469/469 test events in both controlling-PTY and detached contexts; guard21, fresh app, packaging9, actual terminal CLI exact non-degraded fixture PATH; final Qoder independent PASS | n/a — OMP orchestration through Herdr; Swift 6.4 on macOS27 arm64; no T3 build claimed | River/Pi `deepseek-ai/DeepSeek-V4.1-Flash-1017`, max, sole writer. Interactive zsh stopped on SIGTTOU in the inherited controlling-terminal session; capture now disables job control with `+m`. Perch hit quota before verdict; owner explicitly waived its verdict for this repair only. [Acceptance](walkthroughs/M10-C-R1-baseline-repair.md); M10-C product implementation separately dispatched, not accepted; original two product reviewers retained; no Git/hosted/release claim. |
+| M10-C — Confirmed npm Update | 2026-11-02 | **technically accepted on the feature branch** — parent510 Swift in each controlling-TTY/detached context, guard21, fresh app, packaging9; native1.0.0→2.0.0 and ordinary packaged public0.165.0→0.166.0, Cancel unchanged, active/prepared-close cleanup; hosted exact-SHA all7 gates/510 combined Swift, zero skips/failures | n/a — OMP orchestration through Herdr; Swift6.4 local; hosted macOS15.8.2 arm64/Xcode26.3/Swift6.2.4; no T3 build claimed | River/Pi `deepseek-ai/DeepSeek-V4.1-Flash-1017`, max, sole product writer. Perch `glm-5.3-flash-starter`/max and Qoder `Qwen3.8-Max`/xhigh both final PASS, no remaining material findings. Owner-authorized implementation `fff287d79884bf2163642dfa6ef3543da5682565`; [hosted run41519177534](https://github.com/Hazem-Samak/agent-lens/actions/runs/41519177534), attempt1, digest-verified33-file artifact retained. [Evidence/limits](walkthroughs/M10-C-implementation.md). No main merge, release, or M10-D authorization. |
+
+## M10-D — acceptance (2026-11-08)
+
+The owner authorized M10-D planning and implementation, with the orchestrator as sole product writer
+and independent read-only reviewers. The plan is frozen at `3d6129d`; review corrections are frozen
+at `46778d2`. Implementation candidate `308b7d2` passed all seven exact-SHA hosted gates: guard,
+21 guard fixtures, package build, native-macro isolation, **532** combined Swift tests, fresh debug
+app, and **9** packaging checks, with no skips. Local evidence includes 20 Core uninstall tests,
+AppSupport/ViewModel coverage, controlled real-npm Uninstall, combined Update→Uninstall on one
+prefix/gate, public npm Uninstall through the shipping service boundary, and unchanged sentinels.
+After the owner granted Accessibility, the ordinary debug app passed the native click-through:
+Verify → Uninstall preview → Cancel with byte-identical prefix hashes → fresh preview → Uninstall
+Package → **Uninstall Succeeded**, exit 0, `0.165.0 → —`, install state `installedAndOnPath →
+notInstalled`, package directory gone, target released, no replacement/residue/failed observation.
+The shipping CLI then agreed; public sentinels were unchanged. Screenshots and the action transcript
+are retained with the implementation record.
+
+**M10-D and the combined npm gate are technically accepted on the feature branch; M10 as a whole is
+accepted on `codex/m10-npm-management`.** PR #1 is open and owner-authorized for merge after the R2
+corrections and two documented self-reviews (see below); no public release is authorized. mcode
+issued plan and implementation BLOCKs corrected in R1/follow-up; agy's static BLOCK contained one
+stale `repo` finding disproved by the passing render scenario and the pre-grant TCC finding now
+resolved by the successful click-through. OpenCode GLM plan review stalled after one verified
+lifecycle-script correction. See [M10-D implementation](walkthroughs/M10-D-implementation.md).
+
+## M10-D R2 — corrections, self-reviews, and merge authorization (2026-11-08)
+
+The owner authorized a final R2 correction pass on the accepted M10 branch, explicitly waived a
+further independent post-correction implementation review because no other implementer or model was
+authorized, and directed the sole implementer to review the work twice and then merge. The waiver is
+recorded in `walkthroughs/M10-D-implementation-evidence/reviews/README.txt`; no independent PASS is
+claimed for R2.
+
+Corrections: Check/Refresh no longer forwards the captured login-shell `TMPDIR` and uses Foundation's
+`temporaryDirectory` when no base is injected; the update busy-gate branch suppresses the false
+scratch-cleanup warning for an already-consumed preparation; `runDualStream` rechecks cancellation
+immediately before `posix_spawn`; both confirmation sheets show the stable registry ID; the combined
+real-npm scenario now includes the required deliberate concurrent-confirm and
+window-close/interruption cases; CI floors are raised to the measured final inventory; local absolute
+paths in PR-added text evidence are redacted with the affected SHA manifests regenerated.
+
+Verification: full local suite **456 Core + 79 AppSupport = 535**, zero failures/skips, exit 0
+(`walkthroughs/M10-D-implementation-evidence/full-suite-r2.log`); extended combined real-npm scenario
+`COMBINED-CONTROLLED OK` with update succeeded, competing confirm cancelled/no process, interrupted
+uninstall reconciled, final uninstall succeeded, residue reported, and exactly one update/two
+uninstall invocations (`combined-summary-r2.json`, `combined-result-r2.json`). Targeted regressions
+passed. Exact-SHA hosted CI and the merge commit are recorded on PR #1.
 
 ## M8 — user-approved delivery (2026-10-18)
 
@@ -306,3 +356,16 @@ See `AGENT_LENS_SCOPE.md` §15 for the authoritative list.
 M6 preserves local detection and adds an opt-in, asynchronous, tri-state update result based on the selected installation and verified Homebrew formula metadata. The adapter supports formulae only and runs at most three bounded queries per eligible batch; it does not run `brew update` or perform package operations. Unsupported managers, unsupported version schemes, and opaque process failures remain neutral `unknown` results. Only verified successful metadata is cached, in schema 3 with a six-hour TTL and a 1 MiB limit; the cache is keyed by full manager/formula/selection/context identity and does not store raw environment values. Status is recomputed from current local facts on every run.
 
 **Consequence:** latest means latest known to Homebrew metadata at observation time, not a guarantee of the newest upstream release. npm, standalone, cask, uv/pip, and Cargo adapters remain outside M6. M7 subsequently consumed this same contract without extending manager support; see the delivered M7 milestone above.
+
+---
+
+## D-020 — Value-first delivery order and lean planning
+
+**Status:** settled (2026-10-28, after M10-B)
+**Source:** `AGENT_LENS_SCOPE.md` §7, §9, §25, §28.2, §29.4–5; `ROADMAP.md` (2026-10-28 revision)
+
+The future execution order is **M10 npm management → M11 original catalogue/contributor foundation → M12 complete native diagnostic and operation workflow → M13 Homebrew → M14 Python → M15 Cargo → M16 cached launch/menu bar → M17 bundled CLI → M18 release candidate → M19 signed distribution**. This supersedes only the future ordering in the 2026-10-22 roadmap; historical milestone IDs, briefs, and acceptance evidence remain unchanged.
+
+**Rationale:** the previous order delivered three additional manager tracks before broad detection and the complete diagnostic UI. That delayed the product's primary value and user-testable progress. The revised order proves one safe mutation lifecycle, expands diagnostic coverage, completes the native workflow, and then reuses that workflow for the remaining managers.
+
+**Consequence:** catalogue entries whose manager adapters do not yet exist remain informational or disabled with a truthful reason. The outstanding M8 keyboard-only Copy/Reveal check becomes a required M12 acceptance gate. Planning changes require no council or implementer; independent orchestrator acceptance and risk-based read-only review for high-risk implementation remain mandatory.

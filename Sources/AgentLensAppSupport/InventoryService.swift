@@ -22,6 +22,33 @@ import AgentLensCore
 import Dispatch
 import Foundation
 
+public struct UpdateExecutionResult: Sendable {
+    public let outcome: OperationOutcome
+    public let snapshot: InventorySnapshot?
+
+    public init(outcome: OperationOutcome, snapshot: InventorySnapshot?) {
+        self.outcome = outcome
+        self.snapshot = snapshot
+    }
+}
+
+public struct UninstallExecutionResult: Sendable {
+    public let outcome: NpmUninstallOutcome
+    public let snapshot: InventorySnapshot?
+
+    public init(outcome: NpmUninstallOutcome, snapshot: InventorySnapshot?) {
+        self.outcome = outcome
+        self.snapshot = snapshot
+    }
+}
+
+private final class OperationSnapshotBox: @unchecked Sendable {
+    private let lock = NSLock()
+    private var snapshot: InventorySnapshot?
+    func store(_ value: InventorySnapshot) { lock.lock(); snapshot = value; lock.unlock() }
+    func take() -> InventorySnapshot? { lock.lock(); defer { lock.unlock() }; let value = snapshot; snapshot = nil; return value }
+}
+
 public struct InventoryService: Sendable {
 
     /// The registry loader seam. Production is Core's bundled-resource loader; tests validate
@@ -39,8 +66,19 @@ public struct InventoryService: Sendable {
     public let scanner: DiagnosticScanner
     public let updateRunner: UpdateCommandRunner
 
+    /// Operation-specific process and mutation-gate seams. Production uses the process-wide gate;
+    /// tests and the controlled native host inject independent values.
+    public let operationRunner: OperationCommandRunner
+    public let operationGate: OperationExecutionGate
+    public let operationRootBaseURL: URL?
+
     /// The M6 metadata cache location. Injected so tests never touch the real app cache.
     public let updateCacheURL: URL
+
+    /// The M10-B npm scratch base. `nil` (production) makes the npm probe use Foundation's
+    /// `temporaryDirectory`; tests and the controlled native host inject an owned root so no real
+    /// cache/log/install path is ever touched.
+    public let npmScratchBaseURL: URL?
 
     /// The working directory relative PATH entries resolve against, fixed for the app session.
     public let currentDirectory: String
@@ -58,7 +96,11 @@ public struct InventoryService: Sendable {
             )
         },
         updateRunner: UpdateCommandRunner = ProcessUpdateCommandRunner(),
+        operationRunner: OperationCommandRunner = ProcessOperationCommandRunner(),
+        operationGate: OperationExecutionGate = OperationExecutionGate.shared,
+        operationRootBaseURL: URL? = nil,
         updateCacheURL: URL,
+        npmScratchBaseURL: URL? = nil,
         currentDirectory: String = FileManager.default.currentDirectoryPath,
         clock: @escaping @Sendable () -> Date = { Date() }
     ) {
@@ -66,7 +108,11 @@ public struct InventoryService: Sendable {
         self.registry = registry
         self.scanner = scanner
         self.updateRunner = updateRunner
+        self.operationRunner = operationRunner
+        self.operationGate = operationGate
+        self.operationRootBaseURL = operationRootBaseURL ?? npmScratchBaseURL
         self.updateCacheURL = updateCacheURL
+        self.npmScratchBaseURL = npmScratchBaseURL
         self.currentDirectory = currentDirectory
         self.clock = clock
     }
@@ -172,10 +218,13 @@ public struct InventoryService: Sendable {
         mode: UpdateProbeMode
     ) async -> InventorySnapshot {
         let probeEnvironment = await environment.sessionEnvironment()
+        // Production nil intentionally reaches the probe's Foundation `temporaryDirectory`
+        // fallback (M10-B B04). A captured login-shell TMPDIR is used only by the explicit
+        // operation paths, which compute and validate their own owned root before any launch.
+        let scratchBase = npmScratchBaseURL
         let subjects = snapshot.entries.map { entry in
             UpdateProbeSubject(
-                registryID: entry.registryID,
-                displayName: entry.definition.displayName,
+                definition: entry.definition,
                 diagnostic: entry.diagnostic
             )
         }
@@ -186,7 +235,8 @@ public struct InventoryService: Sendable {
             runner: updateRunner,
             cacheURL: updateCacheURL,
             currentDirectory: currentDirectory,
-            now: clock
+            now: clock,
+            npmScratchBaseURL: scratchBase
         )
         let resultByRegistryID = Dictionary(
             results.map { ($0.registryID, $0) },
@@ -239,6 +289,231 @@ public struct InventoryService: Sendable {
         } onCancel: {
             task.cancel()
         }
+    }
+
+    // MARK: Update operation
+
+    /// Freshly prepares one selected npm update. The service resolves the session environment
+    /// once and runs the blocking inventory/ownership work off the caller's executor.
+    public func prepareUpdate(for entry: InventoryEntry) async -> NpmUpdatePrepareResult {
+        guard case .updateAvailable = entry.updateStatus,
+              entry.update?.npmPackage != nil
+        else { return .unavailable(.notUpdateAvailable) }
+        guard let clickedPair = Self.selectedPair(entry.diagnostic) else {
+            return .unavailable(.noVerifiedSelection)
+        }
+        let environment = await environment.sessionEnvironment()
+        let registry = self.registry
+        let scanner = self.scanner
+        let runner = updateRunner
+        let currentDirectory = currentDirectory
+        let rootBase = operationRootBaseURL
+        let registryID = entry.registryID
+        let task = Task.detached(priority: .utility) {
+            // C01.2: a fresh local inventory from the already-captured session environment must
+            // still identify the exact clicked registry entry and canonical target. A changed
+            // selection refuses; it never silently retargets the fresh winner.
+            let fresh: InventorySnapshot
+            do {
+                fresh = try await Self.scanAll(
+                    environment: environment,
+                    registry: registry,
+                    scanner: scanner,
+                    currentDirectory: currentDirectory
+                )
+            } catch {
+                return NpmUpdatePrepareResult.unavailable(
+                    Task.isCancelled ? .cancelled : .probeFailed
+                )
+            }
+            guard !Task.isCancelled else { return .unavailable(.cancelled) }
+            guard let freshEntry = fresh.entries.first(where: { $0.registryID == registryID }),
+                  let freshPair = Self.selectedPair(freshEntry.diagnostic),
+                  freshPair.entry == clickedPair.entry,
+                  freshPair.target == clickedPair.target
+            else { return .unavailable(.identityUnverified) }
+            return await NpmUpdateOperation.prepare(
+                definition: freshEntry.definition,
+                diagnostic: freshEntry.diagnostic,
+                environment: environment,
+                currentDirectory: currentDirectory,
+                runner: runner,
+                operationRootBaseURL: rootBase,
+                uptime: { DispatchTime.now().uptimeNanoseconds }
+            )
+        }
+        return await withTaskCancellationHandler {
+            await task.value
+        } onCancel: {
+            task.cancel()
+        }
+    }
+
+    private static func selectedPair(_ diagnostic: ToolPathDiagnostic) -> (entry: String, target: String)? {
+        let candidate: PathCandidateObservation
+        switch diagnostic.selection {
+        case .winner(let value): candidate = value
+        case .offPath(let value, _): candidate = value
+        case .notInstalled, .inconsistent: return nil
+        }
+        guard let target = candidate.canonicalTarget, !target.isEmpty else { return nil }
+        return (candidate.entryPath, target)
+    }
+
+    /// Consumes one approved preparation. The Core operation performs all revalidation and the
+    /// single mutation; this service then refreshes the local inventory for presentation.
+    public func executeUpdate(_ preparation: NpmUpdatePreparation) async -> UpdateExecutionResult {
+        let environment = await environment.sessionEnvironment()
+        let scanner = self.scanner
+        let runner = updateRunner
+        let operationRunner = self.operationRunner
+        let gate = operationGate
+        let snapshotBox = OperationSnapshotBox()
+        let service = self
+        let task = Task.detached(priority: .utility) {
+            // This closure is called by Core only after a process actually launched. It performs
+            // one fresh login-shell/local rescan independently of the caller's cancellation and
+            // supplies the fresh environment to Core's ownership/version reconciliation.
+            let reconcileAfterLaunch: @Sendable (DetectorDefinition) async -> (ToolPathDiagnostic, ShellEnvironment)? = { definition in
+                let freshTask = Task.detached(priority: .utility) {
+                    try? await service.refreshedLocalSnapshot()
+                }
+                guard let fresh = await freshTask.value,
+                      let entry = fresh.entries.first(where: { $0.registryID == definition.id })
+                else { return nil }
+                snapshotBox.store(fresh)
+                let freshEnvironment = await service.environment.sessionEnvironment()
+                return (entry.diagnostic, freshEnvironment)
+            }
+            let outcome = await NpmUpdateOperation.execute(
+                confirmed: preparation,
+                environment: environment,
+                scan: { definition, shellEnvironment, directory in
+                    scanner(definition.makeDetector(), shellEnvironment, directory)
+                },
+                reconcileAfterLaunch: reconcileAfterLaunch,
+                updateRunner: runner,
+                operationRunner: operationRunner,
+                gate: gate,
+                uptime: { DispatchTime.now().uptimeNanoseconds }
+            )
+            return UpdateExecutionResult(outcome: outcome, snapshot: snapshotBox.take())
+        }
+        return await withTaskCancellationHandler {
+            await task.value
+        } onCancel: {
+            task.cancel()
+        }
+    }
+
+    /// Releases a pending preview without launching a process.
+    @discardableResult
+    public func cancelUpdate(_ preparation: NpmUpdatePreparation) -> Bool {
+        NpmUpdateOperation.cancel(preparation)
+    }
+
+    // MARK: Uninstall operation
+
+    /// Freshly prepares one selected npm uninstall. The published ownership observation gates the
+    /// UI, but Core repeats full live verification; it is never treated as authority.
+    public func prepareUninstall(for entry: InventoryEntry) async -> NpmUninstallPrepareResult {
+        guard let published = entry.ownership?.verifiedInstallation,
+              published.manager == .npm,
+              let clickedPair = Self.selectedPair(entry.diagnostic),
+              published.selection.entryPath == clickedPair.entry,
+              published.selection.canonicalTarget == clickedPair.target
+        else { return .unavailable(.identityUnverified) }
+        let environment = await environment.sessionEnvironment()
+        let registry = self.registry
+        let scanner = self.scanner
+        let runner = updateRunner
+        let currentDirectory = currentDirectory
+        let rootBase = operationRootBaseURL
+        let registryID = entry.registryID
+        let task = Task.detached(priority: .utility) {
+            let fresh: InventorySnapshot
+            do {
+                fresh = try await Self.scanAll(
+                    environment: environment,
+                    registry: registry,
+                    scanner: scanner,
+                    currentDirectory: currentDirectory
+                )
+            } catch {
+                return NpmUninstallPrepareResult.unavailable(
+                    Task.isCancelled ? .cancelled : .probeFailed
+                )
+            }
+            guard !Task.isCancelled else { return .unavailable(.cancelled) }
+            guard let freshEntry = fresh.entries.first(where: { $0.registryID == registryID }),
+                  let freshPair = Self.selectedPair(freshEntry.diagnostic),
+                  freshPair.entry == clickedPair.entry,
+                  freshPair.target == clickedPair.target
+            else { return .unavailable(.identityUnverified) }
+            return await NpmUninstallOperation.prepare(
+                definition: freshEntry.definition,
+                diagnostic: freshEntry.diagnostic,
+                environment: environment,
+                currentDirectory: currentDirectory,
+                runner: runner,
+                operationRootBaseURL: rootBase,
+                uptime: { DispatchTime.now().uptimeNanoseconds }
+            )
+        }
+        return await withTaskCancellationHandler {
+            await task.value
+        } onCancel: {
+            task.cancel()
+        }
+    }
+
+    /// Consumes one approved preparation. Core performs all revalidation and the single mutation;
+    /// this service then refreshes the local inventory for presentation.
+    public func executeUninstall(_ preparation: NpmUninstallPreparation) async -> UninstallExecutionResult {
+        let environment = await environment.sessionEnvironment()
+        let scanner = self.scanner
+        let runner = updateRunner
+        let operationRunner = self.operationRunner
+        let gate = operationGate
+        let snapshotBox = OperationSnapshotBox()
+        let service = self
+        let task = Task.detached(priority: .utility) {
+            let reconcileAfterLaunch: @Sendable (DetectorDefinition) async -> (ToolPathDiagnostic, ShellEnvironment)? = { definition in
+                let freshTask = Task.detached(priority: .utility) {
+                    try? await service.refreshedLocalSnapshot()
+                }
+                guard let fresh = await freshTask.value,
+                      let entry = fresh.entries.first(where: { $0.registryID == definition.id })
+                else { return nil }
+                snapshotBox.store(fresh)
+                let freshEnvironment = await service.environment.sessionEnvironment()
+                return (entry.diagnostic, freshEnvironment)
+            }
+            let outcome = await NpmUninstallOperation.execute(
+                confirmed: preparation,
+                environment: environment,
+                scan: { definition, shellEnvironment, directory in
+                    scanner(definition.makeDetector(), shellEnvironment, directory)
+                },
+                reconcileAfterLaunch: reconcileAfterLaunch,
+                updateRunner: runner,
+                operationRunner: operationRunner,
+                gate: gate,
+                uptime: { DispatchTime.now().uptimeNanoseconds }
+            )
+            return UninstallExecutionResult(outcome: outcome, snapshot: snapshotBox.take())
+        }
+        return await withTaskCancellationHandler {
+            await task.value
+        } onCancel: {
+            task.cancel()
+        }
+    }
+
+    /// Releases a pending uninstall preview without launching a process.
+    @discardableResult
+    public func cancelUninstall(_ preparation: NpmUninstallPreparation) -> Bool {
+        NpmUninstallOperation.cancel(preparation)
     }
 
     // MARK: Offload
