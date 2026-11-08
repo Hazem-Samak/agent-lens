@@ -8,4 +8,4 @@ Coordinator-run receipts for the revised candidate; see [corrections and results
 
 Publication redaction (2026-11-08): local absolute user/repository paths in the retained text
 receipts were replaced with `<repo>`/`<home>`. The affected `SHA256.json` entries were regenerated;
-test counts, verdicts, and command arguments are unchanged.
+test counts, verdicts, and non-path command arguments are unchanged.

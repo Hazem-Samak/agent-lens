@@ -306,7 +306,8 @@ The shipping CLI then agreed; public sentinels were unchanged. Screenshots and t
 are retained with the implementation record.
 
 **M10-D and the combined npm gate are technically accepted on the feature branch; M10 as a whole is
-accepted on `codex/m10-npm-management`.** PR #1 is open; no merge or release is authorized. mcode
+accepted on `codex/m10-npm-management`.** PR #1 is open and owner-authorized for merge after the R2
+corrections and two documented self-reviews (see below); no public release is authorized. mcode
 issued plan and implementation BLOCKs corrected in R1/follow-up; agy's static BLOCK contained one
 stale `repo` finding disproved by the passing render scenario and the pre-grant TCC finding now
 resolved by the successful click-through. OpenCode GLM plan review stalled after one verified
@@ -333,7 +334,7 @@ Verification: full local suite **456 Core + 79 AppSupport = 535**, zero failures
 `COMBINED-CONTROLLED OK` with update succeeded, competing confirm cancelled/no process, interrupted
 uninstall reconciled, final uninstall succeeded, residue reported, and exactly one update/two
 uninstall invocations (`combined-summary-r2.json`, `combined-result-r2.json`). Targeted regressions
-passed. Exact-SHA hosted CI and the merge commit are recorded on PR #1 and in `ROADMAP.md`.
+passed. Exact-SHA hosted CI and the merge commit are recorded on PR #1.
 
 ## M8 — user-approved delivery (2026-10-18)
 

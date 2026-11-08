@@ -12,8 +12,8 @@ authorized. The plan is frozen at `3d6129d`; the binding review corrections are 
 - Branch: `codex/m10-npm-management`.
 - Base: `4b828c7` (M10-C accepted) plus the frozen M10-D plan/R1 documentation commits.
 - Implementation candidate after CI hardening: `308b7d2bce8875752219f4dbe9a58d9492285c30`;
-  earlier candidates were `ef3a778` and `406b18e`. Pushed to `codex/m10-npm-management`; PR #1 is
-  open against `main` for the whole M10 stage.
+  earlier candidates were `ef3a778` and `406b18e`. R2 corrections: `b7362b2`. Pushed to
+  `codex/m10-npm-management`; PR #1 is open against `main` and owner-authorized for merge after R2.
 - Writer: the orchestrator (owner-authorized D-014 exception). Independent read-only reviews:
   mcode `minimax/MiniMax-M3.1-Flash` at `xhigh` (plan review BLOCK and implementation review BLOCK),
   agy `gemini-3.8-flash-high` at `high` (implementation review; status recorded in evidence).
@@ -220,8 +220,7 @@ Verification:
 - Self-review records:
   [`self-review-1.txt`](M10-D-implementation-evidence/reviews/self-review-1.txt),
   [`self-review-2.txt`](M10-D-implementation-evidence/reviews/self-review-2.txt).
-- Hosted exact-SHA CI for the R2 head is recorded on PR #1; the merge commit is recorded in
-  `ROADMAP.md`/`DECISIONS.md`.
+- Hosted exact-SHA CI and the merge commit are recorded on PR #1.
 
 ## Limitations
 
