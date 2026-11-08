@@ -1,0 +1,29 @@
+[0m
+> plan · glm-5.3-flash-free
+## Blocking findings
+
+1. **§4-D05.2** — Removal predicate contradicts itself. The bullet defines "removed" as the package directory "no longer has the recorded directory identity," but the same paragraph says a directory "replaced by a different identity … is not proof of clean removal." Concrete failure: npm exits 0, `proof.packageLexicalPath` is re-populated by a different installation (harness decoy or partial rewrite) with the bin link gone — a literal bullet-1 implementation returns `.succeeded`/delta "identity gone," while the clarifier and D05.3 ("exit 0 with the package … still present is `.uncertain`") demand refusal; AC05/AC06 then pass or fail depending on which sentence the implementer tests.
+
+2. **§4-D04.3/D04.4 vs D05.3** — No precedence rule between interruption and "nonzero exit is `.failed`." A cancelled or timed-out run can still end with a nonzero status (npm may trap SIGTERM and exit 143; SIGKILL deaths are recorded as nonzero signal status). Concrete failure: user cancels mid-uninstall, npm exits 143, D05.3 classifies it `.failed` with "npm refused the removal" implication, directly violating D04.4/AC08's "after launch … `.interrupted` or `.uncertain`" and printing a false factual failure message.
+
+3. **§4-D03.1 + §6-AC04** — Compare-every-bound-field including "proof fingerprint" and environment, but the brief never pins that a fresh proof's fingerprint is recomputed over deterministic canonical facts. Concrete failure: if the fingerprint embeds anything volatile (scan timestamps, attempt ordinals, per-run scratch evidence), every confirmation refuses unconditionally and AC05/AC10/AC11 can never yield `.succeeded`; conversely, without an enumerated compared-field list, AC04's environment/operation-root mutation may not actually be caught at confirmation.
+
+4. **§4-D03.2** — The "immediately before launch, revalidate the live proof and owned operation root again" step is underdefined: it is distinct from the D03.1 revalidation yet has no budget (D04.2 defines only two 60-second read-only budgets), no failure mapping, and no statement of what "revalidate the live proof" means. Concrete failure: implementation treats D03.1's pass as satisfying it, so a selection/operation-root change in the final pre-spawn window reaches mutation (AC04's window case missed); or a full third verification chain runs with no deadline while holding the exclusive `OperationExecutionGate`, breaching the D04.2 budget scheme.
+
+## Non-blocking findings
+
+1. **§7 vs §4-D03.3** — "operation scratch empty" is unsatisfiable as literally written: the mandated argv points `--cache` and `--logs-dir` into the owned operation root, which npm populates (`_cacache`, `_logs`). Clarify as "owned root removed on release; no stray files beyond npm's own cache/log subtrees."
+
+2. **§4-D06.4 + §6-AC08** — "app termination … perform the required bounded reconciliation" is only achievable on the app's graceful termination path; an external SIGKILL precludes join/reconciliation. Scope the row to app-initiated termination and specify relaunch-time orphan disclosure.
+
+3. **§4-D05.1** — "fresh login-shell/local inventory rescan" doesn't name the scanner identity binding (same registry ID as the bound proof, per D03.1?) or its budget/timeout relationship to the 120-second mutation window.
+
+4. **§4-D05.4** — Post-operation "ownership of any remaining selected installation (verified or neutral reason)" may trigger a full ownership-probe chain on the new PATH winner with no budget defined; under deep shadowing this lengthens reconciliation beyond any stated bound.
+
+5. **§1 vs §10** — "Two self-review/revision rounds … precede freeze" doesn't match the enumerated sequence (P1 single self-review → independent review → P2 single revision). State which item constitutes the second revision round.
+
+6. **§4-D03.3 / §6-AC02** — "The scoped pin is required for every scoped package, including an initially unset scope" is meaningless for uninstall (no project scope config exists). Restate as: pin per scope regardless of any configured override, no pin for unscoped packages; also mark AC02's dry-run receipts explicitly as probe-only evidence per §3.
+
+REVIEW-COMPLETE
+
+exit=0
