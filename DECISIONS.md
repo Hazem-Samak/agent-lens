@@ -289,6 +289,25 @@ Record each milestone result here. Include the T3 Code build string so a regress
 | M10-C R1 — Terminal-context baseline repair | 2026-11-02 | **locally technically accepted, uncommitted** — final coordinator 469/469 test events in both controlling-PTY and detached contexts; guard21, fresh app, packaging9, actual terminal CLI exact non-degraded fixture PATH; final Qoder independent PASS | n/a — OMP orchestration through Herdr; Swift 6.4 on macOS27 arm64; no T3 build claimed | River/Pi `deepseek-ai/DeepSeek-V4.1-Flash-1017`, max, sole writer. Interactive zsh stopped on SIGTTOU in the inherited controlling-terminal session; capture now disables job control with `+m`. Perch hit quota before verdict; owner explicitly waived its verdict for this repair only. [Acceptance](walkthroughs/M10-C-R1-baseline-repair.md); M10-C product implementation separately dispatched, not accepted; original two product reviewers retained; no Git/hosted/release claim. |
 | M10-C — Confirmed npm Update | 2026-11-02 | **technically accepted on the feature branch** — parent510 Swift in each controlling-TTY/detached context, guard21, fresh app, packaging9; native1.0.0→2.0.0 and ordinary packaged public0.165.0→0.166.0, Cancel unchanged, active/prepared-close cleanup; hosted exact-SHA all7 gates/510 combined Swift, zero skips/failures | n/a — OMP orchestration through Herdr; Swift6.4 local; hosted macOS15.8.2 arm64/Xcode26.3/Swift6.2.4; no T3 build claimed | River/Pi `deepseek-ai/DeepSeek-V4.1-Flash-1017`, max, sole product writer. Perch `glm-5.3-flash-starter`/max and Qoder `Qwen3.8-Max`/xhigh both final PASS, no remaining material findings. Owner-authorized implementation `fff287d79884bf2163642dfa6ef3543da5682565`; [hosted run41519177534](https://github.com/Hazem-Samak/agent-lens/actions/runs/41519177534), attempt1, digest-verified33-file artifact retained. [Evidence/limits](walkthroughs/M10-C-implementation.md). No main merge, release, or M10-D authorization. |
 
+## M10-D — implementation and hosted verification (2026-11-08)
+
+The owner authorized M10-D planning and implementation, with the orchestrator as sole product writer
+and independent read-only reviewers. The plan is frozen at `3d6129d`; review corrections are frozen
+at `46778d2`. Implementation candidate `308b7d2` passed all seven exact-SHA hosted gates: guard,
+21 guard fixtures, package build, native-macro isolation, **532** combined Swift tests, fresh debug
+app, and **9** packaging checks, with no skips. Local evidence includes 20 Core uninstall tests,
+AppSupport/ViewModel coverage, controlled real-npm Uninstall, combined Update→Uninstall on one
+prefix/gate, public npm Uninstall through the shipping service boundary, and unchanged sentinels.
+The shipping uninstall sheet was rendered offscreen for preview/result layout.
+
+**Native click-through and screen capture remain blocked by host TCC** (`osascript` assistive access
+`-25211`; AX driver saw no elements; `screencapture` could not create an image). M10-D/M10 are
+therefore **not fully accepted**. PR #1 is open for the whole M10 stage; no merge or release is
+authorized. mcode issued plan and implementation BLOCKs corrected in R1/follow-up; agy issued a
+static BLOCK whose stale `repo` finding is disproved by the passing render scenario and whose TCC
+finding is this acknowledged gate. OpenCode GLM plan review stalled after one verified
+lifecycle-script correction. See [M10-D implementation](walkthroughs/M10-D-implementation.md).
+
 ## M8 — user-approved delivery (2026-10-18)
 
 The user authorized implementation of [M8 path actions](briefs/M8-path-actions.md), then approved the UI and Git delivery with “all good, clean branches comm push all”. Automated gates and independent final reviews passed. The unverified keyboard-only activation check remains a documented limitation; user approval is not evidence that it was measured. [The walkthrough](walkthroughs/M8-path-actions.md) records the result, team, raw-evidence locations, and limits. The frozen M7/M8 briefs and historical acceptance transcripts remain unchanged.

@@ -8,8 +8,9 @@ review corrections are frozen in [`briefs/M10-D-R1-review-corrections.md`](../br
 
 - Branch: `codex/m10-npm-management`.
 - Base: `4b828c7` (M10-C accepted) plus the frozen M10-D plan/R1 documentation commits.
-- Implementation candidate: `406b18e405b51f05f20c1ef7a226eafa2db54e41`, pushed only to
-  `codex/m10-npm-management`; PR #1 is open against `main` for the whole M10 stage.
+- Implementation candidate after CI hardening: `308b7d2bce8875752219f4dbe9a58d9492285c30`;
+  earlier candidates were `ef3a778` and `406b18e`. Pushed to `codex/m10-npm-management`; PR #1 is
+  open against `main` for the whole M10 stage.
 - Writer: the orchestrator (owner-authorized D-014 exception). Independent read-only reviews:
   mcode `minimax/MiniMax-M3.1-Flash` at `xhigh` (plan review BLOCK and implementation review BLOCK),
   agy `gemini-3.8-flash-high` at `high` (implementation review; status recorded in evidence).
@@ -146,7 +147,11 @@ or manual receipt before final acceptance.
   `cancellingAfterSpawnInterruptsAndReconcilesWithoutOrphan` observed `.uncertain` instead of
   `.interrupted` because the process exited during the TERM grace period without the runner's
   cancellation flag being set. The operation now treats a cancelled caller after launch as
-  interrupted (`Task.isCancelled`); the targeted test passes locally. CI must rerun on the fixed SHA.
+  interrupted (`Task.isCancelled`), and the fixture's child loops until killed.
+- [Hosted run 42470655181](https://github.com/Hazem-Samak/agent-lens/actions/runs/42470655181) on
+  exact SHA `308b7d2` passed all seven gates: guard, 21 guard fixtures, package build, native-macro
+  isolation, combined full suite **532 tests**, fresh debug app, and **9** packaging checks. No
+  skips or failures.
 
 ## Limitations
 
@@ -154,5 +159,5 @@ or manual receipt before final acceptance.
   rerun is required before acceptance can claim AC09/AC11 UI behavior.
 - Controlled registry evidence uses loopback substitution for update; uninstall executes with public
   pins and makes no registry request.
-- Hosted CI failed on `406b18e` at the cancellation test; the local fix is committed and the exact-SHA
-  rerun is pending. No merge, PR merge, or release is authorized here.
+- Hosted CI passed on `308b7d2`; the earlier cancellation failure is retained as history. No PR
+  merge or release is authorized here.
