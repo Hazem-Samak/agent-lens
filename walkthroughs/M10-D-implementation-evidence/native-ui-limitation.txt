@@ -1,4 +1,6 @@
-AX test: /private/tmp/agent-lens-m10d-recon/ax/ax-driver 93507 list -> empty
-System Events: osascript is not allowed assistive access (-25211)
-screencapture: could not create image from display
-The ordinary app launched and stayed in NSApplication run; public fixture was prepared; no native click/visual receipt is claimed.
+SUPERSEDED — kept only as pre-grant history.
+
+Before the owner granted Accessibility, System Events returned `assistive access (-25211)`, the AX
+driver saw no elements, and `screencapture` could not create an image. After the grant, the ordinary
+app click-through passed and is recorded in `native/native-actions.txt` with preview/result
+screenshots. No limitation is claimed at the accepted candidate.

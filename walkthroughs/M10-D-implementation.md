@@ -1,8 +1,9 @@
 # M10-D — npm Uninstall and combined npm acceptance implementation
 
-Status: **local implementation candidate**, 2026-11-08 (Africa/Cairo). This record is not hosted
-acceptance and does not authorize merge or release. The plan is frozen at `3d6129d`; the binding
-review corrections are frozen in [`briefs/M10-D-R1-review-corrections.md`](../briefs/M10-D-R1-review-corrections.md).
+Status: **technically accepted on the feature branch**, 2026-11-08 (Africa/Cairo). All seven hosted
+gates, controlled/combined/public real-npm acceptance, and the ordinary-app native click-through pass.
+This does not authorize merge or release. The plan is frozen at `3d6129d`; the binding review
+corrections are frozen in [`briefs/M10-D-R1-review-corrections.md`](../briefs/M10-D-R1-review-corrections.md).
 
 ## Candidate and authority
 
@@ -119,16 +120,26 @@ observation failure, sentinel unchanged. Receipts: [preview](M10-D-implementatio
 The offscreen renderer drew layout and controls but did not rasterize legible text glyphs in this
 environment, so it is layout/state evidence, not visual approval.
 
-### Native app limitation
+### Native ordinary-app click-through
 
-The current debug app built and launched under the public fixture. Automated clicking and screen
-capture were unavailable in this environment: System Events returned `osascript is not allowed
-assistive access (-25211)`, the AX driver saw no elements, and `screencapture` returned "could not
-create image from display". The shipping `UninstallOperationView` compiles in the app and is covered
-by model/Core tests, but **no native click-through or visual receipt is claimed**. The limitation is
-retained at [native-ui-limitation](M10-D-implementation-evidence/native-ui-limitation.txt). This does
-not satisfy M10-D-AC09 by itself; the ordinary app/public route still needs a runnable accessibility
-or manual receipt before final acceptance.
+After the owner granted Accessibility, the current debug app was built and launched under the public
+fixture with synthetic HOME/config/cache and the strict profile. The ordinary app was driven through
+Accessibility:
+
+1. `Verify Installation for Codex` → `Uninstall…` appeared.
+2. `Uninstall…` → the destructive sheet exposed `Cancel` and `Uninstall Package`.
+3. `Cancel` → prefix SHA-256 manifest was byte-identical before/after.
+4. Fresh `Uninstall…` → `Uninstall Package` → result sheet.
+5. Result: **Uninstall Succeeded**, exit 0, `0.165.0 → —`, install state
+   `installedAndOnPath → notInstalled`, package directory gone, target released, no replacement,
+   no residue, no failed observation, remaining ownership neutral.
+6. Shipping CLI `scan --offline` then reported Codex not installed; public sentinels unchanged.
+
+Window screenshots and the action transcript are retained:
+[preview](M10-D-implementation-evidence/native/preview.png),
+[result](M10-D-implementation-evidence/native/result.png),
+[actions](M10-D-implementation-evidence/native/native-actions.txt). This closes M10-D-AC09 and the
+ordinary-app/public route; offscreen renders are supplemental only.
 
 ## Review dispositions
 
@@ -140,8 +151,9 @@ or manual receipt before final acceptance.
   host now asserts residue/observation; B4 public service evidence added, native UI blocked as above.
 - agy implementation review: static **BLOCK**. B1 cited `repo` as undefined in the render scenario;
   that was a stale read — the render scenario defines `repo` and ran successfully (`RENDER OK`).
-  B2 is the genuine TCC native click-through limitation above. Its non-blocking update-confirm
-  generation guard and busy-gate cleanup warning were corrected. Full transcript:
+  B2 was the pre-grant TCC limitation; the owner subsequently granted Accessibility and the full
+  click-through above passed. Its non-blocking update-confirm generation guard and busy-gate cleanup
+  warning were corrected. Full transcript:
   [agy static review](M10-D-implementation-evidence/reviews/agy-static-review.txt).
 - Hosted CI run `42469754358` on `406b18e` failed exactly one test:
   `cancellingAfterSpawnInterruptsAndReconcilesWithoutOrphan` observed `.uncertain` instead of
@@ -155,9 +167,9 @@ or manual receipt before final acceptance.
 
 ## Limitations
 
-- Native click-through/visual evidence is blocked by host TCC; manual or accessibility-enabled
-  rerun is required before acceptance can claim AC09/AC11 UI behavior.
 - Controlled registry evidence uses loopback substitution for update; uninstall executes with public
   pins and makes no registry request.
+- The result sheet reports npm's "removed 2 packages"; the package directory and selected target are
+  gone, but dependency/cache residue outside the package is not claimed absent.
 - Hosted CI passed on `308b7d2`; the earlier cancellation failure is retained as history. No PR
   merge or release is authorized here.

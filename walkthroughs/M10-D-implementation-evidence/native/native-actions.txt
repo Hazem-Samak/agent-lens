@@ -1,0 +1,26 @@
+Native ordinary-app click-through — 2026-11-08
+App: /private/tmp/agent-lens-m10d-acceptance.47587/native-app/AgentLensApp-debug.app
+Exact source head: eb54038 (implementation 308b7d2)
+Launch: ordinary-app-recipe.txt under synthetic HOME/ZDOTDIR/TMPDIR/PATH and Seatbelt profile
+Process: AgentLensApp PID 53692; window "Tools" (CGWindowID 2269 sheet / 2255 main)
+
+AX actions (all succeeded):
+1. `Verify Installation for Codex` pressed; after verification, `Uninstall…` appeared.
+2. `Uninstall…` pressed; AXSheet exposed `Cancel` and `Uninstall Package`.
+3. `Cancel` pressed; prefix file SHA-256 manifests before/after were identical.
+4. `Uninstall…` pressed again; `Uninstall Package` pressed.
+5. Result sheet appeared with `Done`; no `Verify`/`Uninstall` button remained.
+
+Observed result sheet:
+- Uninstall Succeeded; Exit status 0.
+- Version 0.165.0 → —.
+- Install State installedAndOnPath → notInstalled.
+- Package Directory Gone yes; Package Directory Replaced no.
+- Selected Target Released yes; Selected Entry Residue no; Observation Failed no.
+- Remaining Ownership unknown: No live executable is installed.
+- stdout "removed 2 packages in 203ms"; stderr empty.
+
+Post-operation:
+- Shipping CLI `agent-lens scan --offline` under the same environment reports Codex not installed.
+- Public fixture sentinel manifests unchanged.
+- Screenshots: preview.png (confirmed destructive preview) and result.png (reconciled result).

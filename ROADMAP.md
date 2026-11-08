@@ -2,9 +2,9 @@
 
 Planning revision: 2026-10-28. Original plan: 2026-10-22.
 
-Execution update: 2026-11-08. M10-C is technically accepted on feature implementation commit `fff287d`. M10-D implementation, controlled/combined/public real-npm acceptance, and all seven exact-SHA hosted gates pass on `308b7d2`; 532 combined Swift tests, 21 guard fixtures, and 9 packaging checks passed. Native click-through and screen capture remain blocked by host TCC, so M10-D/M10 acceptance is **not** claimed. PR #1 is open against `main` for the whole M10 stage and is not authorized to merge. See [M10-D implementation](walkthroughs/M10-D-implementation.md) and [M10-C acceptance](walkthroughs/M10-C-implementation.md).
+Execution update: 2026-11-08. M10-C is technically accepted on `fff287d`. M10-D and the combined npm gate are technically accepted on implementation `308b7d2`: controlled/combined/public real-npm checks, an ordinary-app Accessibility click-through with Cancel-unchanged hashes and a reconciled result, and all seven exact-SHA hosted gates (532 Swift tests, 21 guard fixtures, 9 packaging checks) passed. M10 as a whole is accepted on `codex/m10-npm-management`. PR #1 is open against `main` for the whole M10 stage and is not authorized to merge. See [M10-D implementation](walkthroughs/M10-D-implementation.md) and [M10-C acceptance](walkthroughs/M10-C-implementation.md).
 
-This revision supersedes the previous **future execution order**, not completed work or acceptance evidence. M0–M9 remain delivered as recorded; M10-A/B/C are technically accepted only on `codex/m10-npm-management`. Accepted M10-B implementation is `72ffb1e`; M10-C is `fff287d`. M10 as a whole is not accepted; PR #1 is open but no `main` merge or public release has occurred. See [M10-B acceptance](walkthroughs/M10-B-acceptance.md) and [M10-C acceptance](walkthroughs/M10-C-implementation.md).
+This revision supersedes the previous **future execution order**, not completed work or acceptance evidence. M0–M9 remain delivered as recorded; M10-A/B/C/D are technically accepted only on `codex/m10-npm-management`. Accepted M10-B implementation is `72ffb1e`; M10-C is `fff287d`; M10-D is `308b7d2`. PR #1 is open but no `main` merge or public release has occurred. See [M10-B acceptance](walkthroughs/M10-B-acceptance.md) and [M10-C acceptance](walkthroughs/M10-C-implementation.md).
 
 Authority: [product scope](AGENT_LENS_SCOPE.md), [settled decisions](DECISIONS.md), and [milestone status](briefs/README.md). Historical briefs and walkthroughs are immutable evidence; this file is the living plan.
 
@@ -42,7 +42,7 @@ The app diagnoses first and manages second. It is not a generic package manager,
 |---|---|---|
 | M0–M9 | Discovery, PATH diagnostics, native foundation, path actions, verified details | Delivered as recorded; M8 keyboard check remains open |
 | M10-A/B | Clean CI and verified npm latest metadata | Accepted on the M10 feature branch |
-| M10-C/D | npm Update, Uninstall, and combined safety acceptance | C technically accepted on `fff287d`; D implementation + all7 hosted gates on `308b7d2`, controlled/combined/public npm evidence; native click-through blocked by host TCC; M10 not accepted |
+| M10-C/D | npm Update, Uninstall, and combined safety acceptance | C accepted on `fff287d`; D and combined gate accepted on `308b7d2` — all7 hosted gates, 532 tests, guard21/packaging9, controlled/combined/public npm, native click-through; M10 accepted on branch |
 | M12 | Original catalogue plus complete native diagnostic workflow | Revised early-value checkpoint |
 | M15 | All scoped manager capabilities delivered | Feature capability checkpoint |
 | M17 | Feature-complete unsigned app with retention and companion CLI | Release-engineering entry point |
@@ -57,7 +57,7 @@ Work one milestone and one phase at a time. Do not start a dependent milestone u
 
 ### M10 — npm management end to end
 
-**Status:** A, B, and C technically accepted on the feature branch. **M10-D implementation and hosted gates pass; native click-through requires an accessibility-authorized rerun or explicit owner decision. Combined M10 is not accepted.**
+**Status:** A, B, C, D, and the combined npm gate are technically accepted on the feature branch. The ordinary-app native journey and all seven exact-SHA hosted gates passed.
 
 **User result:** an ownership-verified npm tool such as Codex can show a real latest-version result, then Update or Uninstall through a visible confirmation and result workflow.
 
@@ -219,8 +219,5 @@ The user approves product tradeoffs, UI, expenses, credentials, publication, and
 
 ## 8. Immediate next action
 
-Resolve the only open M10-D gate: native click-through/visual interaction blocked by this host's TCC
-settings. Either rerun the ordinary-app journey in an accessibility-authorized environment or obtain
-explicit owner authorization for the documented limitation. Then record combined M10 acceptance and
-obtain separate owner authorization for PR merge. Do not start M11 before that. No `main` integration
-or release is authorized by this status.
+Obtain owner authorization to merge PR #1 for the accepted M10 stage. Do not start M11 until that Git
+delivery decision is made. No `main` integration or release is authorized by this status.
