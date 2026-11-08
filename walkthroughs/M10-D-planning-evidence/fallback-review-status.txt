@@ -1,4 +1,3 @@
-mcode fallback log bytes: 10106
 agy fallback log bytes: 0
-captured_at: 2026-11-08T09:29:30Z
-reason: requested OpenCode reviewer did not return a complete verdict after two time-boxed attempts; fallback reviewers were started as read-only plan checks and are not represented as PASS.
+captured_at: 2026-11-08T09:33:02Z
+mcode returned BLOCK with four blocking plan/code findings; corrections frozen in briefs/M10-D-R1-review-corrections.md.
