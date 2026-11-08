@@ -30,7 +30,7 @@
      ... and 91 more
 
 
-     (Output saved to: /Users/corvette/.qoder/tmp/-Users-corvette-Documents-Projects-Coding-Agent-Lens/tool-outputs/session-091fd542-b79f-44b4-80a0-21e27ce3318c/grep_call_7db
+     (Output saved to: <home>/.qoder/tmp/-Users-corvette-Documents-Projects-Coding-Agent-Lens/tool-outputs/session-091fd542-b79f-44b4-80a0-21e27ce3318c/grep_call_7db
      Tests/AgentLensCoreTests/ShellEnvironmentResolverTests.swift-257-
      Tests/AgentLensCoreTests/ShellEnvironmentResolverTests.swift-258-    let source = root.appendingPathComponent("pty-capture-probe.swift")
      Tests/AgentLensCoreTests/ShellEnvironmentResolverTests.swift-259-    let helper = root.appendingPathComponent("pty-capture-probe")
@@ -42,7 +42,7 @@
      ... and 91 more
 
 
-     (Output saved to: /Users/corvette/.qoder/tmp/-Users-corvette-Documents-Projects-Coding-Agent-Lens/tool-outputs/session-091fd542-b79f-44b4-80a0-21e27ce3318c/grep_call_7db
+     (Output saved to: <home>/.qoder/tmp/-Users-corvette-Documents-Projects-Coding-Agent-Lens/tool-outputs/session-091fd542-b79f-44b4-80a0-21e27ce3318c/grep_call_7db
      1b5599fb340aa95686f89.txt)
 
  ▪ Grep('func runCaptured|login-shell-|isolationBlocker' within .../UpdateCLIIntegrationTests.swift)

@@ -20,7 +20,7 @@ Building for debugging...
 [99 / 135]
 [101 / 135]
 [112 / 135] AgentLensCore
-/Users/corvette/Documents/Projects Coding/Agent Lens/Sources/AgentLensCore/Environment/ShellEnvironmentResolver.swift:114:27: warning: 'init(validatingUTF8:)' is deprecated: replaced by 'String.init(validatingCString:)' [#DeprecatedDeclaration]
+<repo>/Sources/AgentLensCore/Environment/ShellEnvironmentResolver.swift:114:27: warning: 'init(validatingUTF8:)' is deprecated: replaced by 'String.init(validatingCString:)' [#DeprecatedDeclaration]
 112 |         guard let passwd = getpwuid(getuid()) else { return nil }
 113 |         guard let shell = passwd.pointee.pw_shell else { return nil }
 114 |         let shellString = String(validatingUTF8: shell)
@@ -33,9 +33,9 @@ Building for debugging...
 [119 / 136] AgentLensCore
 [125 / 142] AgentLensAppSupport
 [125 / 142] AgentLensCore
-/Users/corvette/Documents/Projects Coding/Agent Lens/Package.swift: AgentLensCore: ld: warning: search path '/Library/Developer/CommandLineTools/Developer/Library/Frameworks' not found
+<repo>/Package.swift: AgentLensCore: ld: warning: search path '/Library/Developer/CommandLineTools/Developer/Library/Frameworks' not found
 [136 / 143] AgentLensAppSupport
-/Users/corvette/Documents/Projects Coding/Agent Lens/Package.swift: AgentLensAppSupport: ld: warning: search path '/Library/Developer/CommandLineTools/Developer/Library/Frameworks' not found
+<repo>/Package.swift: AgentLensAppSupport: ld: warning: search path '/Library/Developer/CommandLineTools/Developer/Library/Frameworks' not found
 [155 / 207]
 [161 / 207]
 [167 / 207]
@@ -50,8 +50,8 @@ Building for debugging...
 [192 / 207]
 [202 / 207] AgentLensApp-product
 [203 / 207] AgentLensApp-product
-/Users/corvette/Documents/Projects Coding/Agent Lens/Package.swift: AgentLensApp-product: ld: warning: search path '/Library/Developer/CommandLineTools/Developer/usr/lib' not found
-/Users/corvette/Documents/Projects Coding/Agent Lens/Package.swift: AgentLensApp-product: ld: warning: search path '/Library/Developer/CommandLineTools/Developer/Library/Frameworks' not found
+<repo>/Package.swift: AgentLensApp-product: ld: warning: search path '/Library/Developer/CommandLineTools/Developer/usr/lib' not found
+<repo>/Package.swift: AgentLensApp-product: ld: warning: search path '/Library/Developer/CommandLineTools/Developer/Library/Frameworks' not found
 [205 / 207] AgentLensApp-product
 Build complete! (26.32 secs)
 /private/tmp/agent-lens-m10d-acceptance.47587/final-app/AgentLensApp-debug.app

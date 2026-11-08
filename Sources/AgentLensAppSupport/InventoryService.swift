@@ -203,11 +203,6 @@ public struct InventoryService: Sendable {
 
     // MARK: Updates
 
-    private static func capturedScratchBase(for environment: ShellEnvironment) -> URL? {
-        guard let value = environment.raw["TMPDIR"], value.hasPrefix("/") else { return nil }
-        return URL(fileURLWithPath: value, isDirectory: true)
-    }
-
     /// Runs the M6 update probe for one published local snapshot and returns the same entries with
     /// typed update outcomes attached by registry ID.
     ///
@@ -223,7 +218,10 @@ public struct InventoryService: Sendable {
         mode: UpdateProbeMode
     ) async -> InventorySnapshot {
         let probeEnvironment = await environment.sessionEnvironment()
-        let scratchBase = npmScratchBaseURL ?? Self.capturedScratchBase(for: probeEnvironment)
+        // Production nil intentionally reaches the probe's Foundation `temporaryDirectory`
+        // fallback (M10-B B04). A captured login-shell TMPDIR is used only by the explicit
+        // operation paths, which compute and validate their own owned root before any launch.
+        let scratchBase = npmScratchBaseURL
         let subjects = snapshot.entries.map { entry in
             UpdateProbeSubject(
                 definition: entry.definition,

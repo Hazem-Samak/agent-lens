@@ -369,6 +369,48 @@ private final class OperationScanState: @unchecked Sendable {
     #expect(operationRunner.invocations.count == 1)
 }
 
+/// A consumed preparation replayed while another mutation holds the gate must not claim the
+/// scratch root was left behind: the first execution still owns it.
+@Test func busyGateReplayDoesNotReportFalseScratchCleanupFailure() async throws {
+    let fixture = try OperationFixture("busy-replay-warning")
+    defer { try? FileManager.default.removeItem(at: fixture.root) }
+    let definition = try fixture.definition()
+    let before = fixture.diagnostic(version: "1.0.0")
+    let after = fixture.diagnostic(version: "2.0.0")
+    let updateRunner = OperationNpmRunner(fixture: fixture)
+    let operationRunner = RecordingOperationRunner()
+    let scanState = OperationScanState(before: before, after: after)
+    guard case .ready(let preparation) = await NpmUpdateOperation.prepare(
+        definition: definition, diagnostic: before, environment: fixture.environment,
+        currentDirectory: fixture.root.path, runner: updateRunner,
+        operationRootBaseURL: fixture.root
+    ) else {
+        Issue.record("expected preparation")
+        return
+    }
+    let gate = OperationExecutionGate()
+    _ = await NpmUpdateOperation.execute(
+        confirmed: preparation, environment: fixture.environment,
+        scan: { _, _, _ in scanState.next() },
+        reconcileAfterLaunch: { _ in (scanState.next(), fixture.environment) },
+        updateRunner: updateRunner,
+        operationRunner: operationRunner, gate: gate
+    )
+    #expect(await gate.acquire())
+    let replay = await NpmUpdateOperation.execute(
+        confirmed: preparation, environment: fixture.environment,
+        scan: { _, _, _ in scanState.next() },
+        reconcileAfterLaunch: { _ in (scanState.next(), fixture.environment) },
+        updateRunner: updateRunner,
+        operationRunner: operationRunner, gate: gate
+    )
+    await gate.release()
+    #expect(replay.state == .cancelled)
+    #expect(!replay.processStarted)
+    #expect(replay.cleanupWarnings.isEmpty)
+    #expect(operationRunner.invocations.count == 1)
+}
+
 @Test func staleLocalSelectionRefusesBeforeLaunch() async throws {
     let fixture = try OperationFixture("stale")
     defer { try? FileManager.default.removeItem(at: fixture.root) }

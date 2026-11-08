@@ -643,14 +643,10 @@ public enum NpmUpdateProbe {
         ) else {
             return .unavailable(.managerUnavailable)
         }
-        let scratchBase: URL
-        if let npmScratchBaseURL {
-            scratchBase = npmScratchBaseURL
-        } else if let captured = capturedTemporaryDirectory(environment) {
-            scratchBase = captured
-        } else {
-            scratchBase = FileManager.default.temporaryDirectory
-        }
+        // The confirmation/operation callers always pass their owned operation root. A nil base
+        // falls back to Foundation's `temporaryDirectory`, never a captured shell TMPDIR: the
+        // M10-B service contract reserves the captured value for explicitly validated roots.
+        let scratchBase = npmScratchBaseURL ?? FileManager.default.temporaryDirectory
         let ledger = NpmScratchCleanupLedger()
 
         guard uptime() < stageDeadline, !Task.isCancelled else {

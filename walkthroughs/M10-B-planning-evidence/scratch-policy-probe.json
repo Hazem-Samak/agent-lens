@@ -22,7 +22,7 @@
       "sentinel"
     ],
     "sentinel_unchanged": true,
-    "personal_cache_kernel_denied": "/Users/corvette/.npm",
+    "personal_cache_kernel_denied": "<home>/.npm",
     "owned_child_removed": true
   },
   {
@@ -67,7 +67,7 @@
       "sentinel"
     ],
     "sentinel_unchanged": true,
-    "personal_cache_kernel_denied": "/Users/corvette/.npm",
+    "personal_cache_kernel_denied": "<home>/.npm",
     "owned_child_removed": true
   }
 ]

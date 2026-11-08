@@ -1052,6 +1052,70 @@ private final class M10CSuccessfulOperationRunner: OperationCommandRunner, @unch
     #expect(result.snapshot == nil)
 }
 
+/// M10-B B04 regression: with no injected scratch base, Check/Refresh must use Foundation's
+/// `temporaryDirectory`, not the captured login-shell TMPDIR. An unsafe captured value therefore
+/// cannot turn an otherwise healthy npm check into `probeFailed`.
+@Test func checkUpdatesUsesFoundationScratchWhenNoBaseIsInjected() async throws {
+    let root = try m10cServiceFixtureRoot("check-default-scratch")
+    defer { try? FileManager.default.removeItem(at: root) }
+    let prefix = root.appendingPathComponent("prefix", isDirectory: true)
+    let globalRoot = prefix.appendingPathComponent("lib/node_modules", isDirectory: true)
+    let managerDir = root.appendingPathComponent("manager-bin", isDirectory: true)
+    let aliasDir = root.appendingPathComponent("alias-bin", isDirectory: true)
+    let packageRoot = globalRoot.appendingPathComponent("@openai/codex", isDirectory: true)
+    let target = packageRoot.appendingPathComponent("bin/codex")
+    try m10cWriteExecutable(managerDir.appendingPathComponent("npm"))
+    try m10cWriteExecutable(target, contents: "#!/bin/sh\necho 'codex-cli 1.0.0'\n")
+    try Data("{\"name\":\"@openai/codex\",\"version\":\"1.0.0\",\"bin\":{\"codex\":\"bin/codex\"}}".utf8)
+        .write(to: packageRoot.appendingPathComponent("package.json"))
+    try FileManager.default.createDirectory(
+        at: prefix.appendingPathComponent("bin"), withIntermediateDirectories: true
+    )
+    let prefixAlias = prefix.appendingPathComponent("bin/codex")
+    try FileManager.default.createSymbolicLink(atPath: prefixAlias.path, withDestinationPath: target.path)
+    try FileManager.default.createDirectory(at: aliasDir, withIntermediateDirectories: true)
+    let alias = aliasDir.appendingPathComponent("codex")
+    try FileManager.default.createSymbolicLink(atPath: alias.path, withDestinationPath: target.path)
+
+    // A captured login-shell TMPDIR that NpmScratchBase must refuse if the service forwards it.
+    let unsafeTMPDIR = root.appendingPathComponent("unsafe-tmp", isDirectory: true)
+    try FileManager.default.createDirectory(at: unsafeTMPDIR, withIntermediateDirectories: true)
+    try FileManager.default.setAttributes(
+        [.posixPermissions: NSNumber(value: 0o777)], ofItemAtPath: unsafeTMPDIR.path
+    )
+
+    let joinedPath = [managerDir.path, aliasDir.path].joined(separator: ":")
+    let environment = ShellEnvironment(
+        shellPath: "/bin/zsh", pathEntries: [managerDir.path, aliasDir.path],
+        pathJoined: joinedPath,
+        raw: ["PATH": joinedPath, "HOME": "/synthetic/home", "TMPDIR": unsafeTMPDIR.path],
+        isDegraded: false
+    )
+    let source = SessionEnvironmentSource(
+        resolve: { environment }, loginShellPath: { "/bin/sh" },
+        capture: { _ in ShellEnvironmentResolver.CaptureOutcome(dump: environment.raw, timedOut: false) },
+        build: { _, _ in environment }
+    )
+    let definitionData = Data("""
+    {"schemaVersion":2,"detectors":[{"id":"codex-id","displayName":"Codex","executableName":"codex","category":"aiAgent","packages":[{"manager":"npm","name":"@openai/codex"}],"versionQuery":{"arguments":["--version"],"stream":"stdout","line":"first"}}]}
+    """.utf8)
+    let service = InventoryService(
+        environment: SessionEnvironmentProvider(source: source),
+        registry: { try DetectorRegistry.validate(data: definitionData) },
+        updateRunner: M10CNpmRunner(prefix: prefix.path, root: globalRoot.path, target: "2.0.0"),
+        updateCacheURL: root.appendingPathComponent("cache.json"),
+        currentDirectory: root.path,
+        clock: fixedClock()
+    )
+
+    let local = try await service.localSnapshot()
+    let applied = await service.applyingUpdates(to: local, mode: .checkUpdates)
+    let entry = try #require(applied.entries.first)
+    #expect(entry.updateStatus == .updateAvailable(
+        installed: Version("1.0.0"), latest: Version("2.0.0")
+    ))
+}
+
 private struct FixedDiagnosticScanner: DiagnosticScannerFactory {
     let diagnostic: ToolPathDiagnostic
     func makeScanner() -> @Sendable (ToolDetector, ShellEnvironment, String) -> ToolPathDiagnostic {

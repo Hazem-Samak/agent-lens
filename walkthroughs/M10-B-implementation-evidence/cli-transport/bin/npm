@@ -8,4 +8,4 @@ if is_view:
  endpoint=(R.parent/'transport/registry-url.txt').read_text().strip();assert endpoint.startswith('http://127.0.0.1:')
  executed=[('--registry='+endpoint if x.startswith('--registry=') else '--@openai:registry='+endpoint if x.startswith('--@openai:registry=') else x) for x in a]
 with (R/'argv.jsonl').open('a') as f:f.write(json.dumps({'original':a,'executed':executed,'view':is_view})+'\n')
-sys.exit(subprocess.call(['/Users/corvette/.hermes/node/lib/node_modules/npm/bin/npm-cli.js',*executed]))
+sys.exit(subprocess.call(['<home>/.hermes/node/lib/node_modules/npm/bin/npm-cli.js',*executed]))

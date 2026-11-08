@@ -87,6 +87,7 @@ public struct UpdateOperationView: View {
                 .fontWeight(.bold)
 
             Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 8) {
+                row("Registry ID", preview.registryID)
                 row("Installed", preview.installedVersion)
                 row("Target", preview.targetVersion)
                 row("Package", preview.packageName)

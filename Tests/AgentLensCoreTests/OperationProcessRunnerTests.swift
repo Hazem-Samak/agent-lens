@@ -173,3 +173,36 @@ private func waitForProcessGone(_ pid: pid_t, timeout: TimeInterval = 3) -> Bool
     #expect(result.exitStatus == 0)
     #expect(result.stdout.count <= BoundedProcessRunner.maximumStandardOutputBytes)
 }
+
+/// A cancellation delivered after the entry check but before `posix_spawn` must not start a
+/// process. The injected closure returns false once (entry) and true at the last check.
+@Test func cancellationDuringSetupPreventsSpawn() throws {
+    let root = try operationRunnerRoot("prelaunch-cancel")
+    defer { try? FileManager.default.removeItem(at: root) }
+    let marker = root.appendingPathComponent("spawned")
+
+    final class SetupCancellation: @unchecked Sendable {
+        private let lock = NSLock()
+        private var calls = 0
+        func next() -> Bool {
+            lock.lock()
+            defer { lock.unlock() }
+            calls += 1
+            return calls > 1
+        }
+    }
+
+    let cancellation = SetupCancellation()
+    let result = BoundedProcessRunner.runDualStream(
+        executablePath: "/bin/sh",
+        arguments: ["-c", "printf spawned > '\(marker.path)'"],
+        environment: ["PATH": "/usr/bin:/bin"],
+        currentDirectory: root.path,
+        timeout: 5,
+        isCancelled: { cancellation.next() }
+    )
+    #expect(result?.cancelled == true)
+    #expect(result?.processStarted == false)
+    #expect(result?.exitStatus == nil)
+    #expect(!FileManager.default.fileExists(atPath: marker.path))
+}

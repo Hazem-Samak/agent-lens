@@ -1,9 +1,11 @@
 # M10-D — npm Uninstall and combined npm acceptance implementation
 
-Status: **technically accepted on the feature branch**, 2026-11-08 (Africa/Cairo). All seven hosted
-gates, controlled/combined/public real-npm acceptance, and the ordinary-app native click-through pass.
-This does not authorize merge or release. The plan is frozen at `3d6129d`; the binding review
-corrections are frozen in [`briefs/M10-D-R1-review-corrections.md`](../briefs/M10-D-R1-review-corrections.md).
+Status: **technically accepted on the feature branch and owner-authorized for merge**, 2026-11-08
+(Africa/Cairo). All seven hosted gates, controlled/combined/public real-npm acceptance, and the
+ordinary-app native click-through pass. A final R2 correction pass fixed the review findings and was
+self-reviewed twice under the owner's explicit waiver of a further independent review; merge is
+authorized. The plan is frozen at `3d6129d`; the binding review corrections are frozen in
+[`briefs/M10-D-R1-review-corrections.md`](../briefs/M10-D-R1-review-corrections.md).
 
 ## Candidate and authority
 
@@ -18,7 +20,8 @@ corrections are frozen in [`briefs/M10-D-R1-review-corrections.md`](../briefs/M1
   OpenCode `opencode/glm-5.3-flash-free#max` was the requested plan reviewer but stalled twice; its
   completed material finding (npm v7+ does not run uninstall lifecycle scripts) was verified and
   corrected.
-- No dependency, CI, packaging, registry, frozen-brief, `main`, or release change is included.
+- No dependency, packaging, registry, frozen-brief, `main`, or release change is included. R2
+  raises only the CI count floors and adds the correction/test changes recorded below.
 
 ## Implemented surface
 
@@ -60,9 +63,11 @@ shared-bin, dangling-residue, unreadable-prefix, interruption, stale-proof, gate
 and ViewModel test `failedPostUninstallRescanClearsOwnershipAndDisarmsUninstall` passed.
 
 The final full suite passed **454 Core + 78 AppSupport = 532 tests**, zero failures/skips, exit 0
-([receipt](M10-D-implementation-evidence/full-suite-final.log)). The local TestingMacros load-plugin
-fallback is test-only; hosted commands are unchanged. Guard: 21 behavioral fixtures passed; import
-guard passed; packaging: 9 tests passed ([guard](M10-D-implementation-evidence/packaging-import.log),
+([receipt](M10-D-implementation-evidence/full-suite-final.log)). The R2 correction pass then added
+three regression tests and passed **456 Core + 79 AppSupport = 535 tests**, zero failures/skips,
+exit 0 ([R2 receipt](M10-D-implementation-evidence/full-suite-r2.log)). The local TestingMacros
+load-plugin fallback is test-only; hosted commands are unchanged. Guard: 21 behavioral fixtures
+passed; import guard passed; packaging: 9 tests passed ([guard](M10-D-implementation-evidence/packaging-import.log),
 [packaging](M10-D-implementation-evidence/packaging.log)).
 
 ## Real npm acceptance
@@ -85,13 +90,26 @@ production Core operation with real npm. Receipts:
 
 ### Combined Update → Uninstall
 
-`--scenario combined` performed Update `1.0.0 → 2.0.0` and then Uninstall in one prefix with one
-`OperationExecutionGate`. Receipts: [combined](M10-D-implementation-evidence/combined/combined-summary.json).
+The original `--scenario combined` performed Update `1.0.0 → 2.0.0` and then Uninstall in one
+prefix with one `OperationExecutionGate`. Receipts:
+[combined](M10-D-implementation-evidence/combined/combined-summary.json).
 
 - Update exit 0, after version `2.0.0`; controlled registry used only for the update.
 - Uninstall exit 0, package absent, target released, residue reported, observation not failed.
 - Sentinels unchanged; exactly one update and one uninstall invocation; operation base clean.
 - No concurrent operation was possible; the gate is released between operations.
+
+**R2 extension (2026-11-08):** the combined scenario now also performs a deliberate concurrent
+confirm and a window-close/interruption case on one shared gate. The wrapper manager marks the
+launched update; a second `execute` on the same preparation is attempted while the first process is
+alive (gate held, preparation claimed), then the uninstall is cancelled after its process starts.
+Observed: update `succeeded`, competing confirm `cancelled` with `processStarted=false`, no cleanup
+warning, and exactly one update invocation; interrupted uninstall `interrupted` with
+`processStarted=true`, reconciliation present, and `installedAndOnPath` still true; a fresh uninstall
+then `succeeded`, package absent, target released, dangling residue reported, observation not failed,
+final state `notInstalled`, exactly two uninstall invocations (interrupted + final). Receipts:
+[combined summary r2](M10-D-implementation-evidence/combined/combined-summary-r2.json),
+[combined result r2](M10-D-implementation-evidence/combined/combined-result-r2.json).
 
 ### Public npm through the shipping service boundary
 
@@ -165,11 +183,52 @@ ordinary-app/public route; offscreen renders are supplemental only.
   isolation, combined full suite **532 tests**, fresh debug app, and **9** packaging checks. No
   skips or failures.
 
+## R2 corrections and merge authorization (2026-11-08)
+
+The owner authorized a final correction pass, explicitly waived a further independent
+post-correction review because no other implementer/model was authorized, and authorized the sole
+implementer to self-review twice and merge. No independent PASS is claimed for this pass; the
+historical mcode/agy verdicts above remain unchanged and the waiver is recorded in
+[`reviews/README.txt`](M10-D-implementation-evidence/reviews/README.txt).
+
+Corrections:
+- **Check/Refresh scratch default:** `InventoryService` no longer forwards the captured login-shell
+  `TMPDIR`; the probe uses Foundation `temporaryDirectory` when no base is injected. Regression
+  covers a 0777 captured TMPDIR while still obtaining `updateAvailable` (M10-B B04).
+- **Update busy-gate warning:** the update branch mirrors uninstall's `isConsumed` guard, so a
+  consumed preparation replayed under a busy gate does not report a false scratch-cleanup failure.
+- **Pre-spawn cancellation:** `runDualStream` rechecks cancellation immediately before
+  `posix_spawn`; a deterministic test proves `processStarted == false` and no child marker.
+- **Preview identity:** both confirmation sheets now show the stable registry ID.
+- **Combined acceptance:** the combined scenario now includes the required deliberate concurrent
+  confirm and window-close/interruption cases, with the observed fields recorded in
+  `combined-result-r2.json`.
+- **CI floors:** raised to **456 Core + 79 AppSupport = 535**, the measured post-R2 inventory.
+- **Public evidence hygiene:** local absolute paths in PR-added text receipts were redacted to
+  `<repo>`/`<home>`; the two affected SHA256 manifests were regenerated and verified. The frozen
+  M10-B dispatch brief was left byte-identical.
+
+Verification:
+- Full local suite with the documented TestingMacros fallback: **456 + 79 = 535**, zero
+  failures/skips, exit 0. Raw log:
+  [`full-suite-r2.log`](M10-D-implementation-evidence/full-suite-r2.log).
+- Extended combined real-npm scenario: exit 0, `COMBINED-CONTROLLED OK`; receipts:
+  [`combined-summary-r2.json`](M10-D-implementation-evidence/combined/combined-summary-r2.json),
+  [`combined-result-r2.json`](M10-D-implementation-evidence/combined/combined-result-r2.json).
+- Targeted regression tests passed: `busyGateReplayDoesNotReportFalseScratchCleanupFailure`,
+  `cancellationDuringSetupPreventsSpawn`, `checkUpdatesUsesFoundationScratchWhenNoBaseIsInjected`.
+- Self-review records:
+  [`self-review-1.txt`](M10-D-implementation-evidence/reviews/self-review-1.txt),
+  [`self-review-2.txt`](M10-D-implementation-evidence/reviews/self-review-2.txt).
+- Hosted exact-SHA CI for the R2 head is recorded on PR #1; the merge commit is recorded in
+  `ROADMAP.md`/`DECISIONS.md`.
+
 ## Limitations
 
 - Controlled registry evidence uses loopback substitution for update; uninstall executes with public
   pins and makes no registry request.
 - The result sheet reports npm's "removed 2 packages"; the package directory and selected target are
   gone, but dependency/cache residue outside the package is not claimed absent.
-- Hosted CI passed on `308b7d2`; the earlier cancellation failure is retained as history. No PR
-  merge or release is authorized here.
+- The R2 self-review is not an independent review; the owner waived that requirement explicitly.
+- Historical receipts retain their measured content after the disclosed local-path redaction; the
+  affected SHA256 manifests were regenerated.

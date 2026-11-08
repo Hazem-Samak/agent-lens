@@ -1,4 +1,4 @@
-Another instance of SwiftPM (PID: 6255) is already running using '/Users/corvette/Documents/Projects Coding/Agent Lens/.build', waiting until that process has finished execution...Building for debugging...
+Another instance of SwiftPM (PID: 6255) is already running using '<repo>/.build', waiting until that process has finished execution...Building for debugging...
 [Pre-planning 1 / 211]
 [Planning deferred tasks]
 [1 / 1]
@@ -12,21 +12,21 @@ Another instance of SwiftPM (PID: 6255) is already running using '/Users/corvett
 [22 / 37]
 [24 / 37]
 [25 / 37] AgentLensCore
-/Users/corvette/Documents/Projects Coding/Agent Lens/Package.swift: AgentLensCore: ld: warning: search path '/Library/Developer/CommandLineTools/Developer/Library/Frameworks' not found
+<repo>/Package.swift: AgentLensCore: ld: warning: search path '/Library/Developer/CommandLineTools/Developer/Library/Frameworks' not found
 [34 / 50] AgentLensAppSupport
-/Users/corvette/Documents/Projects Coding/Agent Lens/Package.swift: agent-lens-product: ld: warning: search path '/Library/Developer/CommandLineTools/Developer/usr/lib' not found
-/Users/corvette/Documents/Projects Coding/Agent Lens/Package.swift: agent-lens-product: ld: warning: search path '/Library/Developer/CommandLineTools/Developer/Library/Frameworks' not found
+<repo>/Package.swift: agent-lens-product: ld: warning: search path '/Library/Developer/CommandLineTools/Developer/usr/lib' not found
+<repo>/Package.swift: agent-lens-product: ld: warning: search path '/Library/Developer/CommandLineTools/Developer/Library/Frameworks' not found
 [40 / 51] agent-lens-product
-/Users/corvette/Documents/Projects Coding/Agent Lens/Package.swift: AgentLensAppSupport: ld: warning: search path '/Library/Developer/CommandLineTools/Developer/Library/Frameworks' not found
-/Users/corvette/Documents/Projects Coding/Agent Lens/Package.swift: AgentLensCoreTests-product: ld: warning: search path '/Library/Developer/CommandLineTools/Developer/usr/lib' not found
-/Users/corvette/Documents/Projects Coding/Agent Lens/Package.swift: AgentLensCoreTests-product: ld: warning: search path '/Library/Developer/CommandLineTools/Developer/Library/Frameworks' not found
+<repo>/Package.swift: AgentLensAppSupport: ld: warning: search path '/Library/Developer/CommandLineTools/Developer/Library/Frameworks' not found
+<repo>/Package.swift: AgentLensCoreTests-product: ld: warning: search path '/Library/Developer/CommandLineTools/Developer/usr/lib' not found
+<repo>/Package.swift: AgentLensCoreTests-product: ld: warning: search path '/Library/Developer/CommandLineTools/Developer/Library/Frameworks' not found
 [49 / 57] AgentLensCoreTests-product
 [50 / 66] AgentLensAppSupportTests-product
 [55 / 67]
-/Users/corvette/Documents/Projects Coding/Agent Lens/Package.swift: AgentLensAppSupportTests-product: ld: warning: search path '/Library/Developer/CommandLineTools/Developer/usr/lib' not found
-/Users/corvette/Documents/Projects Coding/Agent Lens/Package.swift: AgentLensAppSupportTests-product: ld: warning: search path '/Library/Developer/CommandLineTools/Developer/Library/Frameworks' not found
-/Users/corvette/Documents/Projects Coding/Agent Lens/Package.swift: AgentLensApp-product: ld: warning: search path '/Library/Developer/CommandLineTools/Developer/usr/lib' not found
-/Users/corvette/Documents/Projects Coding/Agent Lens/Package.swift: AgentLensApp-product: ld: warning: search path '/Library/Developer/CommandLineTools/Developer/Library/Frameworks' not found
+<repo>/Package.swift: AgentLensAppSupportTests-product: ld: warning: search path '/Library/Developer/CommandLineTools/Developer/usr/lib' not found
+<repo>/Package.swift: AgentLensAppSupportTests-product: ld: warning: search path '/Library/Developer/CommandLineTools/Developer/Library/Frameworks' not found
+<repo>/Package.swift: AgentLensApp-product: ld: warning: search path '/Library/Developer/CommandLineTools/Developer/usr/lib' not found
+<repo>/Package.swift: AgentLensApp-product: ld: warning: search path '/Library/Developer/CommandLineTools/Developer/Library/Frameworks' not found
 [57 / 68] AgentLensApp-product
 [67 / 94] AgentLensAppSupportTests-product
 [72 / 95]
@@ -182,7 +182,7 @@ Build complete! (22.32 secs)
 ◇ Test directConstructionRejectsNonHTTPSInformationURL() started.
 ✔ Test directConstructionRejectsNonHTTPSInformationURL() passed after 0.001 seconds.
 ◇ Test dangerousSchemaVersionsAreRejectedWithoutTrappingTheTestProcess() started.
-core-probe: layout=aggregate root=/Users/corvette/Documents/Projects Coding/Agent Lens/.build/out/Products/Debug module=/Users/corvette/Documents/Projects Coding/Agent Lens/.build/out/Products/Debug objects=1 compiler=/usr/bin/swiftc
+core-probe: layout=aggregate root=<repo>/.build/out/Products/Debug module=<repo>/.build/out/Products/Debug objects=1 compiler=/usr/bin/swiftc
 ✔ Test dangerousSchemaVersionsAreRejectedWithoutTrappingTheTestProcess() passed after 0.486 seconds.
 ◇ Test bundledDefaultDetectorsIsValidWithThreeTools() started.
 ✔ Test bundledDefaultDetectorsIsValidWithThreeTools() passed after 0.001 seconds.
@@ -685,7 +685,7 @@ core-probe: layout=aggregate root=/Users/corvette/Documents/Projects Coding/Agen
 ◇ Test captureRejectsSentinelsFromANonzeroShellExit() started.
 ✔ Test captureRejectsSentinelsFromANonzeroShellExit() passed after 0.064 seconds.
 ◇ Test ptyProductionCaptureUsesFixturePathForSupportedLoginShells() started.
-core-probe: layout=aggregate root=/Users/corvette/Documents/Projects Coding/Agent Lens/.build/out/Products/Debug module=/Users/corvette/Documents/Projects Coding/Agent Lens/.build/out/Products/Debug objects=1 compiler=/usr/bin/swiftc
+core-probe: layout=aggregate root=<repo>/.build/out/Products/Debug module=<repo>/.build/out/Products/Debug objects=1 compiler=/usr/bin/swiftc
 ✔ Test ptyProductionCaptureUsesFixturePathForSupportedLoginShells() passed after 0.846 seconds.
 ◇ Test productSelectionRecognizesTheAggregateSwiftBuildLayout() started.
 core-probe: layout=aggregate root=/private/var/folders/tf/jsdyxcts6y72fs98s7wl3dfm0000gn/T/agentlens-m3-products-aggregate-37132650-6363-4DE4-AB65-C84004901B1E module=/private/var/folders/tf/jsdyxcts6y72fs98s7wl3dfm0000gn/T/agentlens-m3-products-aggregate-37132650-6363-4DE4-AB65-C84004901B1E objects=1 compiler=/usr/bin/swiftc
@@ -701,7 +701,7 @@ core-probe: layout=native root=/private/var/folders/tf/jsdyxcts6y72fs98s7wl3dfm0
 ◇ Test productSelectionRejectsRelativeAndNULOverrides() started.
 ✔ Test productSelectionRejectsRelativeAndNULOverrides() passed after 0.001 seconds.
 ◇ Test productSelectionInvalidOverrideNeverFallsBackToAValidBundle() started.
-core-probe: layout=aggregate root=/Users/corvette/Documents/Projects Coding/Agent Lens/.build/out/Products/Debug module=/Users/corvette/Documents/Projects Coding/Agent Lens/.build/out/Products/Debug objects=1 compiler=/usr/bin/swiftc
+core-probe: layout=aggregate root=<repo>/.build/out/Products/Debug module=<repo>/.build/out/Products/Debug objects=1 compiler=/usr/bin/swiftc
 ✔ Test productSelectionInvalidOverrideNeverFallsBackToAValidBundle() passed after 0.002 seconds.
 ◇ Test productSelectionRejectsAmbiguousDualLayoutRoot() started.
 ✔ Test productSelectionRejectsAmbiguousDualLayoutRoot() passed after 0.002 seconds.
@@ -723,7 +723,7 @@ core-probe: layout=aggregate root=/private/var/folders/tf/jsdyxcts6y72fs98s7wl3d
 core-probe: layout=aggregate root=/private/var/folders/tf/jsdyxcts6y72fs98s7wl3dfm0000gn/T/agentlens-m3-products-physical-active-A5ACE215-8C5F-448D-8498-FCB65375C98D module=/private/var/folders/tf/jsdyxcts6y72fs98s7wl3dfm0000gn/T/agentlens-m3-products-physical-active-A5ACE215-8C5F-448D-8498-FCB65375C98D objects=1 compiler=/usr/bin/swiftc
 ✔ Test productSelectionFollowsThePhysicalBundleNotTheLexicalParentRoot() passed after 0.001 seconds.
 ◇ Test productSelectionFindsTheActiveBundleAncestryWithoutCwdFallback() started.
-core-probe: layout=aggregate root=/Users/corvette/Documents/Projects Coding/Agent Lens/.build/out/Products/Debug module=/Users/corvette/Documents/Projects Coding/Agent Lens/.build/out/Products/Debug objects=1 compiler=/usr/bin/swiftc
+core-probe: layout=aggregate root=<repo>/.build/out/Products/Debug module=<repo>/.build/out/Products/Debug objects=1 compiler=/usr/bin/swiftc
 ✔ Test productSelectionFindsTheActiveBundleAncestryWithoutCwdFallback() passed after 0.001 seconds.
 ◇ Test detectorFindsExecutableOnPath() started.
 ✔ Test detectorFindsExecutableOnPath() passed after 0.001 seconds.
@@ -746,7 +746,7 @@ core-probe: layout=aggregate root=/Users/corvette/Documents/Projects Coding/Agen
 ◇ Test detectorKeepsOrderAcrossEmptyPATHComponents() started.
 ✔ Test detectorKeepsOrderAcrossEmptyPATHComponents() passed after 0.003 seconds.
 ◇ Test detectorAndVersionQueryHonorEmptyAndRelativeRootsInAnIsolatedWorkingDirectory() started.
-core-probe: layout=aggregate root=/Users/corvette/Documents/Projects Coding/Agent Lens/.build/out/Products/Debug module=/Users/corvette/Documents/Projects Coding/Agent Lens/.build/out/Products/Debug objects=1 compiler=/usr/bin/swiftc
+core-probe: layout=aggregate root=<repo>/.build/out/Products/Debug module=<repo>/.build/out/Products/Debug objects=1 compiler=/usr/bin/swiftc
 ✔ Test detectorAndVersionQueryHonorEmptyAndRelativeRootsInAnIsolatedWorkingDirectory() passed after 0.928 seconds.
 ◇ Test versionQueryKillsTerminationResistantProcessAfterEarlyStdoutEOF() started.
 ✔ Test versionQueryKillsTerminationResistantProcessAfterEarlyStdoutEOF() passed after 2.009 seconds.
@@ -875,7 +875,7 @@ isolation-probe inherited_TMPDIR=/var/folders/tf/jsdyxcts6y72fs98s7wl3dfm0000gn/
 ◇ Test effectiveEnvironmentAndWorkingDirectoryEachInvalidateCoordinatorCacheKeys() started.
 ✔ Test effectiveEnvironmentAndWorkingDirectoryEachInvalidateCoordinatorCacheKeys() passed after 0.006 seconds.
 ◇ Test actualSubprocessWorkingDirectoryControlsCoordinatorCacheContext() started.
-core-probe: layout=aggregate root=/Users/corvette/Documents/Projects Coding/Agent Lens/.build/out/Products/Debug module=/Users/corvette/Documents/Projects Coding/Agent Lens/.build/out/Products/Debug objects=1 compiler=/usr/bin/swiftc
+core-probe: layout=aggregate root=<repo>/.build/out/Products/Debug module=<repo>/.build/out/Products/Debug objects=1 compiler=/usr/bin/swiftc
 ✔ Test actualSubprocessWorkingDirectoryControlsCoordinatorCacheContext() passed after 0.528 seconds.
 ◇ Test tappedFormulaIdentitySurvivesMetadataRoundTripWithoutQueries() started.
 ✔ Test tappedFormulaIdentitySurvivesMetadataRoundTripWithoutQueries() passed after 0.003 seconds.

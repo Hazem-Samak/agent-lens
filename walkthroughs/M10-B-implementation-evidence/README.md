@@ -15,3 +15,7 @@ All diagnostic failures are retained:
 - An attempted scoped environment-key injection through login-shell capture did not yield the intended custom route (`env-scope.json`) and is excluded from passing CLI-config evidence. The supported environment-base injection is proven in `env-base.json`; direct scoped-env npm10/npm11 behavior was measured separately in the retained planning evidence. No product change was made to shell capture or registry routing.
 
 No package installation, product edit, personal cache access, commit/push or hosted run was performed by these final verification harnesses. Owned loopback servers and validation apps were stopped after the checks. The unrelated sentinel still contains its original literal fixture value; its final hash is recorded in the scope receipt.
+
+Publication redaction (2026-11-08): local absolute user/repository paths in the retained text
+receipts were replaced with `<repo>`/`<home>`. The affected `SHA256.json` entries were regenerated;
+test counts, verdicts, and command arguments are unchanged.

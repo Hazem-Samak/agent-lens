@@ -240,11 +240,25 @@ final class PlainRecordRunner: OperationCommandRunner, @unchecked Sendable {
 
 @main
 struct CombinedHost {
+    static func waitForFile(_ url: URL, timeout: TimeInterval = 20) async -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if FileManager.default.fileExists(atPath: url.path) { return true }
+            try? await Task.sleep(nanoseconds: 20_000_000)
+        }
+        return FileManager.default.fileExists(atPath: url.path)
+    }
+
     static func main() async throws {
         let args = CommandLine.arguments
         let manager = args[1], prefix = args[2], root = args[3], alias = args[4]
         let loopback = args[5], updateRecordPath = args[6], uninstallRecordPath = args[7]
         let resultPath = args[8], operationBase = args[9]
+        let updateStartedPath = args[10], interruptStartedPath = args[11]
+        let interruptFlagPath = args[12]
+        let updateStarted = URL(fileURLWithPath: updateStartedPath)
+        let interruptStarted = URL(fileURLWithPath: interruptStartedPath)
+        let interruptFlag = URL(fileURLWithPath: interruptFlagPath)
         let rawEnv = ProcessInfo.processInfo.environment
         let path = rawEnv["PATH"] ?? "/usr/bin:/bin"
         let entries = path.split(separator: ":", omittingEmptySubsequences: false).map(String.init)
@@ -282,12 +296,25 @@ struct CombinedHost {
             try Data("update preparation refused\n".utf8).write(to: URL(fileURLWithPath: resultPath))
             exit(2)
         }
-        let updateOutcome = await NpmUpdateOperation.execute(
+
+        // Deliberate concurrent confirm: the first execution is already inside its launched
+        // process (the wrapper writes its marker before exec) when the second attempt runs.
+        let updateTask = Task {
+            await NpmUpdateOperation.execute(
+                confirmed: updatePreparation, environment: environment,
+                scan: { _, _, _ in scan() },
+                reconcileAfterLaunch: { _ in (scan(), environment) },
+                updateRunner: updateRunner, operationRunner: updateOperationRunner, gate: gate)
+        }
+        let updateStartedObserved = await waitForFile(updateStarted)
+        let competing = await NpmUpdateOperation.execute(
             confirmed: updatePreparation, environment: environment,
             scan: { _, _, _ in scan() },
             reconcileAfterLaunch: { _ in (scan(), environment) },
             updateRunner: updateRunner, operationRunner: updateOperationRunner, gate: gate)
+        let updateOutcome = await updateTask.value
         let afterUpdate = scan()
+
         let uninstallPrepared = await NpmUninstallOperation.prepare(
             definition: definition, diagnostic: afterUpdate, environment: environment,
             currentDirectory: root, runner: updateRunner, operationRootBaseURL: baseURL)
@@ -295,24 +322,62 @@ struct CombinedHost {
             try Data("uninstall preparation refused\n".utf8).write(to: URL(fileURLWithPath: resultPath))
             exit(3)
         }
-        let uninstallOutcome = await NpmUninstallOperation.execute(
-            confirmed: uninstallPreparation, environment: environment,
+
+        // Window-close/interruption equivalent: cancel the in-flight operation after the wrapper
+        // has launched and signalled; Core must reconcile and report .interrupted.
+        try? Data().write(to: interruptFlag)
+        let uninstallTask = Task {
+            await NpmUninstallOperation.execute(
+                confirmed: uninstallPreparation, environment: environment,
+                scan: { _, _, _ in scan() },
+                reconcileAfterLaunch: { _ in (scan(), environment) },
+                updateRunner: updateRunner, operationRunner: uninstallOperationRunner, gate: gate)
+        }
+        let interruptStartedObserved = await waitForFile(interruptStarted)
+        uninstallTask.cancel()
+        let interrupted = await uninstallTask.value
+        let afterInterrupt = scan()
+
+        let finalPrepared = await NpmUninstallOperation.prepare(
+            definition: definition, diagnostic: afterInterrupt, environment: environment,
+            currentDirectory: root, runner: updateRunner, operationRootBaseURL: baseURL)
+        guard case .ready(let finalPreparation) = finalPrepared else {
+            try Data("final uninstall preparation refused\n".utf8).write(to: URL(fileURLWithPath: resultPath))
+            exit(4)
+        }
+        let finalOutcome = await NpmUninstallOperation.execute(
+            confirmed: finalPreparation, environment: environment,
             scan: { _, _, _ in scan() },
             reconcileAfterLaunch: { _ in (scan(), environment) },
             updateRunner: updateRunner, operationRunner: uninstallOperationRunner, gate: gate)
+
         let value: [String: Any] = [
             "updateState": updateOutcome.state.rawValue,
+            "updateProcessStarted": updateOutcome.processStarted,
             "updateExit": updateOutcome.exitStatus as Any,
             "updateAfterVersion": updateOutcome.reconciliation?.afterVersion as Any,
-            "uninstallState": uninstallOutcome.state.rawValue,
-            "uninstallExit": uninstallOutcome.exitStatus as Any,
-            "packageDirectoryAbsent": uninstallOutcome.reconciliation?.packageDirectoryAbsent as Any,
-            "packageDirectoryReplaced": uninstallOutcome.reconciliation?.packageDirectoryReplaced as Any,
-            "selectedTargetReleased": uninstallOutcome.reconciliation?.selectedTargetReleased as Any,
-            "observationFailed": uninstallOutcome.reconciliation?.observationFailed as Any,
-            "selectedEntryResidue": uninstallOutcome.reconciliation?.selectedEntryResidue as Any,
+            "updateStartedObserved": updateStartedObserved,
+            "competingState": competing.state.rawValue,
+            "competingProcessStarted": competing.processStarted,
+            "competingCleanupWarnings": competing.cleanupWarnings,
+            "competingMessage": competing.message as Any,
+            "interruptedState": interrupted.state.rawValue,
+            "interruptedProcessStarted": interrupted.processStarted,
+            "interruptedReconciliationPresent": interrupted.reconciliation != nil,
+            "interruptedAfterInstallState": interrupted.reconciliation?.afterInstallState.rawValue as Any,
+            "interruptedMessage": interrupted.message as Any,
+            "interruptStartedObserved": interruptStartedObserved,
+            "uninstallState": finalOutcome.state.rawValue,
+            "uninstallProcessStarted": finalOutcome.processStarted,
+            "uninstallExit": finalOutcome.exitStatus as Any,
+            "packageDirectoryAbsent": finalOutcome.reconciliation?.packageDirectoryAbsent as Any,
+            "packageDirectoryReplaced": finalOutcome.reconciliation?.packageDirectoryReplaced as Any,
+            "selectedTargetReleased": finalOutcome.reconciliation?.selectedTargetReleased as Any,
+            "observationFailed": finalOutcome.reconciliation?.observationFailed as Any,
+            "selectedEntryResidue": finalOutcome.reconciliation?.selectedEntryResidue as Any,
+            "finalAfterInstallState": finalOutcome.reconciliation?.afterInstallState.rawValue as Any,
             "updateArguments": updatePreparation.preview.arguments,
-            "uninstallArguments": uninstallPreparation.preview.arguments,
+            "uninstallArguments": finalPreparation.preview.arguments,
         ]
         try JSONSerialization.data(withJSONObject: value, options: [.prettyPrinted, .sortedKeys])
             .write(to: URL(fileURLWithPath: resultPath))
@@ -737,7 +802,30 @@ def combined(args) -> None:
         if not package_root.exists() or not prefix_bin.exists():
             base.fail("npm did not create the old package/bin")
         manager_dir = root / "manager-bin"; manager_dir.mkdir()
-        manager = manager_dir / "npm"; manager.symlink_to(npm)
+        update_started = root / "update-started"
+        interrupt_started = root / "interrupt-started"
+        interrupt_flag = root / "interrupt-uninstall"
+        manager = manager_dir / "npm"
+        manager.write_text(
+            "#!/bin/sh\n"
+            'for arg in "$@"; do\n'
+            '  if [ "$arg" = "install" ]; then\n'
+            f'    printf \'%s\' "$$" > "{update_started}"\n'
+            "    /bin/sleep 0.5\n"
+            "    break\n"
+            "  fi\n"
+            '  if [ "$arg" = "uninstall" ]; then\n'
+            f'    if [ -f "{interrupt_flag}" ]; then\n'
+            f'      rm -f "{interrupt_flag}"\n'
+            f'      printf \'%s\' "$$" > "{interrupt_started}"\n'
+            "      /bin/sleep 30\n"
+            "    fi\n"
+            "    break\n"
+            "  fi\n"
+            "done\n"
+            f'exec "{npm}" "$@"\n'
+        )
+        manager.chmod(0o755)
         alias_dir = root / "alias-bin"; alias_dir.mkdir()
         alias = alias_dir / "codex"; alias.symlink_to(prefix_bin)
         operation_base = root / "operation-base"; operation_base.mkdir(mode=0o700)
@@ -762,21 +850,46 @@ def combined(args) -> None:
         command_env = {**env, "PATH": f"{manager_dir}:{alias_dir}:{node_dir}:/usr/bin:/bin"}
         host_result = base.run(
             [str(host), str(manager), str(prefix), str(root), str(alias), base_url,
-             str(update_record), str(uninstall_record), str(result_path), str(operation_base)],
-            command_env, root, root / "receipts" / "combined-host", timeout=240, profile=profile)
+             str(update_record), str(uninstall_record), str(result_path), str(operation_base),
+             str(update_started), str(interrupt_started), str(interrupt_flag)],
+            command_env, root, root / "receipts" / "combined-host", timeout=300, profile=profile)
         if host_result.returncode != 0 or not result_path.exists():
             base.fail("combined host failed")
         result = json.loads(result_path.read_text())
-        if result.get("updateState") != "succeeded":
+        if result.get("updateState") != "succeeded" or not result.get("updateProcessStarted"):
             base.fail(f"combined update did not succeed: {result}")
         if result.get("updateAfterVersion") != TARGET_NEW:
             base.fail(f"combined update did not reach {TARGET_NEW}: {result}")
+        if not result.get("updateStartedObserved"):
+            base.fail(f"combined concurrent-confirm update marker was not observed: {result}")
+        if result.get("competingProcessStarted") is not False:
+            base.fail(f"combined concurrent confirm launched a second process: {result}")
+        if result.get("competingState") not in ("cancelled", "failed"):
+            base.fail(f"combined concurrent confirm returned an unexpected state: {result}")
+        if result.get("competingCleanupWarnings"):
+            base.fail(f"combined concurrent confirm reported a cleanup warning: {result}")
+        if result.get("interruptedState") != "interrupted":
+            base.fail(f"combined window-close/interruption did not interrupt: {result}")
+        if not result.get("interruptedProcessStarted"):
+            base.fail(f"combined interruption did not start a process: {result}")
+        if not result.get("interruptedReconciliationPresent"):
+            base.fail(f"combined interruption did not reconcile: {result}")
+        if result.get("interruptedAfterInstallState") != "installedAndOnPath":
+            base.fail(f"combined interruption changed the install state: {result}")
+        if not result.get("interruptStartedObserved"):
+            base.fail(f"combined interruption marker was not observed: {result}")
+        if interrupt_flag.exists():
+            base.fail("combined interruption flag was not consumed")
         if result.get("uninstallState") != "succeeded":
             base.fail(f"combined uninstall did not succeed: {result}")
         if result.get("packageDirectoryAbsent") is not True or result.get("selectedTargetReleased") is not True:
             base.fail(f"combined uninstall removal facts are incomplete: {result}")
         if result.get("observationFailed") is not False:
             base.fail(f"combined uninstall observation failed: {result}")
+        if result.get("selectedEntryResidue") is not True:
+            base.fail(f"combined uninstall did not report the dangling residue: {result}")
+        if result.get("finalAfterInstallState") != "notInstalled":
+            base.fail(f"combined final scan did not report notInstalled: {result}")
         if package_root.exists() or prefix_bin.exists():
             base.fail("combined uninstall left the package or prefix bin")
         if base.sentinel_manifest(root / "sentinel") != sentinels:
@@ -785,15 +898,18 @@ def combined(args) -> None:
             base.fail("combined operation base was not cleaned")
         update_invocations = [json.loads(line) for line in update_record.read_text().splitlines() if line.strip()]
         uninstall_invocations = [json.loads(line) for line in uninstall_record.read_text().splitlines() if line.strip()]
-        if len(update_invocations) != 1 or len(uninstall_invocations) != 1:
-            base.fail(f"combined expected one update and one uninstall, got {len(update_invocations)}/{len(uninstall_invocations)}")
+        if len(update_invocations) != 1 or len(uninstall_invocations) != 2:
+            base.fail(
+                "combined expected one update and two uninstall invocations "
+                f"(interrupted + final), got {len(update_invocations)}/{len(uninstall_invocations)}")
         update_executed = update_invocations[0].get("executed", [])
         if not any(arg.startswith(f"--registry={base_url}") for arg in update_executed):
             base.fail("combined update did not use the controlled registry")
-        uninstall_argv = uninstall_invocations[0]["argv"]
-        for required in ["uninstall", PACKAGE, "--global", "--prefix"]:
-            if required not in uninstall_argv:
-                base.fail(f"combined uninstall missing argv item: {required}")
+        for invocation in uninstall_invocations:
+            uninstall_argv = invocation["argv"]
+            for required in ["uninstall", PACKAGE, "--global", "--prefix"]:
+                if required not in uninstall_argv:
+                    base.fail(f"combined uninstall missing argv item: {required}")
         if any("uninstall" in request.lower() for request in requests):
             base.fail("combined uninstall unexpectedly used the registry")
         base.write_json(root / "combined-summary.json", {

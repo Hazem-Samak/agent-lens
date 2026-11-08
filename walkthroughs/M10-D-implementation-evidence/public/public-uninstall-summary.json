@@ -1,6 +1,6 @@
 {
   "argv": [
-    "/Users/corvette/.hermes/node/bin/npm",
+    "<home>/.hermes/node/bin/npm",
     "--cache",
     "/private/tmp/agent-lens-m10d-acceptance.47587/public-m10d/operation-base/9A8C9008-0DAA-4ECD-9AB0-CEB1C3DE2256",
     "--logs-dir",

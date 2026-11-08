@@ -2,8 +2,8 @@
   "app": "/private/tmp/agent-lens-m10d-acceptance.47587/native-app/AgentLensApp-debug.app",
   "home": "/private/tmp/agent-lens-m10d-acceptance.47587/public-native/home",
   "latest": "0.167.0",
-  "node_dir": "/Users/corvette/.hermes/node/bin",
-  "npm": "/Users/corvette/.hermes/node/lib/node_modules/npm/bin/npm-cli.js",
+  "node_dir": "<home>/.hermes/node/bin",
+  "npm": "<home>/.hermes/node/lib/node_modules/npm/bin/npm-cli.js",
   "old": "0.165.0",
   "old_is_strictly_older": true,
   "ownership": {

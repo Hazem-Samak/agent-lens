@@ -149,15 +149,19 @@ jobs:
           #   R7 candidate (one bash/shell-fixture case):   354 = Core 283 + AppSupport 71
           #   R7 products repair (+15 selection controls):  369 = Core 298 + AppSupport 71
           #   R8 builder/resource portability (+37 Core):    406 = Core 335 + AppSupport 71
+          #   M10-D final (hosted run 42486797150):          532 = Core 454 + AppSupport 78
+          #   M10-D R2 self-review (+3 regressions):         535 = Core 456 + AppSupport 79
           # Floors sit at the final candidate, so a lost/zero/regressed target fails while an extra case
           # never does. R8's 37 new cases live in BundledRegistryResourceTests.swift; the new
           # local-only Python parser controls (Tests/Packaging/test_build_dev_app_accessor.py) are
-          # NOT Swift events and do not count here.
+          # NOT Swift events and do not count here. The M10-B/C/D cases live in the Core update,
+          # ownership, operation, and process-runner suites plus the AppSupport service/ViewModel
+          # suites; their count is now protected by the final floors.
           #
           # OBSERVED BACKEND LAYOUTS for the full suite (both real, neither is a guess):
           #   * Local Swift Build prints TWO Swift Testing summaries (one per test target).
           #   * Hosted native SwiftPM prints ONE combined summary across both targets
-          #     ("Test run with 353 tests in 5 suites" — measured in run 40325427147).
+          #     ("Test run with 535 tests in 5 suites" — expected after the R2 regressions).
           # A combined count is therefore NOT reported as separate observed Core/App totals; only the
           # observed total is claimed, and both anchor groups must still appear as PASSED events.
           CORE_ANCHORS = [
@@ -184,11 +188,11 @@ jobs:
                   # Exactly one combined summary OR exactly two component summaries.
                   "summaries": [1, 2],
                   "targets": [
-                      {"label": "Core", "floor": 335},
-                      {"label": "AppSupport", "floor": 71},
+                      {"label": "Core", "floor": 456},
+                      {"label": "AppSupport", "floor": 79},
                   ],
-                  "total_floor": 406,
-                  "combined_total_floor": 406,
+                  "total_floor": 535,
+                  "combined_total_floor": 535,
                   # Each anchor is a real test FUNCTION name that appears on a passing run; file names
                   # never do. Both groups are required in either layout.
                   "required_passed_events": CORE_ANCHORS + APPSUPPORT_ANCHORS,

@@ -23,7 +23,7 @@ Building for debugging...
 [148 / 200]
 [150 / 202] agent-lens-product
 [151 / 202] agent-lens-product
-/Users/corvette/Documents/Projects Coding/Agent Lens/Sources/AgentLensCore/Environment/ShellEnvironmentResolver.swift:114:27: warning: 'init(validatingUTF8:)' is deprecated: replaced by 'String.init(validatingCString:)' [#DeprecatedDeclaration]
+<repo>/Sources/AgentLensCore/Environment/ShellEnvironmentResolver.swift:114:27: warning: 'init(validatingUTF8:)' is deprecated: replaced by 'String.init(validatingCString:)' [#DeprecatedDeclaration]
 112 |         guard let passwd = getpwuid(getuid()) else { return nil }
 113 |         guard let shell = passwd.pointee.pw_shell else { return nil }
 114 |         let shellString = String(validatingUTF8: shell)
@@ -33,14 +33,14 @@ Building for debugging...
 116 |         return shellString
 
 [#DeprecatedDeclaration]: <https://docs.swift.org/compiler/documentation/diagnostics/deprecated-declaration>
-/Users/corvette/Documents/Projects Coding/Agent Lens/Package.swift: AgentLensCore: ld: warning: search path '/Library/Developer/CommandLineTools/Developer/Library/Frameworks' not found
+<repo>/Package.swift: AgentLensCore: ld: warning: search path '/Library/Developer/CommandLineTools/Developer/Library/Frameworks' not found
 [155 / 203] AgentLensCore
 [160 / 204] AgentLensAppSupport
-/Users/corvette/Documents/Projects Coding/Agent Lens/Package.swift: agent-lens-product: ld: warning: search path '/Library/Developer/CommandLineTools/Developer/usr/lib' not found
-/Users/corvette/Documents/Projects Coding/Agent Lens/Package.swift: agent-lens-product: ld: warning: search path '/Library/Developer/CommandLineTools/Developer/Library/Frameworks' not found
+<repo>/Package.swift: agent-lens-product: ld: warning: search path '/Library/Developer/CommandLineTools/Developer/usr/lib' not found
+<repo>/Package.swift: agent-lens-product: ld: warning: search path '/Library/Developer/CommandLineTools/Developer/Library/Frameworks' not found
 [168 / 210] AgentLensAppSupport
 [180 / 224] AgentLensAppSupport
-/Users/corvette/Documents/Projects Coding/Agent Lens/Package.swift: AgentLensAppSupport: ld: warning: search path '/Library/Developer/CommandLineTools/Developer/Library/Frameworks' not found
+<repo>/Package.swift: AgentLensAppSupport: ld: warning: search path '/Library/Developer/CommandLineTools/Developer/Library/Frameworks' not found
 [196 / 225] AgentLensCoreTests-product
 [196 / 287] AgentLensAppSupportTests-product
 [198 / 295] AgentLensAppSupportTests-product
@@ -73,10 +73,10 @@ Building for debugging...
 [267 / 295]
 [268 / 295] AgentLensCoreTests-product
 [268 / 295] AgentLensAppSupportTests-product
-/Users/corvette/Documents/Projects Coding/Agent Lens/Package.swift: AgentLensAppSupportTests-product: ld: warning: search path '/Library/Developer/CommandLineTools/Developer/usr/lib' not found
-/Users/corvette/Documents/Projects Coding/Agent Lens/Package.swift: AgentLensAppSupportTests-product: ld: warning: search path '/Library/Developer/CommandLineTools/Developer/Library/Frameworks' not found
+<repo>/Package.swift: AgentLensAppSupportTests-product: ld: warning: search path '/Library/Developer/CommandLineTools/Developer/usr/lib' not found
+<repo>/Package.swift: AgentLensAppSupportTests-product: ld: warning: search path '/Library/Developer/CommandLineTools/Developer/Library/Frameworks' not found
 [270 / 295] AgentLensAppSupportTests-product
-/Users/corvette/Documents/Projects Coding/Agent Lens/Tests/AgentLensCoreTests/ShellEnvironmentResolverTests.swift:149:30: warning: '#require(_:_:)' is redundant because 'outcome.dump' never equals 'nil' (from macro 'require')
+<repo>/Tests/AgentLensCoreTests/ShellEnvironmentResolverTests.swift:149:30: warning: '#require(_:_:)' is redundant because 'outcome.dump' never equals 'nil' (from macro 'require')
 147 |     let outcome = ShellEnvironmentResolver.capture(shellPath: "/bin/sh", script: script)
 148 |     #expect(!outcome.timedOut)
 149 |     let dump = try? #require(outcome.dump)
@@ -84,7 +84,7 @@ Building for debugging...
 150 |     #expect(dump?["PATH"] != nil)
 151 |     #expect(dump?["HOME"] != nil)
 
-/Users/corvette/Documents/Projects Coding/Agent Lens/Tests/AgentLensCoreTests/ToolDetectorTests.swift:100:12: warning: 'init(cString:)' is deprecated: Use String(decoding: array, as: UTF8.self) instead, after truncating the null termination. [#DeprecatedDeclaration]
+<repo>/Tests/AgentLensCoreTests/ToolDetectorTests.swift:100:12: warning: 'init(cString:)' is deprecated: Use String(decoding: array, as: UTF8.self) instead, after truncating the null termination. [#DeprecatedDeclaration]
   98 |     var resolved = [CChar](repeating: 0, count: Int(PATH_MAX))
   99 |     guard realpath(url.path, &resolved) != nil else { return nil }
  100 |     return String(cString: resolved)
@@ -97,13 +97,13 @@ Building for debugging...
 [274 / 295]
 [275 / 295]
 [276 / 295] AgentLensCoreTests-product
-/Users/corvette/Documents/Projects Coding/Agent Lens/Package.swift: AgentLensCoreTests-product: ld: warning: search path '/Library/Developer/CommandLineTools/Developer/usr/lib' not found
-/Users/corvette/Documents/Projects Coding/Agent Lens/Package.swift: AgentLensCoreTests-product: ld: warning: search path '/Library/Developer/CommandLineTools/Developer/Library/Frameworks' not found
+<repo>/Package.swift: AgentLensCoreTests-product: ld: warning: search path '/Library/Developer/CommandLineTools/Developer/usr/lib' not found
+<repo>/Package.swift: AgentLensCoreTests-product: ld: warning: search path '/Library/Developer/CommandLineTools/Developer/Library/Frameworks' not found
 [278 / 295] AgentLensCoreTests-product
 [282 / 295]
 [290 / 295] AgentLensApp-product
 [291 / 295] AgentLensApp-product
-[293 / 295] AgentLensApp-product/Users/corvette/Documents/Projects Coding/Agent Lens/Package.swift: AgentLensApp-product: ld: warning: search path '/Library/Developer/CommandLineTools/Developer/usr/lib' not found
-/Users/corvette/Documents/Projects Coding/Agent Lens/Package.swift: AgentLensApp-product: ld: warning: search path '/Library/Developer/CommandLineTools/Developer/Library/Frameworks' not found
+[293 / 295] AgentLensApp-product<repo>/Package.swift: AgentLensApp-product: ld: warning: search path '/Library/Developer/CommandLineTools/Developer/usr/lib' not found
+<repo>/Package.swift: AgentLensApp-product: ld: warning: search path '/Library/Developer/CommandLineTools/Developer/Library/Frameworks' not found
 
 Build complete! (30.22 secs)

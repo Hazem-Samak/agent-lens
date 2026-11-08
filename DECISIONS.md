@@ -312,6 +312,29 @@ stale `repo` finding disproved by the passing render scenario and the pre-grant 
 resolved by the successful click-through. OpenCode GLM plan review stalled after one verified
 lifecycle-script correction. See [M10-D implementation](walkthroughs/M10-D-implementation.md).
 
+## M10-D R2 — corrections, self-reviews, and merge authorization (2026-11-08)
+
+The owner authorized a final R2 correction pass on the accepted M10 branch, explicitly waived a
+further independent post-correction implementation review because no other implementer or model was
+authorized, and directed the sole implementer to review the work twice and then merge. The waiver is
+recorded in `walkthroughs/M10-D-implementation-evidence/reviews/README.txt`; no independent PASS is
+claimed for R2.
+
+Corrections: Check/Refresh no longer forwards the captured login-shell `TMPDIR` and uses Foundation's
+`temporaryDirectory` when no base is injected; the update busy-gate branch suppresses the false
+scratch-cleanup warning for an already-consumed preparation; `runDualStream` rechecks cancellation
+immediately before `posix_spawn`; both confirmation sheets show the stable registry ID; the combined
+real-npm scenario now includes the required deliberate concurrent-confirm and
+window-close/interruption cases; CI floors are raised to the measured final inventory; local absolute
+paths in PR-added text evidence are redacted with the affected SHA manifests regenerated.
+
+Verification: full local suite **456 Core + 79 AppSupport = 535**, zero failures/skips, exit 0
+(`walkthroughs/M10-D-implementation-evidence/full-suite-r2.log`); extended combined real-npm scenario
+`COMBINED-CONTROLLED OK` with update succeeded, competing confirm cancelled/no process, interrupted
+uninstall reconciled, final uninstall succeeded, residue reported, and exactly one update/two
+uninstall invocations (`combined-summary-r2.json`, `combined-result-r2.json`). Targeted regressions
+passed. Exact-SHA hosted CI and the merge commit are recorded on PR #1 and in `ROADMAP.md`.
+
 ## M8 — user-approved delivery (2026-10-18)
 
 The user authorized implementation of [M8 path actions](briefs/M8-path-actions.md), then approved the UI and Git delivery with “all good, clean branches comm push all”. Automated gates and independent final reviews passed. The unverified keyboard-only activation check remains a documented limitation; user approval is not evidence that it was measured. [The walkthrough](walkthroughs/M8-path-actions.md) records the result, team, raw-evidence locations, and limits. The frozen M7/M8 briefs and historical acceptance transcripts remain unchanged.

@@ -30,14 +30,14 @@ Now let me inspect the code seams. Starting with the operation files:
 [0m✱ [0mGrep "prepareSelectedUpdate|prepareSelectedUninstall|OperationExecutionGate|operationSlot|mutationSlot" [90min Sources/AgentLensAppSupport · 3 matches[0m
 [0m→ [0mRead Sources/AgentLensCore/Updates/NpmUpdateProbe.swift [90m[limit=60, offset=1026][0m
 > plan · glm-5.3-flash-free
-[0m$ [0mwc -l "/Users/corvette/Documents/Projects Coding/Agent Lens/Sources/AgentLensAppSupport/InventoryService.swift" "/Users/corvette/Documents/Projects Coding/Agent Lens/Sources/AgentLensAppSupport/InventoryViewModel.swift" "/Users/corvette/Documents/Projects Coding/Agent Lens/Sources/AgentLensApp/MainWindow.swift" "/Users/corvette/Documents/Projects Coding/Agent Lens/Sources/AgentLensApp/ToolDetailView.swift" "/Users/corvette/Documents/Projects Coding/Agent Lens/Sources/AgentLensApp/UpdateOperationView.swift" "/Users/corvette/Documents/Projects Coding/Agent Lens/Tests/AgentLensCoreTests/NpmUpdateOperationTests.swift" "/Users/corvette/Documents/Projects Coding/Agent Lens/Tests/Fixtures/M10C/npm_update_acceptance.py"
-439 /Users/corvette/Documents/Projects Coding/Agent Lens/Sources/AgentLensAppSupport/InventoryService.swift
-     728 /Users/corvette/Documents/Projects Coding/Agent Lens/Sources/AgentLensAppSupport/InventoryViewModel.swift
-     457 /Users/corvette/Documents/Projects Coding/Agent Lens/Sources/AgentLensApp/MainWindow.swift
-     581 /Users/corvette/Documents/Projects Coding/Agent Lens/Sources/AgentLensApp/ToolDetailView.swift
-     223 /Users/corvette/Documents/Projects Coding/Agent Lens/Sources/AgentLensApp/UpdateOperationView.swift
-    1312 /Users/corvette/Documents/Projects Coding/Agent Lens/Tests/AgentLensCoreTests/NpmUpdateOperationTests.swift
-    1436 /Users/corvette/Documents/Projects Coding/Agent Lens/Tests/Fixtures/M10C/npm_update_acceptance.py
+[0m$ [0mwc -l "<repo>/Sources/AgentLensAppSupport/InventoryService.swift" "<repo>/Sources/AgentLensAppSupport/InventoryViewModel.swift" "<repo>/Sources/AgentLensApp/MainWindow.swift" "<repo>/Sources/AgentLensApp/ToolDetailView.swift" "<repo>/Sources/AgentLensApp/UpdateOperationView.swift" "<repo>/Tests/AgentLensCoreTests/NpmUpdateOperationTests.swift" "<repo>/Tests/Fixtures/M10C/npm_update_acceptance.py"
+439 <repo>/Sources/AgentLensAppSupport/InventoryService.swift
+     728 <repo>/Sources/AgentLensAppSupport/InventoryViewModel.swift
+     457 <repo>/Sources/AgentLensApp/MainWindow.swift
+     581 <repo>/Sources/AgentLensApp/ToolDetailView.swift
+     223 <repo>/Sources/AgentLensApp/UpdateOperationView.swift
+    1312 <repo>/Tests/AgentLensCoreTests/NpmUpdateOperationTests.swift
+    1436 <repo>/Tests/Fixtures/M10C/npm_update_acceptance.py
     5176 total
 > plan · glm-5.3-flash-free
 [0m→ [0mRead Sources/AgentLensAppSupport/InventoryService.swift 
@@ -53,7 +53,7 @@ Now let me inspect the code seams. Starting with the operation files:
 Now let me verify several code facts in parallel — helper visibility, identity observer behavior, the fixture harness, and the test/scripts inventory:
 [0m✱ [0mGrep "func verifyOwnership|func manifestName|func mapOwnershipReason" [90min Sources/AgentLensCore/Updates/NpmUpdateProbe.swift · 2 matches[0m
 [0m✱ [0mGlob "Tests/**/*.swift" [90min . · 29 matches[0m
-[0m$ [0mcd "/Users/corvette/Documents/Projects Coding/Agent Lens" && git rev-parse 4b828c72d4d443bcaeb9ec37b654118ce2e4583e^{commit} && git rev-parse fff287d79884bf2163642dfa6ef3543da5682565^{commit} && git merge-base --is-ancestor fff287d79884bf2163642dfa6ef3543da5682565 4b828c72d4d443bcaeb9ec37b654118ce2e4583e && echo ANCESTRY-OK && git log --oneline -n 6 4b828c72d4d443bcaeb9ec37b654118ce2e4583e && git branch --show-current
+[0m$ [0mcd "<repo>" && git rev-parse 4b828c72d4d443bcaeb9ec37b654118ce2e4583e^{commit} && git rev-parse fff287d79884bf2163642dfa6ef3543da5682565^{commit} && git merge-base --is-ancestor fff287d79884bf2163642dfa6ef3543da5682565 4b828c72d4d443bcaeb9ec37b654118ce2e4583e && echo ANCESTRY-OK && git log --oneline -n 6 4b828c72d4d443bcaeb9ec37b654118ce2e4583e && git branch --show-current
 4b828c72d4d443bcaeb9ec37b654118ce2e4583e
 fff287d79884bf2163642dfa6ef3543da5682565
 ANCESTRY-OK
@@ -66,7 +66,7 @@ a8c78d8 Record M10-B independent review and hosted acceptance
 codex/m10-npm-management
 > plan · glm-5.3-flash-free
 [0m→ [0mRead Tests/Fixtures/M10C/npm_update_acceptance.py [90m[limit=120][0m
-[0m$ [0mcd "/Users/corvette/Documents/Projects Coding/Agent Lens" && git status --porcelain | head -20; ls Sources/AgentLensCore/Process Sources/AgentLensCore/Operations; ls scripts | head; ls Tests/Packaging; ls walkthroughs | grep -i m10
+[0m$ [0mcd "<repo>" && git status --porcelain | head -20; ls Sources/AgentLensCore/Process Sources/AgentLensCore/Operations; ls scripts | head; ls Tests/Packaging; ls walkthroughs | grep -i m10
 ?? .perch/
 ?? .workbuddy-ai/memory/2026-10-28.md
 ?? briefs/M10-D-npm-uninstall.md
@@ -104,7 +104,7 @@ M10-C-R1-baseline-repair.md
 M10-C-R1-review-evidence
 > plan · glm-5.3-flash-free
 [0m✱ [0mGrep "func runDualStream|SIGTERM|process group|kill\(" [90min Sources/AgentLensCore/Process/BoundedProcessRunner.swift · 6 matches[0m
-[0m$ [0mcd "/Users/corvette/Documents/Projects Coding/Agent Lens" && grep -n "__main__\|^def main\|^def scenario\|^def build_arg" Tests/Fixtures/M10C/npm_update_acceptance.py | head -30; echo ---; grep -n "uninstall" Tests/Fixtures/M10C/npm_update_acceptance.py | head
+[0m$ [0mcd "<repo>" && grep -n "__main__\|^def main\|^def scenario\|^def build_arg" Tests/Fixtures/M10C/npm_update_acceptance.py | head -30; echo ---; grep -n "uninstall" Tests/Fixtures/M10C/npm_update_acceptance.py | head
 1407:def main() -> None:
 1435:if __name__ == "__main__":
 ---
@@ -118,7 +118,7 @@ Now let me verify the npm documentation claims cited in the brief:
 [0m✱ [0mGrep "enum InstallationOwnershipOutcome|case verified|struct VerifiedInstallation|var managerRoot" [90min Sources/AgentLensCore · 5 matches[0m
 [0m✱ [0mGrep "public var updateStatus|var ownership: InstallationOwnershipResult|struct InventoryEntry" [90min Sources/AgentLensAppSupport · 2 matches[0m
 > plan · glm-5.3-flash-free
-[0m$ [0mcd "/Users/corvette/Documents/Projects Coding/Agent Lens" && grep -n "offline" Sources/agent-lens/main.swift | head -5; grep -n "M10-D\|M10-C" briefs/README.md | head -5; grep -c "@Test" Tests/AgentLensCoreTests/NpmUpdateOperationTests.swift
+[0m$ [0mcd "<repo>" && grep -n "offline" Sources/agent-lens/main.swift | head -5; grep -n "M10-D\|M10-C" briefs/README.md | head -5; grep -c "@Test" Tests/AgentLensCoreTests/NpmUpdateOperationTests.swift
 30:    case offline
 38:        case ["--offline"]: return .offline
 48:        case .offline: .offline

@@ -92,6 +92,7 @@ public struct UninstallOperationView: View {
                 .fontWeight(.bold)
 
             Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 8) {
+                row("Registry ID", preview.registryID)
                 row("Tool-Reported Version", preview.installedVersion ?? "unavailable")
                 row("Package", preview.packageName)
                 row("Registry Pin", "\(preview.registry) (no metadata query)")

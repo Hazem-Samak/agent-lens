@@ -1,0 +1,71 @@
+SELF-REVIEW PASS 1 — 2026-11-08
+Implementer/sole reviewer: River DeepSeek V4.1 Flash 1017 (owner-authorized D-014 exception).
+Scope: the R2 correction diff on top of 878ee9a, not a re-review of the whole M10 history.
+
+FINDINGS AND DISPOSITIONS
+
+1. Busy-gate release/claim ordering (pre-existing, non-blocking).
+   NpmUpdateOperation and NpmUninstallOperation acquire the process gate before claiming the
+   preparation. A simultaneous second execute that fails the gate can call releaseUnconsumed()
+   before the gate winner claims, leaving the winner with a consumed preparation. The result is
+   zero processes, never two; the frozen requirement forbids two mutation processes. The new
+   combined scenario deliberately starts the second confirm after the first is already inside its
+   launched wrapper process, so it tests the claimed case and records cleanupWarnings == []. No
+   order change was made in this pass; noted for a future bounded Core cleanup.
+
+2. observeFresh nil-base fallback (no finding).
+   The fallback now uses Foundation temporaryDirectory instead of a captured TMPDIR. Both
+   production callers pass their owned operation root; the new service-level regression covers the
+   Check/Refresh path, which is the only path that previously inherited the captured value.
+
+3. Combined interruption determinism (no finding).
+   The wrapper writes a marker before its delay; the host waits for the marker, then cancels the
+   task. The 0.5 s install delay only keeps the first process alive while the competing confirm
+   runs; the assertions are marker-driven. The real run produced updateState succeeded,
+   competingState cancelled, competingProcessStarted false, interruptedState interrupted,
+   interruptedProcessStarted true, interruptedAfterInstallState installedAndOnPath, and two
+   uninstall invocations (interrupted + final).
+
+4. Evidence path redaction (fixed after review).
+   Historical text receipts contained local absolute user/repository paths. They were replaced
+   with <repo>/<home> in PR-added text evidence; the two affected SHA256 manifests were regenerated
+   and re-verified (42/42 and 46/46). The frozen M10-B dispatch brief was restored unchanged after
+   an initial over-broad redaction. The two evidence READMEs disclose the redaction.
+
+5. CI floors (fixed after review).
+   The workflow still guarded 335/71/406 against a 532-test branch. Floors are now 456/79/535,
+   the measured post-R2 inventory (456 Core + 79 AppSupport = 535), with the final-candidate
+   comment updated. Hosted exact-SHA verification is pending push.
+
+6. Preview registry ID (fixed).
+   Both sheets now show the stable registry ID in addition to the human-readable tool name.
+
+7. Update cleanup warning (fixed).
+   The busy-gate branch now mirrors uninstall's isConsumed guard and suppresses the false
+   "scratch root could not be removed safely" warning. The regression test passes.
+
+8. Pre-spawn cancellation (fixed).
+   runDualStream rechecks isCancelled immediately before posix_spawn. The deterministic test
+   returns false at entry and true at the final check, asserts processStarted == false, and proves
+   no marker file was created.
+
+9. Check/Refresh scratch default (fixed).
+   InventoryService no longer forwards the captured shell TMPDIR; the probe falls back to
+   Foundation. The regression fixture uses a 0777 captured TMPDIR and still obtains
+   updateAvailable(1.0.0 -> 2.0.0).
+
+VERIFICATION OBSERVED
+- Targeted: busyGateReplayDoesNotReportFalseScratchCleanupFailure, cancellationDuringSetupPreventsSpawn,
+  checkUpdatesUsesFoundationScratchWhenNoBaseIsInjected: all passed.
+- Full local suite with the documented TestingMacros fallback: 456 Core + 79 AppSupport = 535,
+  zero failures/skips, exit 0. Raw log: ../full-suite-r2.log.
+- Extended combined real-npm scenario: exit 0, COMBINED-CONTROLLED OK. Receipts:
+  ../combined/combined-summary-r2.json and ../combined/combined-result-r2.json.
+- Hosted CI at the new head is not yet observed; this pass does not claim it.
+
+LIMITS
+- The combined scenario uses a wrapper manager around the real npm to hold the process open for
+  the deliberate interruption; the wrapper delegates to real npm for the update, and the final
+  uninstall is real npm. Production has no wrapper or registry switch.
+- No independent reviewer participated in this pass; the owner explicitly waived that requirement
+  and authorized this self-review chain.

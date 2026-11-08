@@ -3,7 +3,7 @@
     "/usr/bin/sandbox-exec",
     "-f",
     "/private/tmp/agent-lens-m10d-acceptance.47587/public-native/ordinary-app.sb",
-    "/Users/corvette/.hermes/node/lib/node_modules/npm/bin/npm-cli.js",
+    "<home>/.hermes/node/lib/node_modules/npm/bin/npm-cli.js",
     "install",
     "@openai/codex@0.165.0",
     "--global",
@@ -21,7 +21,7 @@
   "end": 1794145363.780782,
   "exit": 0,
   "original_argv": [
-    "/Users/corvette/.hermes/node/lib/node_modules/npm/bin/npm-cli.js",
+    "<home>/.hermes/node/lib/node_modules/npm/bin/npm-cli.js",
     "install",
     "@openai/codex@0.165.0",
     "--global",

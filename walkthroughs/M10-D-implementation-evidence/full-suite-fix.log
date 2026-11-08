@@ -141,7 +141,7 @@ Build complete! (0.21 secs)
 ◇ Test directConstructionRejectsNonHTTPSInformationURL() started.
 ✔ Test directConstructionRejectsNonHTTPSInformationURL() passed after 0.001 seconds.
 ◇ Test dangerousSchemaVersionsAreRejectedWithoutTrappingTheTestProcess() started.
-core-probe: layout=aggregate root=/Users/corvette/Documents/Projects Coding/Agent Lens/.build/out/Products/Debug module=/Users/corvette/Documents/Projects Coding/Agent Lens/.build/out/Products/Debug objects=1 compiler=/usr/bin/swiftc
+core-probe: layout=aggregate root=<repo>/.build/out/Products/Debug module=<repo>/.build/out/Products/Debug objects=1 compiler=/usr/bin/swiftc
 ✔ Test dangerousSchemaVersionsAreRejectedWithoutTrappingTheTestProcess() passed after 0.569 seconds.
 ◇ Test bundledDefaultDetectorsIsValidWithThreeTools() started.
 ✔ Test bundledDefaultDetectorsIsValidWithThreeTools() passed after 0.001 seconds.
@@ -644,7 +644,7 @@ core-probe: layout=aggregate root=/Users/corvette/Documents/Projects Coding/Agen
 ◇ Test captureRejectsSentinelsFromANonzeroShellExit() started.
 ✔ Test captureRejectsSentinelsFromANonzeroShellExit() passed after 0.066 seconds.
 ◇ Test ptyProductionCaptureUsesFixturePathForSupportedLoginShells() started.
-core-probe: layout=aggregate root=/Users/corvette/Documents/Projects Coding/Agent Lens/.build/out/Products/Debug module=/Users/corvette/Documents/Projects Coding/Agent Lens/.build/out/Products/Debug objects=1 compiler=/usr/bin/swiftc
+core-probe: layout=aggregate root=<repo>/.build/out/Products/Debug module=<repo>/.build/out/Products/Debug objects=1 compiler=/usr/bin/swiftc
 ✔ Test ptyProductionCaptureUsesFixturePathForSupportedLoginShells() passed after 0.899 seconds.
 ◇ Test productSelectionRecognizesTheAggregateSwiftBuildLayout() started.
 core-probe: layout=aggregate root=/private/var/folders/tf/jsdyxcts6y72fs98s7wl3dfm0000gn/T/agentlens-m3-products-aggregate-D3048CB3-C8EB-491F-B0B9-3B9DD8FD1CE9 module=/private/var/folders/tf/jsdyxcts6y72fs98s7wl3dfm0000gn/T/agentlens-m3-products-aggregate-D3048CB3-C8EB-491F-B0B9-3B9DD8FD1CE9 objects=1 compiler=/usr/bin/swiftc
@@ -660,7 +660,7 @@ core-probe: layout=native root=/private/var/folders/tf/jsdyxcts6y72fs98s7wl3dfm0
 ◇ Test productSelectionRejectsRelativeAndNULOverrides() started.
 ✔ Test productSelectionRejectsRelativeAndNULOverrides() passed after 0.001 seconds.
 ◇ Test productSelectionInvalidOverrideNeverFallsBackToAValidBundle() started.
-core-probe: layout=aggregate root=/Users/corvette/Documents/Projects Coding/Agent Lens/.build/out/Products/Debug module=/Users/corvette/Documents/Projects Coding/Agent Lens/.build/out/Products/Debug objects=1 compiler=/usr/bin/swiftc
+core-probe: layout=aggregate root=<repo>/.build/out/Products/Debug module=<repo>/.build/out/Products/Debug objects=1 compiler=/usr/bin/swiftc
 ✔ Test productSelectionInvalidOverrideNeverFallsBackToAValidBundle() passed after 0.003 seconds.
 ◇ Test productSelectionRejectsAmbiguousDualLayoutRoot() started.
 ✔ Test productSelectionRejectsAmbiguousDualLayoutRoot() passed after 0.003 seconds.
@@ -682,7 +682,7 @@ core-probe: layout=aggregate root=/private/var/folders/tf/jsdyxcts6y72fs98s7wl3d
 core-probe: layout=aggregate root=/private/var/folders/tf/jsdyxcts6y72fs98s7wl3dfm0000gn/T/agentlens-m3-products-physical-active-F743181B-0923-4952-A25D-DEAB413FE831 module=/private/var/folders/tf/jsdyxcts6y72fs98s7wl3dfm0000gn/T/agentlens-m3-products-physical-active-F743181B-0923-4952-A25D-DEAB413FE831 objects=1 compiler=/usr/bin/swiftc
 ✔ Test productSelectionFollowsThePhysicalBundleNotTheLexicalParentRoot() passed after 0.001 seconds.
 ◇ Test productSelectionFindsTheActiveBundleAncestryWithoutCwdFallback() started.
-core-probe: layout=aggregate root=/Users/corvette/Documents/Projects Coding/Agent Lens/.build/out/Products/Debug module=/Users/corvette/Documents/Projects Coding/Agent Lens/.build/out/Products/Debug objects=1 compiler=/usr/bin/swiftc
+core-probe: layout=aggregate root=<repo>/.build/out/Products/Debug module=<repo>/.build/out/Products/Debug objects=1 compiler=/usr/bin/swiftc
 ✔ Test productSelectionFindsTheActiveBundleAncestryWithoutCwdFallback() passed after 0.001 seconds.
 ◇ Test detectorFindsExecutableOnPath() started.
 ✔ Test detectorFindsExecutableOnPath() passed after 0.001 seconds.
@@ -705,7 +705,7 @@ core-probe: layout=aggregate root=/Users/corvette/Documents/Projects Coding/Agen
 ◇ Test detectorKeepsOrderAcrossEmptyPATHComponents() started.
 ✔ Test detectorKeepsOrderAcrossEmptyPATHComponents() passed after 0.005 seconds.
 ◇ Test detectorAndVersionQueryHonorEmptyAndRelativeRootsInAnIsolatedWorkingDirectory() started.
-core-probe: layout=aggregate root=/Users/corvette/Documents/Projects Coding/Agent Lens/.build/out/Products/Debug module=/Users/corvette/Documents/Projects Coding/Agent Lens/.build/out/Products/Debug objects=1 compiler=/usr/bin/swiftc
+core-probe: layout=aggregate root=<repo>/.build/out/Products/Debug module=<repo>/.build/out/Products/Debug objects=1 compiler=/usr/bin/swiftc
 ✔ Test detectorAndVersionQueryHonorEmptyAndRelativeRootsInAnIsolatedWorkingDirectory() passed after 0.926 seconds.
 ◇ Test versionQueryKillsTerminationResistantProcessAfterEarlyStdoutEOF() started.
 ✔ Test versionQueryKillsTerminationResistantProcessAfterEarlyStdoutEOF() passed after 2.011 seconds.
@@ -834,7 +834,7 @@ isolation-probe inherited_TMPDIR=/var/folders/tf/jsdyxcts6y72fs98s7wl3dfm0000gn/
 ◇ Test effectiveEnvironmentAndWorkingDirectoryEachInvalidateCoordinatorCacheKeys() started.
 ✔ Test effectiveEnvironmentAndWorkingDirectoryEachInvalidateCoordinatorCacheKeys() passed after 0.006 seconds.
 ◇ Test actualSubprocessWorkingDirectoryControlsCoordinatorCacheContext() started.
-core-probe: layout=aggregate root=/Users/corvette/Documents/Projects Coding/Agent Lens/.build/out/Products/Debug module=/Users/corvette/Documents/Projects Coding/Agent Lens/.build/out/Products/Debug objects=1 compiler=/usr/bin/swiftc
+core-probe: layout=aggregate root=<repo>/.build/out/Products/Debug module=<repo>/.build/out/Products/Debug objects=1 compiler=/usr/bin/swiftc
 ✔ Test actualSubprocessWorkingDirectoryControlsCoordinatorCacheContext() passed after 0.516 seconds.
 ◇ Test tappedFormulaIdentitySurvivesMetadataRoundTripWithoutQueries() started.
 ✔ Test tappedFormulaIdentitySurvivesMetadataRoundTripWithoutQueries() passed after 0.002 seconds.

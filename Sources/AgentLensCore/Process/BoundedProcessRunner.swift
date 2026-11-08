@@ -382,6 +382,19 @@ enum BoundedProcessRunner {
             return nil
         }
 
+        // Cancellation can arrive after the entry check while the pipes, file actions, and
+        // argument vectors are being prepared. Recheck at the last possible point so a
+        // pre-launch cancel never spawns npm; the deferred descriptors and attributes are
+        // released on this return like every other setup failure.
+        if isCancelled() {
+            return DualStreamResult(
+                standardOutput: Data(), standardError: Data(), exitStatus: nil,
+                timedOut: false, outputLimitExceeded: false,
+                stdoutTruncated: false, stderrTruncated: false,
+                cancelled: true, processStarted: false, cleanupWarning: false
+            )
+        }
+
         let startedAt = DispatchTime.now().uptimeNanoseconds
         let safeTimeout = timeout.isFinite ? max(0, timeout) : 0
         let maximumTimeout = Double(UInt64.max - startedAt) / 1_000_000_000

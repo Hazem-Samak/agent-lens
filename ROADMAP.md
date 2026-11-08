@@ -2,9 +2,9 @@
 
 Planning revision: 2026-10-28. Original plan: 2026-10-22.
 
-Execution update: 2026-11-08. M10-C is technically accepted on `fff287d`. M10-D and the combined npm gate are technically accepted on implementation `308b7d2`: controlled/combined/public real-npm checks, an ordinary-app Accessibility click-through with Cancel-unchanged hashes and a reconciled result, and all seven exact-SHA hosted gates (532 Swift tests, 21 guard fixtures, 9 packaging checks) passed. M10 as a whole is accepted on `codex/m10-npm-management`. PR #1 is open against `main` for the whole M10 stage and is not authorized to merge. See [M10-D implementation](walkthroughs/M10-D-implementation.md) and [M10-C acceptance](walkthroughs/M10-C-implementation.md).
+Execution update: 2026-11-08. M10-C is technically accepted on `fff287d`. M10-D and the combined npm gate are technically accepted on implementation `308b7d2`: controlled/combined/public real-npm checks, an ordinary-app Accessibility click-through with Cancel-unchanged hashes and a reconciled result, and all seven exact-SHA hosted gates (532 Swift tests, 21 guard fixtures, 9 packaging checks) passed. M10 as a whole is accepted on `codex/m10-npm-management`. A final R2 correction pass fixed the review findings (Check/Refresh scratch default, false busy-gate cleanup warning, pre-spawn cancellation, preview registry ID, combined concurrent-confirm/interruption cases, evidence hygiene) and added three regression tests. The owner explicitly waived a further independent review, authorized two documented self-reviews, and authorized merge of PR #1. See [M10-D implementation](walkthroughs/M10-D-implementation.md) and [M10-C acceptance](walkthroughs/M10-C-implementation.md).
 
-This revision supersedes the previous **future execution order**, not completed work or acceptance evidence. M0–M9 remain delivered as recorded; M10-A/B/C/D are technically accepted only on `codex/m10-npm-management`. Accepted M10-B implementation is `72ffb1e`; M10-C is `fff287d`; M10-D is `308b7d2`. PR #1 is open but no `main` merge or public release has occurred. See [M10-B acceptance](walkthroughs/M10-B-acceptance.md) and [M10-C acceptance](walkthroughs/M10-C-implementation.md).
+This revision supersedes the previous **future execution order**, not completed work or acceptance evidence. M0–M9 remain delivered as recorded; M10-A/B/C/D are technically accepted only on `codex/m10-npm-management`. Accepted M10-B implementation is `72ffb1e`; M10-C is `fff287d`; M10-D is `308b7d2`, with R2 corrections on the current head. PR #1 is open against `main`; the owner authorized merge on 2026-11-08 after the R2 corrections and two self-reviews. The merge commit is recorded below and in `DECISIONS.md`. See [M10-B acceptance](walkthroughs/M10-B-acceptance.md) and [M10-C acceptance](walkthroughs/M10-C-implementation.md).
 
 Authority: [product scope](AGENT_LENS_SCOPE.md), [settled decisions](DECISIONS.md), and [milestone status](briefs/README.md). Historical briefs and walkthroughs are immutable evidence; this file is the living plan.
 
@@ -219,5 +219,7 @@ The user approves product tradeoffs, UI, expenses, credentials, publication, and
 
 ## 8. Immediate next action
 
-Obtain owner authorization to merge PR #1 for the accepted M10 stage. Do not start M11 until that Git
-delivery decision is made. No `main` integration or release is authorized by this status.
+PR #1 is owner-authorized for merge after the R2 corrections and two documented self-reviews; merge
+it for the accepted M10 stage. The merge commit is recorded in `DECISIONS.md` and the M10-D
+walkthrough. Start M11 only after the merge is recorded. No public release is authorized by this
+status.
