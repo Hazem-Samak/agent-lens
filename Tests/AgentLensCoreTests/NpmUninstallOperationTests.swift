@@ -786,8 +786,7 @@ private final class CleanupRefusingUninstallRunner: OperationCommandRunner, @unc
       if [ "$arg" = "uninstall" ]; then
         printf '%s' "$$" > '\(pidFile.path)'
         trap '' TERM
-        sleep 30
-        exit 0
+        while :; do sleep 1; done
       fi
     done
     exit 64
