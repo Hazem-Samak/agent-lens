@@ -276,12 +276,20 @@ private func collisionIdentityViolations(in definitions: [DetectorDefinition]) -
     #expect(collisionIdentityViolations(in: definitions).isEmpty,
             "the bundled registry must never declare a do-not-declare identity")
 
-    // Seeded control: the scan must reject a forbidden identity. Without this, an empty list
-    // could mean the check itself is vacuous.
+    // Seeded control: the scan must reject a forbidden identity in EVERY manager branch. Without
+    // this, an empty list could mean a branch check is vacuous (M11-F carry-forward).
     let seeded = try DetectorRegistry.validate(data: Data(#"""
     {"schemaVersion":2,"detectors":[
       {"id":"kiro","displayName":"Kiro","executableName":"kiro","category":"aiCodingTool",
        "packages":[{"manager":"npm","name":"@aws/kiro-cli"}],
+       "versionQuery":{"arguments":["--version"],"stream":"stdout","line":"first"}},
+      {"id":"seed-formula","displayName":"Seed Formula","executableName":"seed-formula",
+       "category":"aiCodingTool",
+       "packages":[{"manager":"homebrewFormula","name":"goose"}],
+       "versionQuery":{"arguments":["--version"],"stream":"stdout","line":"first"}},
+      {"id":"seed-cask","displayName":"Seed Cask","executableName":"seed-cask",
+       "category":"aiCodingTool",
+       "packages":[{"manager":"homebrewCask","name":"qoder"}],
        "versionQuery":{"arguments":["--version"],"stream":"stdout","line":"first"}}
     ]}
     """#.utf8))
@@ -289,6 +297,8 @@ private func collisionIdentityViolations(in definitions: [DetectorDefinition]) -
     #expect(seededViolations.contains("detector id kiro"))
     #expect(seededViolations.contains("executable kiro (detector kiro)"))
     #expect(seededViolations.contains("npm @aws/kiro-cli (detector kiro)"))
+    #expect(seededViolations.contains("homebrewFormula goose (detector seed-formula)"))
+    #expect(seededViolations.contains("homebrewCask qoder (detector seed-cask)"))
 }
 
 // MARK: Schema violations are rejected with named errors

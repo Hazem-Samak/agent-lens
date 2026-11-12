@@ -6,6 +6,10 @@ This repository surfaces the diagnostic that no existing tool answers: when mult
 
 The [complete application roadmap](ROADMAP.md) maps the remaining work through manager-backed Update/Uninstall, broader tool support, the finished native interface, and signed distribution. **M9 is technically accepted, user-UI-approved, and delivered to `main` (feature commit `eb4f586`, integrated milestone tip `1ac22c4`).** No public app release was published. M10-A (clean CI and fixture portability) is technically accepted on `codex/m10-npm-management`; M10-B is [technically accepted on the feature branch](walkthroughs/M10-B-acceptance.md) at `72ffb1e`; M10-C is [accepted](walkthroughs/M10-C-implementation.md) at `fff287d`; M10-D and the combined npm gate are [technically accepted](walkthroughs/M10-D-implementation.md) at `308b7d2` after controlled/combined/public real-npm checks, a passing ordinary-app click-through, and all seven exact-SHA hosted gates. M10 as a whole is technically accepted and delivered to `main`: PR #1 was merged on 2026-11-08 at merge commit `65f7a82`, and hosted CI passed at that exact SHA. No public release has occurred. M11–M19 remain planned.
 
+## Catalogue and contributing
+
+The bundled catalogue's published claims are in the [capability matrix](docs/capability-matrix.md): one row per detector with tested fixture, declared packages, latest-check, Update/Uninstall eligibility, and known limits. Adding a tool on an existing layout is a data-only change; the exact files, closed vocabularies, evidence rules, and local gates are in [CONTRIBUTING](docs/CONTRIBUTING.md). Contributions are not publicly invited yet, and no license has been selected.
+
 ## Build and open the development app
 
 A scratch-only, unsigned native macOS development app was added at M7. Build it locally with `scripts/build-dev-app.py` (default `debug`; `--configuration release` is also supported) into a fresh scratch root outside the repo and protected roots, e.g. under `$HOME/.hermes/cache/scratch`:
