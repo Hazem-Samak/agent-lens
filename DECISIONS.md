@@ -383,3 +383,70 @@ The future execution order is **M10 npm management → M11 original catalogue/co
 **Rationale:** the previous order delivered three additional manager tracks before broad detection and the complete diagnostic UI. That delayed the product's primary value and user-testable progress. The revised order proves one safe mutation lifecycle, expands diagnostic coverage, completes the native workflow, and then reuses that workflow for the remaining managers.
 
 **Consequence:** catalogue entries whose manager adapters do not yet exist remain informational or disabled with a truthful reason. The outstanding M8 keyboard-only Copy/Reveal check becomes a required M12 acceptance gate. Planning changes require no council or implementer; independent orchestrator acceptance and risk-based read-only review for high-risk implementation remain mandatory.
+
+---
+
+## D-021 — Per-entry mutation acceptance gate; additive schema-2 field
+
+**Status:** settled (2026-11-12, at M11-B)
+**Source:** `ROADMAP.md` §4 M11 / §6; `briefs/M11-plan.md` R1; `briefs/M11-B-mutation-gate.md`;
+`walkthroughs/M11-B-acceptance.md`
+
+Detection never implies mutation eligibility. Each detector definition may carry an optional
+`acceptedOperations` array with the closed vocabulary `npmUpdate`, `npmUninstall`; absent or empty
+means no mutation is offered, even when npm ownership verifies. Both Core prepare seams refuse
+with `.operationNotAccepted` before any observation, scratch claim, or process; AppSupport/App
+mirror the refusal with the single-source Core reason text. `codex` is seeded from its M10
+acceptance; every other entry is informational until a per-tool accepted mutation scenario is
+separately owner-authorized.
+
+The field is **additive on registry schema 2** (no version bump): absent → `[]`; present `null`,
+non-array, unknown values, duplicates, and non-string elements are rejected with named
+detector/field errors on both decode paths; schema 1/3 and unknown keys remain rejected.
+
+**Rationale:** the M10 npm ownership path is generic; without the gate, adding npm-declared
+catalogue entries in M11 would silently enable Update/Uninstall for tools that never had an
+accepted mutation scenario. Verified in code during M11 planning (council finding, judge-confirmed).
+
+**Consequence:** new catalogue entries (M11-C/D/E) ship without acceptance. Promotion requires its
+own controlled acceptance scenario and owner authorization. Accepted at `caae348` with two
+independent PASS reviews (MiniMax M3.1-Flash/xhigh, Grok 4.7/high), 543 tests, and an
+orchestrator-performed native spot-check.
+
+---
+
+## D-022 — Shipping CLI remains read-only; M11-B CLI-mirror clause vacuous
+
+**Status:** settled (2026-11-12, at M11-B)
+**Source:** `briefs/M10-C-npm-update.md` (no CLI mutation syntax); `briefs/M10-D-npm-uninstall.md`
+(shipping CLI read-only); `walkthroughs/M11-B-acceptance.md` (F-1 ruling)
+
+The M11-B brief's contract 7 / B-AC05 assumed a CLI update/uninstall path that does not exist: the
+shipping CLI dispatches only `scan`, `verify-installation`, and `debug-env`. The clause was a brief
+defect. Ruling: the clause is vacuous; `main.swift` correctly unchanged; B-AC05 is recorded as
+vacuous-by-ruling, not evidenced. Adding CLI mutation syntax remains forbidden by the frozen
+M10-C/M10-D contracts; any future CLI mutation surface is a separate owner decision.
+
+---
+
+## M11 — phase acceptances (2026-11-12)
+
+Planning Council (MiniMax M3.1-Flash/xhigh via mcode; Grok 4.7/high via grok CLI; Herdr/hc
+orchestration) produced independent proposals; the orchestrator judged and froze
+`briefs/M11-plan.md` on base `d0a2b41` (commit `d98bf7b`). Owner approved implementation the same
+day, delegating technical decisions (license OD-7 remains the owner's open choice), naming DeepSeek
+V4.1 Flash 1017 via OMP (max) as sole implementer and the council models as standing independent
+reviewers; all agents summoned through Herdr/hc only.
+
+- **M11-A — identity freeze: technically accepted** at `c48b226`. 14/14 identities frozen with
+  primary-source citations; 5/5 disposable-scratch version measurements (claude 2.1.322, gemini
+  0.68.0, aider 0.86.2, goose 1.59.0, kiro-cli 3.2.1); 425 protected hashes clean; scratch
+  destroyed. Carry-forward: Aider cold start 3747 ms > 3 s query budget (unknown is safe);
+  gemini-cli/cline formula deprecations; OpenCode/AGY canonical URL corrections.
+  [Acceptance](walkthroughs/M11-A-acceptance.md).
+- **M11-B — mutation acceptance gate: technically accepted** at `caae348`. D-021/D-022 recorded.
+  543 tests (463 Core + 80 AppSupport), all six gates orchestrator-rerun exit 0; both mandatory
+  independent reviews PASS (0 blocking); native spot-check PASS (codex M10 surface intact,
+  unaccepted entries informational). [Acceptance](walkthroughs/M11-B-acceptance.md).
+
+No merge to `main`, no release. M11 continues with M11-C (settled registry batch).
