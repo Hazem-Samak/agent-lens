@@ -233,6 +233,8 @@ technical decisions OD-1…OD-10 to orchestrator judgment (OD-7 license remains 
 choice; no public invitations until chosen), and named the implementer: DeepSeek V4.1 Flash 1017
 via OMP, max reasoning. M11-A (identity freeze) is dispatched on `milestone/m11-catalogue` at
 `d98bf7b` under [briefs/M11-A-identity-freeze.md](briefs/M11-A-identity-freeze.md). Independent
-reviewers for the M11-B gate phase are pending owner selection. Choose the OSS license (MIT or
+reviewers are the planning council models — MiniMax M3.1-Flash/xhigh (mcode) and Grok 4.7/high
+(grok CLI) — mandatory for the M11-B gate. All agents are orchestrated through Herdr panels and
+hc only (owner rule; no delegate skills). Choose the OSS license (MIT or
 Apache-2.0) before inviting public contributions. No merge or public release is authorized by
 this status.

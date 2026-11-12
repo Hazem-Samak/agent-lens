@@ -202,3 +202,23 @@ orchestrator, personal installs never an acceptance target, unknown never fabric
 See `briefs/M11-plan.md` §7 (OD-1…OD-10). Technical rulings R1–R12 are the judge's authority under
 the lean protocol; the owner approves scope, names the implementer and reviewers, and answers the
 listed decisions before dispatch.
+
+## Owner authorizations (post-freeze log)
+
+- **2026-11-12 — implementation authorization.** Owner: "if the plan is solid and you are sure of
+  it go ahead and proceed to implementation". The orchestrator confirmed the plan's soundness and
+  proceeded. Technical decisions OD-1…OD-10 are approved by delegation to orchestrator judgment,
+  **except OD-7 (license)** which remains the owner's explicit open choice (MIT vs Apache-2.0;
+  required before public contribution invitations, no later than M18). DSH (OD-2) and AGY (OD-3)
+  inclusions rest on the verified primary-source evidence in this record.
+- **2026-11-12 — implementer.** DeepSeek V4.1 Flash 1017 via OMP (`river` provider), max
+  reasoning; sole product writer for M11 phases. M11-A dispatched on `milestone/m11-catalogue`
+  at dispatch commit `197d632` (plan baseline `d98bf7b`).
+- **2026-11-12 — independent reviewers.** The planning council models serve as the standing
+  independent read-only reviewers for M11: **MiniMax M3.1-Flash/xhigh via mcode** and
+  **Grok 4.7/high via grok CLI**. Mandatory for M11-B (mutation gate); recommended for D/E/F per
+  the plan. Reviewers never edit; proposed fixes return to the implementer as revision briefs.
+- **2026-11-12 — orchestration rule (binding).** All implementers and reviewers are summoned and
+  managed through **Herdr panels + hc (Herdr Core) orchestration only — no delegate skills**.
+  Agents run interactively in named Herdr terminals, watchable and steerable; reports arrive via
+  `hc send t7x`.
