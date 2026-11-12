@@ -15,6 +15,7 @@
         { "manager": "npm", "name": "@openai/codex" },
         { "manager": "homebrewCask", "name": "codex" }
       ],
+      "acceptedOperations": ["npmUpdate", "npmUninstall"],
       "informationURL": "https://developers.openai.com/codex/cli",
       "versionQuery": {
         "arguments": ["--version"],
@@ -36,10 +37,11 @@
         { "manager": "npm", "name": "@opencode/cli" },
         { "manager": "npm", "name": "opencode-ai" },
         { "manager": "homebrewFormula", "name": "anomalyco/tap/opencode-v2" },
-        { "manager": "homebrewFormula", "name": "anomalyco/tap/opencode" }
+        { "manager": "homebrewFormula", "name": "anomalyco/tap/opencode" },
+        { "manager": "homebrewFormula", "name": "opencode" }
       ],
-      "informationURL": "https://opencode.ai/v2/docs/",
-      "uninstallInstructionsURL": "https://opencode.ai/v2/docs/cli/#uninstall",
+      "informationURL": "https://opencode.ai/docs/",
+      "uninstallInstructionsURL": "https://opencode.ai/docs/cli/#uninstall",
       "versionQuery": {
         "arguments": ["--version"],
         "stream": "stdout",
@@ -58,6 +60,236 @@
       "category": "aiAgent",
       "packages": [],
       "informationURL": "https://docs.x.ai/build/overview",
+      "versionQuery": {
+        "arguments": ["--version"],
+        "stream": "stdout",
+        "line": "first"
+      }
+    },
+    {
+      "id": "claude",
+      "displayName": "Claude Code",
+      "executableName": "claude",
+      "extraSearchRoots": ["~/.local/bin"],
+      "fixture": {
+        "layout": "singleDirectory",
+        "expectedSource": "standalone"
+      },
+      "category": "aiAgent",
+      "packages": [
+        { "manager": "npm", "name": "@anthropic-ai/claude-code" },
+        { "manager": "homebrewCask", "name": "claude-code" },
+        { "manager": "homebrewCask", "name": "claude-code@latest" }
+      ],
+      "informationURL": "https://code.claude.com/docs/en/setup",
+      "uninstallInstructionsURL": "https://code.claude.com/docs/en/setup#uninstall-claude-code",
+      "versionQuery": {
+        "arguments": ["--version"],
+        "stream": "stdout",
+        "line": "first"
+      }
+    },
+    {
+      "id": "gemini",
+      "displayName": "Gemini CLI",
+      "executableName": "gemini",
+      "extraSearchRoots": [],
+      "fixture": {
+        "layout": "npmGlobal",
+        "expectedSource": "npm"
+      },
+      "category": "aiAgent",
+      "packages": [
+        { "manager": "npm", "name": "@google/gemini-cli" },
+        { "manager": "homebrewFormula", "name": "gemini-cli" }
+      ],
+      "informationURL": "https://geminicli.com/docs/get-started/installation/",
+      "uninstallInstructionsURL": "https://geminicli.com/docs/resources/uninstall/",
+      "versionQuery": {
+        "arguments": ["--version"],
+        "stream": "stdout",
+        "line": "first"
+      }
+    },
+    {
+      "id": "cline",
+      "displayName": "Cline CLI",
+      "executableName": "cline",
+      "extraSearchRoots": [],
+      "fixture": {
+        "layout": "npmGlobal",
+        "expectedSource": "npm"
+      },
+      "category": "aiAgent",
+      "packages": [
+        { "manager": "npm", "name": "cline" },
+        { "manager": "homebrewFormula", "name": "cline" }
+      ],
+      "informationURL": "https://docs.cline.bot/usage/cli-overview",
+      "versionQuery": {
+        "arguments": ["--version"],
+        "stream": "stdout",
+        "line": "first"
+      }
+    },
+    {
+      "id": "hermes",
+      "displayName": "Hermes",
+      "executableName": "hermes",
+      "extraSearchRoots": ["~/.local/bin"],
+      "fixture": {
+        "layout": "singleDirectory",
+        "expectedSource": "standalone"
+      },
+      "category": "aiAgent",
+      "packages": [
+        { "manager": "homebrewFormula", "name": "hermes-agent" }
+      ],
+      "informationURL": "https://hermes-agent.nousresearch.com/docs/getting-started/installation",
+      "uninstallInstructionsURL": "https://hermes-agent.nousresearch.com/docs/getting-started/updating#uninstalling",
+      "versionQuery": {
+        "arguments": ["--version"],
+        "stream": "stdout",
+        "line": "first"
+      }
+    },
+    {
+      "id": "aider",
+      "displayName": "Aider",
+      "executableName": "aider",
+      "extraSearchRoots": [],
+      "fixture": {
+        "layout": "singleDirectory",
+        "expectedSource": "standalone"
+      },
+      "category": "aiCodingTool",
+      "packages": [
+        { "manager": "homebrewFormula", "name": "aider" }
+      ],
+      "informationURL": "https://aider.chat/docs/install.html",
+      "versionQuery": {
+        "arguments": ["--version"],
+        "stream": "stdout",
+        "line": "first"
+      }
+    },
+    {
+      "id": "goose",
+      "displayName": "Goose",
+      "executableName": "goose",
+      "extraSearchRoots": ["~/.local/bin"],
+      "fixture": {
+        "layout": "singleDirectory",
+        "expectedSource": "standalone"
+      },
+      "category": "aiCodingTool",
+      "packages": [
+        { "manager": "homebrewFormula", "name": "block-goose-cli" }
+      ],
+      "informationURL": "https://goose-docs.ai/docs/guides/goose-cli-commands",
+      "versionQuery": {
+        "arguments": ["--version"],
+        "stream": "stdout",
+        "line": "first"
+      }
+    },
+    {
+      "id": "kiro-cli",
+      "displayName": "Kiro CLI",
+      "executableName": "kiro-cli",
+      "extraSearchRoots": ["~/.local/bin"],
+      "fixture": {
+        "layout": "singleDirectory",
+        "expectedSource": "standalone"
+      },
+      "category": "aiCodingTool",
+      "packages": [
+        { "manager": "homebrewCask", "name": "kiro-cli" }
+      ],
+      "informationURL": "https://kiro.dev/docs/cli/",
+      "uninstallInstructionsURL": "https://kiro.dev/docs/getting-started/installation/",
+      "versionQuery": {
+        "arguments": ["--version"],
+        "stream": "stdout",
+        "line": "first"
+      }
+    },
+    {
+      "id": "omp",
+      "displayName": "Oh My Pi",
+      "executableName": "omp",
+      "extraSearchRoots": ["~/.local/bin"],
+      "fixture": {
+        "layout": "singleDirectory",
+        "expectedSource": "standalone"
+      },
+      "category": "aiHarness",
+      "packages": [
+        { "manager": "npm", "name": "@oh-my-pi/pi-coding-agent" },
+        { "manager": "homebrewFormula", "name": "can1357/tap/omp" }
+      ],
+      "informationURL": "https://omp.sh/docs/quickstart",
+      "versionQuery": {
+        "arguments": ["--version"],
+        "stream": "stdout",
+        "line": "first"
+      }
+    },
+    {
+      "id": "agy",
+      "displayName": "Antigravity CLI",
+      "executableName": "agy",
+      "extraSearchRoots": ["~/.local/bin", "~/.gemini/bin"],
+      "fixture": {
+        "layout": "singleDirectory",
+        "expectedSource": "standalone"
+      },
+      "category": "aiHarness",
+      "packages": [
+        { "manager": "homebrewCask", "name": "antigravity-cli" }
+      ],
+      "informationURL": "https://antigravity.google/docs/getting-started/",
+      "versionQuery": {
+        "arguments": ["--version"],
+        "stream": "stdout",
+        "line": "first"
+      }
+    },
+    {
+      "id": "dsh",
+      "displayName": "DeepSeek Harness",
+      "executableName": "dsh",
+      "extraSearchRoots": ["~/.local/bin"],
+      "fixture": {
+        "layout": "npmGlobal",
+        "expectedSource": "npm"
+      },
+      "category": "aiHarness",
+      "packages": [
+        { "manager": "npm", "name": "@deepseek-ai/dsh" }
+      ],
+      "informationURL": "https://github.com/deepseek-ai/deepseek-harness",
+      "versionQuery": {
+        "arguments": ["--version"],
+        "stream": "stdout",
+        "line": "first"
+      }
+    },
+    {
+      "id": "qodercli",
+      "displayName": "Qoder",
+      "executableName": "qodercli",
+      "extraSearchRoots": ["~/.local/bin"],
+      "fixture": {
+        "layout": "singleDirectory",
+        "expectedSource": "standalone"
+      },
+      "category": "aiCodingTool",
+      "packages": [
+        { "manager": "npm", "name": "@qoder-ai/qodercli" }
+      ],
+      "informationURL": "https://docs.qoder.com/cli/installation",
+      "uninstallInstructionsURL": "https://docs.qoder.com/cli/installation#uninstallation",
       "versionQuery": {
         "arguments": ["--version"],
         "stream": "stdout",

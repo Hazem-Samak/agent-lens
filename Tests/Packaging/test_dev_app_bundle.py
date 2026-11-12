@@ -129,8 +129,15 @@ class DevAppBundlePackagingTests(unittest.TestCase):
             data = json.load(fp)
         self.assertEqual(data.get("schemaVersion"), 2)
         detectors = data.get("detectors", [])
-        self.assertEqual(len(detectors), 3)
-        self.assertEqual([d["id"] for d in detectors], ["codex", "opencode", "grok"])
+        self.assertEqual(len(detectors), 14)
+        self.assertEqual(
+            [d["id"] for d in detectors],
+            [
+                "codex", "opencode", "grok", "claude", "gemini", "cline",
+                "hermes", "aider", "goose", "kiro-cli", "omp", "agy",
+                "dsh", "qodercli",
+            ],
+        )
 
     def test_02_relocation_sandbox_denial_and_preflight(self):
         # 1. Fresh relocation of the current original app each invocation
@@ -183,7 +190,8 @@ class DevAppBundlePackagingTests(unittest.TestCase):
         self.assertEqual(preflight_proc.returncode, 0, f"Relocated preflight failed: {preflight_proc.stderr}")
         self.assertEqual(
             preflight_proc.stdout.strip(),
-            "bundle-preflight: ok registry_count=3 registry_ids=codex opencode grok"
+            "bundle-preflight: ok registry_count=14 registry_ids="
+            "codex opencode grok claude gemini cline hermes aider goose kiro-cli omp agy dsh qodercli"
         )
         self.assertEqual(preflight_proc.stderr.strip(), "")
 

@@ -49,6 +49,9 @@ public enum NpmUninstallOperation {
         uptime: @escaping @Sendable () -> UInt64 = { DispatchTime.now().uptimeNanoseconds }
     ) async -> NpmUninstallPrepareResult {
         if Task.isCancelled { return .unavailable(.cancelled) }
+        guard definition.acceptedOperations.contains(.npmUninstall) else {
+            return .unavailable(.operationNotAccepted)
+        }
         let deadline = uptime() &+ preparationBudgetNanoseconds
         let scratchBase: URL
         if let operationRootBaseURL {

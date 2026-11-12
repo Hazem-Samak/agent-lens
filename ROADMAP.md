@@ -70,6 +70,12 @@ Work one milestone and one phase at a time. Do not start a dependent milestone u
 
 ### M11 — original catalogue and contributor foundation
 
+**Status:** Technically accepted on `milestone/m11-catalogue` at combined candidate `b07e321`
+(2026-11-12). All six phases accepted; all seven hosted gates passed at the exact SHA
+([run 43288284409](https://github.com/Hazem-Samak/agent-lens/actions/runs/43288284409));
+[combined acceptance](walkthroughs/M11-combined-acceptance.md). Merge to `main` awaits a separate
+owner authorization; the license is **MIT** (owner choice 2026-11-12, D-023).
+
 **User result:** the app detects the originally named families instead of only Codex, OpenCode, and Grok.
 
 Target catalogue: Codex, Claude Code, Gemini CLI, OpenCode, Hermes, Cline CLI, Aider, Goose, Kiro CLI, Qoder, DSH, OMP, AGY, and Grok CLI.
@@ -219,8 +225,14 @@ The user approves product tradeoffs, UI, expenses, credentials, publication, and
 
 ## 8. Immediate next action
 
-The M10 merge is recorded: PR #1 merged on 2026-11-08 at merge commit `65f7a82`, and hosted CI
-passed at that exact SHA. Begin M11 preparation: research the original catalogue from primary
-documentation (DSH/AGY remain named research blockers), then freeze a bounded phase brief for
-owner approval of scope, implementer/route, and acceptance setup. Choose the OSS license (MIT or
-Apache-2.0) before inviting public contributions. No public release is authorized by this status.
+M11 is technically accepted on `milestone/m11-catalogue` at `b07e321`: the full fourteen-entry
+catalogue, the fail-closed mutation acceptance gate (D-021/D-022), the test-enforced capability
+matrix, and the contributor foundation, with all seven hosted gates passed at the exact SHA
+([combined acceptance](walkthroughs/M11-combined-acceptance.md)). Awaiting owner decisions:
+(1) owner review of [PR #2](https://github.com/Hazem-Samak/agent-lens/pull/2)
+(`milestone/m11-catalogue` → `main`) and merge authorization — the orchestrator created the PR and
+verified CI, and intentionally did NOT merge (owner reviews before merging; the M10 pattern);
+(2) M12 dispatch (complete native diagnostic and operation workflow, including the outstanding M8
+keyboard-only gate). The license is settled: **MIT** (D-023, 2026-11-12); public contribution
+invitations remain a separate owner decision. Per-tool mutation promotions remain separate
+owner-authorized dispatches. No public release is authorized by this status.

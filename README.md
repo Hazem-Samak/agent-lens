@@ -6,6 +6,10 @@ This repository surfaces the diagnostic that no existing tool answers: when mult
 
 The [complete application roadmap](ROADMAP.md) maps the remaining work through manager-backed Update/Uninstall, broader tool support, the finished native interface, and signed distribution. **M9 is technically accepted, user-UI-approved, and delivered to `main` (feature commit `eb4f586`, integrated milestone tip `1ac22c4`).** No public app release was published. M10-A (clean CI and fixture portability) is technically accepted on `codex/m10-npm-management`; M10-B is [technically accepted on the feature branch](walkthroughs/M10-B-acceptance.md) at `72ffb1e`; M10-C is [accepted](walkthroughs/M10-C-implementation.md) at `fff287d`; M10-D and the combined npm gate are [technically accepted](walkthroughs/M10-D-implementation.md) at `308b7d2` after controlled/combined/public real-npm checks, a passing ordinary-app click-through, and all seven exact-SHA hosted gates. M10 as a whole is technically accepted and delivered to `main`: PR #1 was merged on 2026-11-08 at merge commit `65f7a82`, and hosted CI passed at that exact SHA. No public release has occurred. M11–M19 remain planned.
 
+## Catalogue and contributing
+
+The bundled catalogue's published claims are in the [capability matrix](docs/capability-matrix.md): one row per detector with tested fixture, declared packages, latest-check, Update/Uninstall eligibility, and known limits. Adding a tool on an existing layout is a data-only change; the exact files, closed vocabularies, evidence rules, and local gates are in [CONTRIBUTING](docs/CONTRIBUTING.md). Contributions are not publicly invited yet. The project is MIT-licensed (see [LICENSE](LICENSE)).
+
 ## Build and open the development app
 
 A scratch-only, unsigned native macOS development app was added at M7. Build it locally with `scripts/build-dev-app.py` (default `debug`; `--configuration release` is also supported) into a fresh scratch root outside the repo and protected roots, e.g. under `$HOME/.hermes/cache/scratch`:
@@ -48,7 +52,7 @@ The `VERSION / UPDATE STATUS` section follows PATH diagnostics and declared dete
 not run manager queries or read/write update metadata; `--check-updates` uses valid cached metadata
 when available, while `--refresh-updates` bypasses it.
 
-`verify-installation <registry-id>` accepts `codex`, `opencode`, or `grok`, scans that tool locally, then explicitly verifies supported npm-global/Homebrew-formula ownership. Unknown is a valid result (exit 0); invalid syntax or an unknown registry ID exits 1 before manager queries. The native app offers the same explicit action in tool details. No manager verification runs automatically during launch, plain scan, offline scan or rescan.
+`verify-installation <registry-id>` accepts `codex`, `opencode`, `grok`, `claude`, `gemini`, `cline`, `hermes`, `aider`, `goose`, `kiro-cli`, `omp`, `agy`, `dsh`, or `qodercli`, scans that tool locally, then explicitly verifies supported npm-global/Homebrew-formula ownership. Unknown is a valid result (exit 0); invalid syntax or an unknown registry ID exits 1 before manager queries. The native app offers the same explicit action in tool details. No manager verification runs automatically during launch, plain scan, offline scan or rescan.
 
 Local version measurement executes the discovered tool with its validated literal argument array. Diagnostic scans query each canonical target at most once, sequentially, with up to 3 seconds per query and a 10-second monotonic aggregate probe budget per tool. Remaining targets stay visible as budget-exhausted unknowns. Process cleanup and filesystem work can extend wall time; this is not an atomic filesystem freeze. A detected identity change invalidates the value, and a changed selected executable cannot retain a known selected version.
 

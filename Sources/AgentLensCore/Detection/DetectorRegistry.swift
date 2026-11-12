@@ -45,6 +45,9 @@ public struct DetectorDefinition: Codable, Sendable, Equatable {
     public let fixture: Fixture?
     public let category: ToolCategory
     public let packages: [DeclaredPackage]
+    /// The mutation operations this entry has been accepted for. Empty means informational: no
+    /// Update or Uninstall is offered, even when npm ownership verifies.
+    public let acceptedOperations: [AcceptedOperation]
     public let informationURL: URL?
     public let uninstallInstructionsURL: URL?
     public let versionQuery: VersionQuerySpecification
@@ -61,7 +64,8 @@ public struct DetectorDefinition: Codable, Sendable, Equatable {
         packages: [DeclaredPackage],
         informationURL: URL?,
         uninstallInstructionsURL: URL?,
-        versionQuery: VersionQuerySpecification
+        versionQuery: VersionQuerySpecification,
+        acceptedOperations: [AcceptedOperation] = []
     ) throws {
         guard !id.isEmpty else {
             throw DetectorRegistryError.emptyField(field: "id", id: id)
@@ -117,6 +121,7 @@ public struct DetectorDefinition: Codable, Sendable, Equatable {
         self.fixture = fixture
         self.category = category
         self.packages = packages
+        self.acceptedOperations = acceptedOperations
         self.informationURL = informationURL
         self.uninstallInstructionsURL = uninstallInstructionsURL
         self.versionQuery = versionQuery
@@ -130,6 +135,7 @@ public struct DetectorDefinition: Codable, Sendable, Equatable {
         case fixture
         case category
         case packages
+        case acceptedOperations
         case informationURL
         case uninstallInstructionsURL
         case versionQuery
@@ -206,6 +212,33 @@ public struct DetectorDefinition: Codable, Sendable, Equatable {
             throw DetectorRegistryError.missingField(field: "packages", id: id)
         }
 
+        let acceptedOperations: [AcceptedOperation]
+        if container.contains(.acceptedOperations) {
+            guard !(try container.decodeNil(forKey: .acceptedOperations)) else {
+                throw DetectorRegistryError.invalidField(
+                    field: "acceptedOperations",
+                    id: id,
+                    reason: "must be an array of accepted operation strings"
+                )
+            }
+            let rawAcceptedOperations: [String]
+            do {
+                rawAcceptedOperations = try container.decode([String].self, forKey: .acceptedOperations)
+            } catch {
+                throw DetectorRegistryError.invalidField(
+                    field: "acceptedOperations",
+                    id: id,
+                    reason: "must be an array of accepted operation strings"
+                )
+            }
+            acceptedOperations = try DetectorMetadataValidation.acceptedOperations(
+                for: rawAcceptedOperations,
+                id: id
+            )
+        } else {
+            acceptedOperations = []
+        }
+
         let informationURL = try Self.optionalURL(
             container, .informationURL, field: "informationURL", id: id
         )
@@ -245,7 +278,8 @@ public struct DetectorDefinition: Codable, Sendable, Equatable {
             packages: packages,
             informationURL: informationURL,
             uninstallInstructionsURL: uninstallInstructionsURL,
-            versionQuery: versionQuery
+            versionQuery: versionQuery,
+            acceptedOperations: acceptedOperations
         )
     }
 
@@ -641,7 +675,8 @@ public enum DetectorRegistry {
     private static let rootKeys: Set<String> = ["schemaVersion", "detectors"]
     private static let definitionKeys: Set<String> = [
         "id", "displayName", "executableName", "extraSearchRoots", "fixture",
-        "category", "packages", "informationURL", "uninstallInstructionsURL", "versionQuery",
+        "category", "packages", "acceptedOperations", "informationURL",
+        "uninstallInstructionsURL", "versionQuery",
     ]
     private static let fixtureKeys: Set<String> = ["layout", "expectedSource"]
     private static let packageKeys: Set<String> = ["manager", "name"]
@@ -822,6 +857,7 @@ public enum DetectorRegistry {
             let fixture = try parseFixture(detector["fixture"], id: id)
             let category = try parseCategory(detector, id: id)
             let packages = try parsePackages(detector, id: id)
+            let acceptedOperations = try parseAcceptedOperations(detector, id: id)
             let informationURL = try parseOptionalURL(detector, "informationURL", id: id)
             let uninstallInstructionsURL = try parseOptionalURL(
                 detector, "uninstallInstructionsURL", id: id
@@ -839,7 +875,8 @@ public enum DetectorRegistry {
                     packages: packages,
                     informationURL: informationURL,
                     uninstallInstructionsURL: uninstallInstructionsURL,
-                    versionQuery: versionQuery
+                    versionQuery: versionQuery,
+                    acceptedOperations: acceptedOperations
                 )
             )
         }
@@ -1034,6 +1071,40 @@ public enum DetectorRegistry {
             }
         }
         return packages
+    }
+
+    private static func parseAcceptedOperations(
+        _ object: [String: Any],
+        id: String
+    ) throws -> [AcceptedOperation] {
+        guard let value = object["acceptedOperations"] else { return [] }
+        guard !(value is NSNull) else {
+            throw DetectorRegistryError.invalidField(
+                field: "acceptedOperations",
+                id: id,
+                reason: "must be an array of accepted operation strings"
+            )
+        }
+        guard let list = value as? [Any] else {
+            throw DetectorRegistryError.invalidField(
+                field: "acceptedOperations",
+                id: id,
+                reason: "must be an array of accepted operation strings"
+            )
+        }
+        var rawValues: [String] = []
+        rawValues.reserveCapacity(list.count)
+        for (index, element) in list.enumerated() {
+            guard let rawValue = element as? String else {
+                throw DetectorRegistryError.invalidField(
+                    field: "acceptedOperations[\(index)]",
+                    id: id,
+                    reason: "must be a string"
+                )
+            }
+            rawValues.append(rawValue)
+        }
+        return try DetectorMetadataValidation.acceptedOperations(for: rawValues, id: id)
     }
 
     private static func parseOptionalURL(

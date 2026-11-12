@@ -1004,7 +1004,7 @@ private final class M10CSuccessfulOperationRunner: OperationCommandRunner, @unch
         isDegraded: false
     )
     let definitionData = Data("""
-    {"schemaVersion":2,"detectors":[{"id":"codex-id","displayName":"Codex","executableName":"codex","category":"aiAgent","packages":[{"manager":"npm","name":"@openai/codex"}],"versionQuery":{"arguments":["--version"],"stream":"stdout","line":"first"}}]}
+    {"schemaVersion":2,"detectors":[{"id":"codex-id","displayName":"Codex","executableName":"codex","category":"aiAgent","packages":[{"manager":"npm","name":"@openai/codex"}],"acceptedOperations":["npmUpdate"],"versionQuery":{"arguments":["--version"],"stream":"stdout","line":"first"}}]}
     """.utf8)
     let definitions = try DetectorRegistry.validate(data: definitionData)
     let definition = definitions[0]
@@ -1097,7 +1097,7 @@ private final class M10CSuccessfulOperationRunner: OperationCommandRunner, @unch
         build: { _, _ in environment }
     )
     let definitionData = Data("""
-    {"schemaVersion":2,"detectors":[{"id":"codex-id","displayName":"Codex","executableName":"codex","category":"aiAgent","packages":[{"manager":"npm","name":"@openai/codex"}],"versionQuery":{"arguments":["--version"],"stream":"stdout","line":"first"}}]}
+    {"schemaVersion":2,"detectors":[{"id":"codex-id","displayName":"Codex","executableName":"codex","category":"aiAgent","packages":[{"manager":"npm","name":"@openai/codex"}],"acceptedOperations":["npmUpdate"],"versionQuery":{"arguments":["--version"],"stream":"stdout","line":"first"}}]}
     """.utf8)
     let service = InventoryService(
         environment: SessionEnvironmentProvider(source: source),
@@ -1248,7 +1248,7 @@ private final class M10DUninstallOperationRunner: OperationCommandRunner, @unche
         isDegraded: false
     )
     let definitionData = Data("""
-    {"schemaVersion":2,"detectors":[{"id":"codex-id","displayName":"Codex","executableName":"codex","category":"aiAgent","packages":[{"manager":"npm","name":"@openai/codex"}],"versionQuery":{"arguments":["--version"],"stream":"stdout","line":"first"}}]}
+    {"schemaVersion":2,"detectors":[{"id":"codex-id","displayName":"Codex","executableName":"codex","category":"aiAgent","packages":[{"manager":"npm","name":"@openai/codex"}],"acceptedOperations":["npmUninstall"],"versionQuery":{"arguments":["--version"],"stream":"stdout","line":"first"}}]}
     """.utf8)
     let definition = try DetectorRegistry.validate(data: definitionData)[0]
     let diagnostic = PathDiagnosticsScanner.scan(

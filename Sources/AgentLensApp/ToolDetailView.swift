@@ -281,7 +281,11 @@ public struct ToolDetailView: View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Manage")
                 .font(.headline)
-            if let verified = entry.ownership?.verifiedInstallation,
+            if !entry.definition.acceptedOperations.contains(.npmUninstall) {
+                Text(NpmUninstallUnavailableReason.operationNotAccepted.message)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            } else if let verified = entry.ownership?.verifiedInstallation,
                verified.manager == .npm,
                Self.hasSelectedInstallation(entry)
             {
@@ -519,13 +523,19 @@ public struct ToolDetailView: View {
             if case .updateAvailable = entry.updateStatus,
                entry.update?.npmPackage != nil
             {
-                Button {
-                    onPrepareUpdate()
-                } label: {
-                    Label(isPreparingUpdate ? "Preparing Update…" : "Prepare Update…",
-                          systemImage: "arrow.down.circle")
+                if entry.definition.acceptedOperations.contains(.npmUpdate) {
+                    Button {
+                        onPrepareUpdate()
+                    } label: {
+                        Label(isPreparingUpdate ? "Preparing Update…" : "Prepare Update…",
+                              systemImage: "arrow.down.circle")
+                    }
+                    .disabled(isBusy)
+                } else {
+                    Text(NpmUpdateUnavailableReason.operationNotAccepted.message)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
                 }
-                .disabled(isBusy)
             }
         }
     }

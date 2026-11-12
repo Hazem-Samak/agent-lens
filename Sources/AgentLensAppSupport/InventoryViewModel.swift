@@ -310,6 +310,10 @@ public final class InventoryViewModel {
               case .updateAvailable = entry.updateStatus,
               entry.update?.npmPackage != nil
         else { return }
+        guard entry.definition.acceptedOperations.contains(.npmUpdate) else {
+            updateUnavailableReason = .operationNotAccepted
+            return
+        }
 
         updateGeneration &+= 1
         let generation = updateGeneration
@@ -459,6 +463,10 @@ public final class InventoryViewModel {
               verified.manager == .npm,
               Self.observedSelection(entry.diagnostic) != nil
         else { return }
+        guard entry.definition.acceptedOperations.contains(.npmUninstall) else {
+            uninstallUnavailableReason = .operationNotAccepted
+            return
+        }
 
         uninstallGeneration &+= 1
         let generation = uninstallGeneration

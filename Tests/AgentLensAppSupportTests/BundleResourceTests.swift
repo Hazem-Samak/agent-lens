@@ -33,11 +33,27 @@ struct BundleResourceTests {
     func realBundledLoaderLoadsValidDefinitions() throws {
         let definitions = try DetectorRegistry.loadDefault()
         #expect(!definitions.isEmpty)
-        #expect(definitions.count == 3)
-        #expect(definitions.map(\.id) == ["codex", "opencode", "grok"])
-        #expect(definitions.map(\.displayName) == ["Codex", "OpenCode", "Grok CLI"])
-        #expect(definitions.map(\.executableName) == ["codex", "opencode", "grok"])
-        #expect(definitions.map(\.category) == [.aiAgent, .aiAgent, .aiAgent])
+        #expect(definitions.count == 14)
+        #expect(definitions.map(\.id) == [
+            "codex", "opencode", "grok", "claude", "gemini", "cline",
+            "hermes", "aider", "goose", "kiro-cli", "omp", "agy",
+            "dsh", "qodercli",
+        ])
+        #expect(definitions.map(\.displayName) == [
+            "Codex", "OpenCode", "Grok CLI", "Claude Code", "Gemini CLI", "Cline CLI",
+            "Hermes", "Aider", "Goose", "Kiro CLI", "Oh My Pi", "Antigravity CLI",
+            "DeepSeek Harness", "Qoder",
+        ])
+        #expect(definitions.map(\.executableName) == [
+            "codex", "opencode", "grok", "claude", "gemini", "cline",
+            "hermes", "aider", "goose", "kiro-cli", "omp", "agy",
+            "dsh", "qodercli",
+        ])
+        #expect(definitions.map(\.category) == [
+            .aiAgent, .aiAgent, .aiAgent, .aiAgent, .aiAgent, .aiAgent,
+            .aiAgent, .aiCodingTool, .aiCodingTool, .aiCodingTool, .aiHarness, .aiHarness,
+            .aiHarness, .aiCodingTool,
+        ])
 
         for definition in definitions {
             let detector = definition.makeDetector()

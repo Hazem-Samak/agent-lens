@@ -151,6 +151,7 @@ jobs:
           #   R8 builder/resource portability (+37 Core):    406 = Core 335 + AppSupport 71
           #   M10-D final (hosted run 42486797150):          532 = Core 454 + AppSupport 78
           #   M10-D R2 self-review (+3 regressions):         535 = Core 456 + AppSupport 79
+          #   M11-F final (measured at this candidate):      547 = Core 467 + AppSupport 80
           # Floors sit at the final candidate, so a lost/zero/regressed target fails while an extra case
           # never does. R8's 37 new cases live in BundledRegistryResourceTests.swift; the new
           # local-only Python parser controls (Tests/Packaging/test_build_dev_app_accessor.py) are
@@ -161,11 +162,12 @@ jobs:
           # OBSERVED BACKEND LAYOUTS for the full suite (both real, neither is a guess):
           #   * Local Swift Build prints TWO Swift Testing summaries (one per test target).
           #   * Hosted native SwiftPM prints ONE combined summary across both targets
-          #     ("Test run with 535 tests in 5 suites" — expected after the R2 regressions).
+          #     ("Test run with N tests in 5 suites"). N measured 547 at M11-F, above the
+          #     Core/AppSupport floors; the floors are the M11-F measured count.
           # A combined count is therefore NOT reported as separate observed Core/App totals; only the
           # observed total is claimed, and both anchor groups must still appear as PASSED events.
           CORE_ANCHORS = [
-              "bundledDefaultDetectorsIsValidWithThreeTools",
+              "bundledDefaultDetectorsMatchFrozenCatalogue",
               "unknownKeysAreRejectedAtRootDefinitionFixturePackageAndQueryLevels",
               "makeDetectorUsesRegistryArgumentsInTheProductionPath",
           ]
@@ -188,11 +190,11 @@ jobs:
                   # Exactly one combined summary OR exactly two component summaries.
                   "summaries": [1, 2],
                   "targets": [
-                      {"label": "Core", "floor": 456},
-                      {"label": "AppSupport", "floor": 79},
+                      {"label": "Core", "floor": 467},
+                      {"label": "AppSupport", "floor": 80},
                   ],
-                  "total_floor": 535,
-                  "combined_total_floor": 535,
+                  "total_floor": 547,
+                  "combined_total_floor": 547,
                   # Each anchor is a real test FUNCTION name that appears on a passing run; file names
                   # never do. Both groups are required in either layout.
                   "required_passed_events": CORE_ANCHORS + APPSUPPORT_ANCHORS,
@@ -657,7 +659,7 @@ jobs:
           lines += ["", f"aggregate_gate_elapsed_seconds: {total_elapsed:.3f}"]
           lines.append(
               "registry/schema/query coverage is asserted by PASSED test events that must appear in the "
-              "full-test-suite streams: bundledDefaultDetectorsIsValidWithThreeTools, "
+              "full-test-suite streams: bundledDefaultDetectorsMatchFrozenCatalogue, "
               "unknownKeysAreRejectedAtRootDefinitionFixturePackageAndQueryLevels, "
               "makeDetectorUsesRegistryArgumentsInTheProductionPath."
           )

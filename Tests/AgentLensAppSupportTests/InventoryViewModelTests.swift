@@ -936,7 +936,7 @@ private final class VMNpmRunner: UpdateCommandRunner, @unchecked Sendable {
         pathJoined: path, raw: ["PATH": path, "HOME": "/synthetic/home"], isDegraded: false
     )
     let definitionData = Data("""
-    {"schemaVersion":2,"detectors":[{"id":"codex-id","displayName":"Codex","executableName":"codex","category":"aiAgent","packages":[{"manager":"npm","name":"@openai/codex"}],"versionQuery":{"arguments":["--version"],"stream":"stdout","line":"first"}}]}
+    {"schemaVersion":2,"detectors":[{"id":"codex-id","displayName":"Codex","executableName":"codex","category":"aiAgent","packages":[{"manager":"npm","name":"@openai/codex"}],"acceptedOperations":["npmUpdate"],"versionQuery":{"arguments":["--version"],"stream":"stdout","line":"first"}}]}
     """.utf8)
     let definition = try DetectorRegistry.validate(data: definitionData)[0]
     let gate = VMGate()
@@ -1038,7 +1038,7 @@ private final class VMRemovingOperationRunner: OperationCommandRunner, @unchecke
         pathJoined: path, raw: ["PATH": path, "HOME": "/synthetic/home"], isDegraded: false
     )
     let data = Data("""
-    {"schemaVersion":2,"detectors":[{"id":"codex-id","displayName":"Codex","executableName":"codex","category":"aiAgent","packages":[{"manager":"npm","name":"@openai/codex"}],"versionQuery":{"arguments":["--version"],"stream":"stdout","line":"first"}}]}
+    {"schemaVersion":2,"detectors":[{"id":"codex-id","displayName":"Codex","executableName":"codex","category":"aiAgent","packages":[{"manager":"npm","name":"@openai/codex"}],"acceptedOperations":["npmUninstall"],"versionQuery":{"arguments":["--version"],"stream":"stdout","line":"first"}}]}
     """.utf8)
     let loader = ScriptedRegistryLoader(payloads: [data, data])
     let definition = try DetectorRegistry.validate(data: data)[0]
@@ -1082,6 +1082,122 @@ private final class VMRemovingOperationRunner: OperationCommandRunner, @unchecke
     await viewModel.prepareSelectedUninstall()
     #expect(viewModel.uninstallPreparation == nil)
     #expect(!viewModel.isUninstallSheetPresented)
+}
+
+/// M11-B: npm ownership verification alone never authorizes mutation. An entry whose definition
+/// carries no accepted operations refuses both preparations through the existing typed-reason
+/// properties, starts no pipeline, and never reaches the operation runner.
+@MainActor
+@Test func unacceptedEntryWithVerifiedOwnershipRefusesBothOperationsWithoutAPipeline() async throws {
+    let root = try appSupportScratchRoot("m11b-vm-gate")
+    defer { try? FileManager.default.removeItem(at: root) }
+    let prefix = root.appendingPathComponent("prefix", isDirectory: true)
+    let globalRoot = prefix.appendingPathComponent("lib/node_modules", isDirectory: true)
+    let managerDir = root.appendingPathComponent("manager-bin", isDirectory: true)
+    let aliasDir = root.appendingPathComponent("alias-bin", isDirectory: true)
+    let packageRoot = globalRoot.appendingPathComponent("@openai/codex", isDirectory: true)
+    let target = packageRoot.appendingPathComponent("bin/codex")
+    try writeFixtureExecutable(managerDir.appendingPathComponent("npm"))
+    try vmWriteCodex(target, version: "1.0.0")
+    try Data("{\"name\":\"@openai/codex\",\"version\":\"1.0.0\",\"bin\":{\"codex\":\"bin/codex\"}}".utf8)
+        .write(to: packageRoot.appendingPathComponent("package.json"))
+    let prefixBin = prefix.appendingPathComponent("bin", isDirectory: true)
+    try FileManager.default.createDirectory(at: prefixBin, withIntermediateDirectories: true)
+    try FileManager.default.createSymbolicLink(
+        atPath: prefixBin.appendingPathComponent("codex").path,
+        withDestinationPath: target.path
+    )
+    try FileManager.default.createDirectory(at: aliasDir, withIntermediateDirectories: true)
+    let alias = aliasDir.appendingPathComponent("codex")
+    try FileManager.default.createSymbolicLink(atPath: alias.path, withDestinationPath: target.path)
+    let path = [managerDir.path, aliasDir.path].joined(separator: ":")
+    let environment = ShellEnvironment(
+        shellPath: "/bin/zsh", pathEntries: [managerDir.path, aliasDir.path],
+        pathJoined: path, raw: ["PATH": path, "HOME": "/synthetic/home"], isDegraded: false
+    )
+    let data = Data("""
+    {"schemaVersion":2,"detectors":[{"id":"codex-id","displayName":"Codex","executableName":"codex","category":"aiAgent","packages":[{"manager":"npm","name":"@openai/codex"}],"versionQuery":{"arguments":["--version"],"stream":"stdout","line":"first"}}]}
+    """.utf8)
+    let definition = try DetectorRegistry.validate(data: data)[0]
+    #expect(definition.acceptedOperations.isEmpty)
+    let scratch = root.appendingPathComponent("scratch", isDirectory: true)
+    let operationBase = root.appendingPathComponent("operation-base", isDirectory: true)
+    try FileManager.default.createDirectory(at: scratch, withIntermediateDirectories: true)
+    try FileManager.default.createDirectory(
+        at: operationBase, withIntermediateDirectories: false,
+        attributes: [.posixPermissions: 0o700]
+    )
+    let operationRunner = VMCountingOperationRunner()
+    let source = SessionEnvironmentSource(
+        resolve: { environment }, loginShellPath: { "/bin/sh" },
+        capture: { _ in ShellEnvironmentResolver.CaptureOutcome(dump: environment.raw, timedOut: false) },
+        build: { _, _ in environment }
+    )
+    let service = InventoryService(
+        environment: SessionEnvironmentProvider(source: source),
+        registry: { [definition] },
+        scanner: { detector, env, cwd in
+            PathDiagnosticsScanner.scan(detector: detector, environment: env, currentDirectory: cwd)
+        },
+        updateRunner: VMNpmRunner(prefix: prefix.path, root: globalRoot.path, gate: VMGate()),
+        operationRunner: operationRunner,
+        operationGate: OperationExecutionGate(),
+        operationRootBaseURL: operationBase,
+        updateCacheURL: root.appendingPathComponent("cache.json"),
+        npmScratchBaseURL: scratch,
+        currentDirectory: root.path,
+        clock: fixedClock()
+    )
+    let viewModel = InventoryViewModel(service: service)
+    await viewModel.launch()
+    await viewModel.checkForUpdates()
+    #expect(viewModel.updateAvailableCount == 1)
+
+    await viewModel.prepareSelectedUpdate()
+    #expect(viewModel.updateUnavailableReason == .operationNotAccepted)
+    #expect(viewModel.updatePreparation == nil)
+    #expect(viewModel.updatePreview == nil)
+    #expect(!viewModel.isPreparingUpdate)
+    #expect(!viewModel.isBusy)
+    #expect(operationRunner.invocations == 0)
+
+    await viewModel.verifySelectedInstallation()
+    #expect(viewModel.selectedEntry?.ownership?.verifiedInstallation?.manager == .npm)
+    await viewModel.prepareSelectedUninstall()
+    #expect(viewModel.uninstallUnavailableReason == .operationNotAccepted)
+    #expect(viewModel.uninstallPreparation == nil)
+    #expect(viewModel.uninstallPreview == nil)
+    #expect(!viewModel.isPreparingUninstall)
+    #expect(!viewModel.isBusy)
+    #expect(operationRunner.invocations == 0)
+}
+
+private final class VMCountingOperationRunner: OperationCommandRunner, @unchecked Sendable {
+    private let lock = NSLock()
+    private var count = 0
+
+    var invocations: Int {
+        lock.lock()
+        defer { lock.unlock() }
+        return count
+    }
+
+    func run(executablePath: String, arguments: [String], environment: [String: String],
+             currentDirectory: String, timeout: TimeInterval) async -> OperationCommandResult {
+        note()
+        return OperationCommandResult(
+            stdout: Data(), stderr: Data(),
+            stdoutTruncated: false, stderrTruncated: false,
+            exitStatus: nil, processStarted: false,
+            timedOut: false, cancelled: false, cleanupWarning: false
+        )
+    }
+
+    private func note() {
+        lock.lock()
+        count += 1
+        lock.unlock()
+    }
 }
 
 private final class VMGatedOperationRunner: OperationCommandRunner, @unchecked Sendable {
@@ -1134,7 +1250,7 @@ private final class VMGatedOperationRunner: OperationCommandRunner, @unchecked S
         pathJoined: path, raw: ["PATH": path, "HOME": "/synthetic/home"], isDegraded: false
     )
     let definitionData = Data("""
-    {"schemaVersion":2,"detectors":[{"id":"codex-id","displayName":"Codex","executableName":"codex","category":"aiAgent","packages":[{"manager":"npm","name":"@openai/codex"}],"versionQuery":{"arguments":["--version"],"stream":"stdout","line":"first"}}]}
+    {"schemaVersion":2,"detectors":[{"id":"codex-id","displayName":"Codex","executableName":"codex","category":"aiAgent","packages":[{"manager":"npm","name":"@openai/codex"}],"acceptedOperations":["npmUpdate"],"versionQuery":{"arguments":["--version"],"stream":"stdout","line":"first"}}]}
     """.utf8)
     let definition = try DetectorRegistry.validate(data: definitionData)[0]
     let updateGate = VMGate()
