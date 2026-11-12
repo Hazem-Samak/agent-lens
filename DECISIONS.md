@@ -450,3 +450,22 @@ reviewers; all agents summoned through Herdr/hc only.
   unaccepted entries informational). [Acceptance](walkthroughs/M11-B-acceptance.md).
 
 No merge to `main`, no release. M11 continues with M11-C (settled registry batch).
+
+## M11 — combined acceptance (2026-11-12)
+
+**M11 is technically accepted on `milestone/m11-catalogue` at combined candidate `b07e321`.**
+Phases A–F accepted individually (A `c48b226`, B `caae348`, C `5a0fb54`, D `cdd8ccc`, E `28738dc`,
+F `d3f0324`+R1); sole implementer DeepSeek V4.1 Flash 1017 via OMP max; mandatory independent
+reviews (MiniMax M3.1-Flash/xhigh, Grok 4.7/high) PASS for B/D/F; one LOW (contributor guide
+edit-list omission) corrected via R1. Combined gate: local 547 tests (467 Core + 80 AppSupport)
+plus all seven hosted gates at the exact SHA
+([run 43288284409](https://github.com/Hazem-Samak/agent-lens/actions/runs/43288284409), success);
+end-to-end fifteenth-tool data-only contribution proof observed in CLI and native app, registry
+restored byte-identically. The original fourteen-entry catalogue ships with the fail-closed
+mutation acceptance gate (D-021), the test-enforced capability matrix, and the contributor guide.
+[Combined acceptance](walkthroughs/M11-combined-acceptance.md).
+
+**Open owner gates:** merge to `main` (Git delivery) is NOT authorized by this acceptance; license
+(OD-7, MIT vs Apache-2.0) before public contribution invitations; per-tool mutation promotions;
+M12 dispatch. The M8 keyboard-only Copy/Reveal measurement remains a required M12 gate. No public
+release was published or authorized.

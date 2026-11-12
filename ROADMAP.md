@@ -70,6 +70,12 @@ Work one milestone and one phase at a time. Do not start a dependent milestone u
 
 ### M11 — original catalogue and contributor foundation
 
+**Status:** Technically accepted on `milestone/m11-catalogue` at combined candidate `b07e321`
+(2026-11-12). All six phases accepted; all seven hosted gates passed at the exact SHA
+([run 43288284409](https://github.com/Hazem-Samak/agent-lens/actions/runs/43288284409));
+[combined acceptance](walkthroughs/M11-combined-acceptance.md). Merge to `main` awaits a separate
+owner authorization; the license choice (OD-7) remains open.
+
 **User result:** the app detects the originally named families instead of only Codex, OpenCode, and Grok.
 
 Target catalogue: Codex, Claude Code, Gemini CLI, OpenCode, Hermes, Cline CLI, Aider, Goose, Kiro CLI, Qoder, DSH, OMP, AGY, and Grok CLI.
@@ -219,38 +225,12 @@ The user approves product tradeoffs, UI, expenses, credentials, publication, and
 
 ## 8. Immediate next action
 
-The M10 merge is recorded: PR #1 merged on 2026-11-08 at merge commit `65f7a82`, and hosted CI
-passed at that exact SHA. M11 preparation is done: a Planning Council (MiniMax M3.1-Flash/xhigh
-via mcode and Grok 4.7/high via grok CLI, orchestrated through Herdr Core) produced independent
-proposals on 2026-11-12, and the orchestrator judged and froze the master plan at
-[briefs/M11-plan.md](briefs/M11-plan.md) on base `d0a2b41` (council record:
-[briefs/M11-planning/](briefs/M11-planning/judgment.md)). DSH and AGY identities are resolved from
-primary documentation (DeepSeek Harness; Google Antigravity CLI, official cask `antigravity-cli`)
-and await one-line owner confirmations. The plan adds one safety phase: a fail-closed per-entry
-mutation acceptance gate, because new npm-declared detectors would otherwise silently enable the
-M10 Update/Uninstall workflow. On 2026-11-12 the owner approved the plan and delegated the
-technical decisions OD-1…OD-10 to orchestrator judgment (OD-7 license remains the owner's open
-choice; no public invitations until chosen), and named the implementer: DeepSeek V4.1 Flash 1017
-via OMP, max reasoning. M11-A (identity freeze) is **technically accepted** at `c48b226`:
-14/14 identities frozen with primary-source citations and five disposable-scratch version
-measurements ([acceptance](walkthroughs/M11-A-acceptance.md)). M11-B (fail-closed mutation
-acceptance gate) is **technically accepted** at `caae348` with both mandatory independent reviews
-PASS and an orchestrator native spot-check (D-021/D-022;
-[acceptance](walkthroughs/M11-B-acceptance.md)). M11-C (settled registry batch: claude/gemini/cline
-plus opencode corrections) is **technically accepted** — six-entry registry, 543 tests
-([acceptance](walkthroughs/M11-C-acceptance.md)). M11-D (collision batch:
-hermes/aider/goose/kiro-cli/omp/agy plus the do-not-declare regression) is **technically accepted**
-at `cdd8ccc` with both mandatory independent reviews PASS — twelve-entry registry, 544 tests
-([acceptance](walkthroughs/M11-D-acceptance.md)). M11-E (owner-confirmed remainder: dsh, qodercli)
-is **technically accepted** — the full fourteen-entry catalogue, 544 tests
-([acceptance](walkthroughs/M11-E-acceptance.md)). M11-F (capability matrix, contributor
-foundation, contribution proof, measured floor raise) is **technically accepted** with both
-mandatory independent reviews PASS and one LOW corrected via R1 — 547 tests, floors 467/80/547
-([acceptance](walkthroughs/M11-F-acceptance.md)). All implementation phases A–F are accepted; the
-orchestrator-run combined M11 gate (local reruns + seven hosted gates at the exact SHA +
-end-to-end contribution proof) is next. Independent
-reviewers are the planning council models — MiniMax M3.1-Flash/xhigh (mcode) and Grok 4.7/high
-(grok CLI) — mandatory for the M11-B gate. All agents are orchestrated through Herdr panels and
-hc only (owner rule; no delegate skills). Choose the OSS license (MIT or
-Apache-2.0) before inviting public contributions. No merge or public release is authorized by
-this status.
+M11 is technically accepted on `milestone/m11-catalogue` at `b07e321`: the full fourteen-entry
+catalogue, the fail-closed mutation acceptance gate (D-021/D-022), the test-enforced capability
+matrix, and the contributor foundation, with all seven hosted gates passed at the exact SHA
+([combined acceptance](walkthroughs/M11-combined-acceptance.md)). Awaiting owner decisions:
+(1) merge of the milestone branch to `main` (Git delivery — not authorized by technical acceptance);
+(2) the OSS license choice (MIT or Apache-2.0) before any public contribution invitation;
+(3) M12 dispatch (complete native diagnostic and operation workflow, including the outstanding M8
+keyboard-only gate). Per-tool mutation promotions remain separate owner-authorized dispatches.
+No public release is authorized by this status.
