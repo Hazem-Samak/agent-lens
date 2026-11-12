@@ -2,9 +2,9 @@
 
 Planning revision: 2026-10-28. Original plan: 2026-10-22.
 
-Execution update: 2026-11-08. M10-C is technically accepted on `fff287d`. M10-D and the combined npm gate are technically accepted on implementation `308b7d2`: controlled/combined/public real-npm checks, an ordinary-app Accessibility click-through with Cancel-unchanged hashes and a reconciled result, and all seven exact-SHA hosted gates (532 Swift tests, 21 guard fixtures, 9 packaging checks) passed. M10 as a whole is accepted on `codex/m10-npm-management`. A final R2 correction pass fixed the review findings (Check/Refresh scratch default, false busy-gate cleanup warning, pre-spawn cancellation, preview registry ID, combined concurrent-confirm/interruption cases, evidence hygiene) and added three regression tests. The owner explicitly waived a further independent review, authorized two documented self-reviews, and authorized merge of PR #1. See [M10-D implementation](walkthroughs/M10-D-implementation.md) and [M10-C acceptance](walkthroughs/M10-C-implementation.md).
+Execution update: 2026-11-08. M10-C is technically accepted on `fff287d`. M10-D and the combined npm gate are technically accepted on implementation `308b7d2`: controlled/combined/public real-npm checks, an ordinary-app Accessibility click-through with Cancel-unchanged hashes and a reconciled result, and all seven exact-SHA hosted gates (532 Swift tests, 21 guard fixtures, 9 packaging checks) passed. M10 as a whole was accepted on `codex/m10-npm-management`. A final R2 correction pass fixed the review findings (Check/Refresh scratch default, false busy-gate cleanup warning, pre-spawn cancellation, preview registry ID, combined concurrent-confirm/interruption cases, evidence hygiene) and added three regression tests. The owner explicitly waived a further independent review, authorized two documented self-reviews, and authorized merge of PR #1. PR #1 was merged on 2026-11-08 at merge commit `65f7a82`; hosted CI run 42494920522 passed at that exact SHA, and M10 is delivered to `main`. See [M10-D implementation](walkthroughs/M10-D-implementation.md) and [M10-C acceptance](walkthroughs/M10-C-implementation.md).
 
-This revision supersedes the previous **future execution order**, not completed work or acceptance evidence. M0–M9 remain delivered as recorded; M10-A/B/C/D are technically accepted only on `codex/m10-npm-management`. Accepted M10-B implementation is `72ffb1e`; M10-C is `fff287d`; M10-D is `308b7d2`, with R2 corrections on the current head. PR #1 is open against `main`; the owner authorized merge on 2026-11-08 after the R2 corrections and two self-reviews. The merge commit is recorded on PR #1 and in the repository history. See [M10-B acceptance](walkthroughs/M10-B-acceptance.md) and [M10-C acceptance](walkthroughs/M10-C-implementation.md).
+This revision supersedes the previous **future execution order**, not completed work or acceptance evidence. M0–M9 remain delivered as recorded; M10-A/B/C/D were accepted on `codex/m10-npm-management` and are delivered to `main`. Accepted M10-B implementation is `72ffb1e`; M10-C is `fff287d`; M10-D is `308b7d2`, with R2 corrections on the merged head. PR #1 was merged on 2026-11-08 at merge commit `65f7a82` after the owner-authorized R2 corrections and two self-reviews; hosted CI passed at that exact SHA. The merge is recorded on PR #1 and in the repository history. See [M10-B acceptance](walkthroughs/M10-B-acceptance.md) and [M10-C acceptance](walkthroughs/M10-C-implementation.md).
 
 Authority: [product scope](AGENT_LENS_SCOPE.md), [settled decisions](DECISIONS.md), and [milestone status](briefs/README.md). Historical briefs and walkthroughs are immutable evidence; this file is the living plan.
 
@@ -41,8 +41,8 @@ The app diagnoses first and manages second. It is not a generic package manager,
 | Checkpoint | Meaning | Status |
 |---|---|---|
 | M0–M9 | Discovery, PATH diagnostics, native foundation, path actions, verified details | Delivered as recorded; M8 keyboard check remains open |
-| M10-A/B | Clean CI and verified npm latest metadata | Accepted on the M10 feature branch |
-| M10-C/D | npm Update, Uninstall, and combined safety acceptance | C accepted on `fff287d`; D and combined gate accepted on `308b7d2` — all7 hosted gates, 532 tests, guard21/packaging9, controlled/combined/public npm, native click-through; M10 accepted on branch |
+| M10-A/B | Clean CI and verified npm latest metadata | Accepted on the M10 feature branch; delivered to `main` at `65f7a82` |
+| M10-C/D | npm Update, Uninstall, and combined safety acceptance | C accepted on `fff287d`; D and combined gate accepted on `308b7d2` — all7 hosted gates, 532 tests, guard21/packaging9, controlled/combined/public npm, native click-through; M10 delivered to `main` at `65f7a82` |
 | M12 | Original catalogue plus complete native diagnostic workflow | Revised early-value checkpoint |
 | M15 | All scoped manager capabilities delivered | Feature capability checkpoint |
 | M17 | Feature-complete unsigned app with retention and companion CLI | Release-engineering entry point |
@@ -57,7 +57,7 @@ Work one milestone and one phase at a time. Do not start a dependent milestone u
 
 ### M10 — npm management end to end
 
-**Status:** A, B, C, D, and the combined npm gate are technically accepted on the feature branch. The ordinary-app native journey and all seven exact-SHA hosted gates passed.
+**Status:** Delivered to `main`. A, B, C, D, and the combined npm gate were accepted on the feature branch and merged via PR #1 at `65f7a82` (2026-11-08). The ordinary-app native journey and all seven exact-SHA hosted gates passed; hosted CI also passed at the merge SHA.
 
 **User result:** an ownership-verified npm tool such as Codex can show a real latest-version result, then Update or Uninstall through a visible confirmation and result workflow.
 
@@ -219,6 +219,8 @@ The user approves product tradeoffs, UI, expenses, credentials, publication, and
 
 ## 8. Immediate next action
 
-PR #1 is owner-authorized for merge after the R2 corrections and two documented self-reviews; merge
-it for the accepted M10 stage. The merge commit is recorded on PR #1 and in the repository history.
-Start M11 only after the merge is recorded. No public release is authorized by this status.
+The M10 merge is recorded: PR #1 merged on 2026-11-08 at merge commit `65f7a82`, and hosted CI
+passed at that exact SHA. Begin M11 preparation: research the original catalogue from primary
+documentation (DSH/AGY remain named research blockers), then freeze a bounded phase brief for
+owner approval of scope, implementer/route, and acceptance setup. Choose the OSS license (MIT or
+Apache-2.0) before inviting public contributions. No public release is authorized by this status.

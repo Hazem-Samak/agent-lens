@@ -336,6 +336,20 @@ uninstall reconciled, final uninstall succeeded, residue reported, and exactly o
 uninstall invocations (`combined-summary-r2.json`, `combined-result-r2.json`). Targeted regressions
 passed. Exact-SHA hosted CI and the merge commit are recorded on PR #1.
 
+## M10 — PR #1 merge and delivery to main (2026-11-08)
+
+PR #1 (`codex/m10-npm-management` → `main`), "M10: npm Update, Uninstall, and combined safety
+acceptance", was merged on 2026-11-08 at 15:27 UTC after the owner-authorized R2 corrections and
+two documented self-reviews. Merge commit: `65f7a8225524533924db87132f2563e01d7b6432` (`65f7a82`).
+[Hosted run 42494920522](https://github.com/Hazem-Samak/agent-lens/actions/runs/42494920522)
+passed at that exact SHA. Local `main` and `origin/main` were verified at the merge commit in a
+read-only check on 2026-11-12.
+
+M10-A/B/C/D and the combined npm gate are delivered to `main`. The ROADMAP §8 merge-recording
+gate is satisfied; M11 preparation may begin under the lean operating protocol. No public release
+was published or authorized. The merged feature branch remains on origin pending a separate owner
+decision.
+
 ## M8 — user-approved delivery (2026-10-18)
 
 The user authorized implementation of [M8 path actions](briefs/M8-path-actions.md), then approved the UI and Git delivery with “all good, clean branches comm push all”. Automated gates and independent final reviews passed. The unverified keyboard-only activation check remains a documented limitation; user approval is not evidence that it was measured. [The walkthrough](walkthroughs/M8-path-actions.md) records the result, team, raw-evidence locations, and limits. The frozen M7/M8 briefs and historical acceptance transcripts remain unchanged.
