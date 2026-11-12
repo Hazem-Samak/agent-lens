@@ -82,6 +82,7 @@ private func registryJSON(_ detectors: [String], schemaVersion: Int = 2) -> Stri
     #expect(ids == [
         "codex", "opencode", "grok", "claude", "gemini", "cline",
         "hermes", "aider", "goose", "kiro-cli", "omp", "agy",
+        "dsh", "qodercli",
     ])
     #expect(definitions.allSatisfy { $0.executableName == $0.id })
     #expect(definitions.map(\.fixture) == [
@@ -97,11 +98,14 @@ private func registryJSON(_ detectors: [String], schemaVersion: Int = 2) -> Stri
         DetectorDefinition.Fixture(layout: "singleDirectory", expectedSource: "standalone"),
         DetectorDefinition.Fixture(layout: "singleDirectory", expectedSource: "standalone"),
         DetectorDefinition.Fixture(layout: "singleDirectory", expectedSource: "standalone"),
+        DetectorDefinition.Fixture(layout: "npmGlobal", expectedSource: "npm"),
+        DetectorDefinition.Fixture(layout: "singleDirectory", expectedSource: "standalone"),
     ])
 
     #expect(definitions.map(\.category) == [
         .aiAgent, .aiAgent, .aiAgent, .aiAgent, .aiAgent, .aiAgent,
         .aiAgent, .aiCodingTool, .aiCodingTool, .aiCodingTool, .aiHarness, .aiHarness,
+        .aiHarness, .aiCodingTool,
     ])
     #expect(definitions.allSatisfy { $0.versionQuery == .standard })
     #expect(definitions[0].acceptedOperations == [.npmUpdate, .npmUninstall])
@@ -207,6 +211,28 @@ private func registryJSON(_ detectors: [String], schemaVersion: Int = 2) -> Stri
     #expect(definitions[11].informationURL?.absoluteString
             == "https://antigravity.google/docs/getting-started/")
     #expect(definitions[11].uninstallInstructionsURL == nil)
+
+    // M11-E remainder: dsh and qodercli copied from docs/catalogue-identities.md.
+    #expect(definitions[12].displayName == "DeepSeek Harness")
+    #expect(definitions[12].extraSearchRoots == ["~/.local/bin"])
+    #expect(definitions[12].packages == [
+        try DeclaredPackage(manager: .npm, name: "@deepseek-ai/dsh"),
+    ])
+    #expect(definitions[12].informationURL?.absoluteString
+            == "https://github.com/deepseek-ai/deepseek-harness")
+    #expect(definitions[12].uninstallInstructionsURL == nil)
+    #expect(definitions[12].acceptedOperations.isEmpty)
+
+    #expect(definitions[13].displayName == "Qoder")
+    #expect(definitions[13].extraSearchRoots == ["~/.local/bin"])
+    #expect(definitions[13].packages == [
+        try DeclaredPackage(manager: .npm, name: "@qoder-ai/qodercli"),
+    ])
+    #expect(definitions[13].informationURL?.absoluteString
+            == "https://docs.qoder.com/cli/installation")
+    #expect(definitions[13].uninstallInstructionsURL?.absoluteString
+            == "https://docs.qoder.com/cli/installation#uninstallation")
+    #expect(definitions[13].acceptedOperations.isEmpty)
 }
 
 // MARK: Collision identities never reach the bundled registry (M11-D)

@@ -242,7 +242,10 @@ plus opencode corrections) is **technically accepted** — six-entry registry, 5
 hermes/aider/goose/kiro-cli/omp/agy plus the do-not-declare regression) is **technically accepted**
 at `cdd8ccc` with both mandatory independent reviews PASS — twelve-entry registry, 544 tests
 ([acceptance](walkthroughs/M11-D-acceptance.md)). M11-E (owner-confirmed remainder: dsh, qodercli)
-is dispatched under [briefs/M11-E-owner-remainder.md](briefs/M11-E-owner-remainder.md). Independent
+is **technically accepted** — the full fourteen-entry catalogue, 544 tests
+([acceptance](walkthroughs/M11-E-acceptance.md)). M11-F (capability matrix, contributor
+foundation, contribution proof, measured floor raise) is next, then the orchestrator-run combined
+M11 gate. Independent
 reviewers are the planning council models — MiniMax M3.1-Flash/xhigh (mcode) and Grok 4.7/high
 (grok CLI) — mandatory for the M11-B gate. All agents are orchestrated through Herdr panels and
 hc only (owner rule; no delegate skills). Choose the OSS license (MIT or

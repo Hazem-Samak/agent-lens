@@ -254,6 +254,47 @@
         "stream": "stdout",
         "line": "first"
       }
+    },
+    {
+      "id": "dsh",
+      "displayName": "DeepSeek Harness",
+      "executableName": "dsh",
+      "extraSearchRoots": ["~/.local/bin"],
+      "fixture": {
+        "layout": "npmGlobal",
+        "expectedSource": "npm"
+      },
+      "category": "aiHarness",
+      "packages": [
+        { "manager": "npm", "name": "@deepseek-ai/dsh" }
+      ],
+      "informationURL": "https://github.com/deepseek-ai/deepseek-harness",
+      "versionQuery": {
+        "arguments": ["--version"],
+        "stream": "stdout",
+        "line": "first"
+      }
+    },
+    {
+      "id": "qodercli",
+      "displayName": "Qoder",
+      "executableName": "qodercli",
+      "extraSearchRoots": ["~/.local/bin"],
+      "fixture": {
+        "layout": "singleDirectory",
+        "expectedSource": "standalone"
+      },
+      "category": "aiCodingTool",
+      "packages": [
+        { "manager": "npm", "name": "@qoder-ai/qodercli" }
+      ],
+      "informationURL": "https://docs.qoder.com/cli/installation",
+      "uninstallInstructionsURL": "https://docs.qoder.com/cli/installation#uninstallation",
+      "versionQuery": {
+        "arguments": ["--version"],
+        "stream": "stdout",
+        "line": "first"
+      }
     }
   ]
 }

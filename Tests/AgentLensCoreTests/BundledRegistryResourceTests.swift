@@ -593,6 +593,7 @@ private let distinctDecoyRegistry = #"""
     #expect(definitions.map(\.id) == [
         "codex", "opencode", "grok", "claude", "gemini", "cline",
         "hermes", "aider", "goose", "kiro-cli", "omp", "agy",
+        "dsh", "qodercli",
     ])
 }
 
