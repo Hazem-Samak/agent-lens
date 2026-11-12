@@ -236,7 +236,9 @@ via OMP, max reasoning. M11-A (identity freeze) is **technically accepted** at `
 measurements ([acceptance](walkthroughs/M11-A-acceptance.md)). M11-B (fail-closed mutation
 acceptance gate) is **technically accepted** at `caae348` with both mandatory independent reviews
 PASS and an orchestrator native spot-check (D-021/D-022;
-[acceptance](walkthroughs/M11-B-acceptance.md)). M11-C (settled registry batch) is next. Independent
+[acceptance](walkthroughs/M11-B-acceptance.md)). M11-C (settled registry batch: claude/gemini/cline
+plus opencode corrections) is dispatched under
+[briefs/M11-C-settled-registry.md](briefs/M11-C-settled-registry.md). Independent
 reviewers are the planning council models — MiniMax M3.1-Flash/xhigh (mcode) and Grok 4.7/high
 (grok CLI) — mandatory for the M11-B gate. All agents are orchestrated through Herdr panels and
 hc only (owner rule; no delegate skills). Choose the OSS license (MIT or
