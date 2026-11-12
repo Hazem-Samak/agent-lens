@@ -8,7 +8,7 @@ The [complete application roadmap](ROADMAP.md) maps the remaining work through m
 
 ## Catalogue and contributing
 
-The bundled catalogue's published claims are in the [capability matrix](docs/capability-matrix.md): one row per detector with tested fixture, declared packages, latest-check, Update/Uninstall eligibility, and known limits. Adding a tool on an existing layout is a data-only change; the exact files, closed vocabularies, evidence rules, and local gates are in [CONTRIBUTING](docs/CONTRIBUTING.md). Contributions are not publicly invited yet, and no license has been selected.
+The bundled catalogue's published claims are in the [capability matrix](docs/capability-matrix.md): one row per detector with tested fixture, declared packages, latest-check, Update/Uninstall eligibility, and known limits. Adding a tool on an existing layout is a data-only change; the exact files, closed vocabularies, evidence rules, and local gates are in [CONTRIBUTING](docs/CONTRIBUTING.md). Contributions are not publicly invited yet. The project is MIT-licensed (see [LICENSE](LICENSE)).
 
 ## Build and open the development app
 

@@ -469,3 +469,23 @@ mutation acceptance gate (D-021), the test-enforced capability matrix, and the c
 (OD-7, MIT vs Apache-2.0) before public contribution invitations; per-tool mutation promotions;
 M12 dispatch. The M8 keyboard-only Copy/Reveal measurement remains a required M12 gate. No public
 release was published or authorized.
+
+---
+
+## D-023 — License: MIT (settles OD-7)
+
+**Status:** settled (2026-11-12, owner decision after M11 combined acceptance)
+**Source:** `ROADMAP.md` §7 owner gates; `briefs/M11-plan.md` OD-7; owner message 2026-11-12
+("license will be MIT")
+
+The owner chose **MIT** over Apache-2.0. A standard MIT `LICENSE` file (copyright notice
+"Hazem-Samak", the repository owner's handle) is added, and `docs/CONTRIBUTING.md` / `README.md`
+now state the MIT license instead of "pending owner choice". Both planning-council members had
+recommended MIT for this solo-maintained, zero-dependency utility (lower contributor friction;
+the Apache-2.0 patent grant was the alternative).
+
+**Consequence:** the license precondition for public contribution invitations is satisfied.
+Inviting public contributions remains a SEPARATE owner decision — the guide still says
+contributions are not publicly invited. This is an owner-authorized documentation addition after
+the M11 combined acceptance candidate `b07e321`; it changes no product code, test, or gate. The
+copyright notice uses the owner's handle; the owner may substitute a legal name at any time.

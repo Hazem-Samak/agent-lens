@@ -74,7 +74,7 @@ Work one milestone and one phase at a time. Do not start a dependent milestone u
 (2026-11-12). All six phases accepted; all seven hosted gates passed at the exact SHA
 ([run 43288284409](https://github.com/Hazem-Samak/agent-lens/actions/runs/43288284409));
 [combined acceptance](walkthroughs/M11-combined-acceptance.md). Merge to `main` awaits a separate
-owner authorization; the license choice (OD-7) remains open.
+owner authorization; the license is **MIT** (owner choice 2026-11-12, D-023).
 
 **User result:** the app detects the originally named families instead of only Codex, OpenCode, and Grok.
 
@@ -229,8 +229,9 @@ M11 is technically accepted on `milestone/m11-catalogue` at `b07e321`: the full 
 catalogue, the fail-closed mutation acceptance gate (D-021/D-022), the test-enforced capability
 matrix, and the contributor foundation, with all seven hosted gates passed at the exact SHA
 ([combined acceptance](walkthroughs/M11-combined-acceptance.md)). Awaiting owner decisions:
-(1) merge of the milestone branch to `main` (Git delivery — not authorized by technical acceptance);
-(2) the OSS license choice (MIT or Apache-2.0) before any public contribution invitation;
-(3) M12 dispatch (complete native diagnostic and operation workflow, including the outstanding M8
-keyboard-only gate). Per-tool mutation promotions remain separate owner-authorized dispatches.
-No public release is authorized by this status.
+(1) merge of the milestone branch to `main` (Git delivery — not authorized by technical acceptance;
+the owner is considering PR-then-merge, the M10 pattern);
+(2) M12 dispatch (complete native diagnostic and operation workflow, including the outstanding M8
+keyboard-only gate). The license is settled: **MIT** (D-023, 2026-11-12); public contribution
+invitations remain a separate owner decision. Per-tool mutation promotions remain separate
+owner-authorized dispatches. No public release is authorized by this status.

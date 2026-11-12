@@ -1,9 +1,9 @@
 # Contributing to the Agent Lens catalogue
 
-Status: **M11-F contributor foundation.** Contributions are **not publicly invited yet**, and the
-repository has **no license file**: the owner has not selected a license. Before any public
-contribution invitation, the owner must choose **MIT or Apache-2.0** (decision due no later than
-M18). Until then, do not assume a license or send unsolicited patches as if the terms were settled.
+Status: **M11-F contributor foundation.** The project is licensed under the **MIT License**
+(owner's choice, 2026-11-12 — see [`LICENSE`](../LICENSE)). Contributions are **not publicly
+invited yet**: opening the catalogue to public contributions remains a separate owner decision.
+Until then, do not send unsolicited patches as if participation were open.
 
 This guide covers the data-only path: adding a tool that already fits an existing layout. No
 scanner, UI, or manager-adapter change is involved. Anything else needs an owner-authorized plan.
