@@ -231,8 +231,11 @@ mutation acceptance gate, because new npm-declared detectors would otherwise sil
 M10 Update/Uninstall workflow. On 2026-11-12 the owner approved the plan and delegated the
 technical decisions OD-1…OD-10 to orchestrator judgment (OD-7 license remains the owner's open
 choice; no public invitations until chosen), and named the implementer: DeepSeek V4.1 Flash 1017
-via OMP, max reasoning. M11-A (identity freeze) is dispatched on `milestone/m11-catalogue` at
-`d98bf7b` under [briefs/M11-A-identity-freeze.md](briefs/M11-A-identity-freeze.md). Independent
+via OMP, max reasoning. M11-A (identity freeze) is **technically accepted** at `c48b226`:
+14/14 identities frozen with primary-source citations and five disposable-scratch version
+measurements ([acceptance](walkthroughs/M11-A-acceptance.md)). M11-B (fail-closed mutation
+acceptance gate) is dispatched under [briefs/M11-B-mutation-gate.md](briefs/M11-B-mutation-gate.md)
+with mandatory independent review by the council models. Independent
 reviewers are the planning council models — MiniMax M3.1-Flash/xhigh (mcode) and Grok 4.7/high
 (grok CLI) — mandatory for the M11-B gate. All agents are orchestrated through Herdr panels and
 hc only (owner rule; no delegate skills). Choose the OSS license (MIT or
