@@ -244,9 +244,11 @@ at `cdd8ccc` with both mandatory independent reviews PASS — twelve-entry regis
 ([acceptance](walkthroughs/M11-D-acceptance.md)). M11-E (owner-confirmed remainder: dsh, qodercli)
 is **technically accepted** — the full fourteen-entry catalogue, 544 tests
 ([acceptance](walkthroughs/M11-E-acceptance.md)). M11-F (capability matrix, contributor
-foundation, contribution proof, measured floor raise) is dispatched under
-[briefs/M11-F-matrix-contributor.md](briefs/M11-F-matrix-contributor.md) with mandatory independent
-review; then the orchestrator-run combined M11 gate. Independent
+foundation, contribution proof, measured floor raise) is **technically accepted** with both
+mandatory independent reviews PASS and one LOW corrected via R1 — 547 tests, floors 467/80/547
+([acceptance](walkthroughs/M11-F-acceptance.md)). All implementation phases A–F are accepted; the
+orchestrator-run combined M11 gate (local reruns + seven hosted gates at the exact SHA +
+end-to-end contribution proof) is next. Independent
 reviewers are the planning council models — MiniMax M3.1-Flash/xhigh (mcode) and Grok 4.7/high
 (grok CLI) — mandatory for the M11-B gate. All agents are orchestrated through Herdr panels and
 hc only (owner rule; no delegate skills). Choose the OSS license (MIT or

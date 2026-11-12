@@ -24,7 +24,11 @@ Edit exactly these files:
 5. `Tests/Packaging/test_dev_app_bundle.py` — the full-registry count/id list and the matching
    `bundle-preflight` expectation. The separate two-id fixture expectation is not touched.
 6. `docs/capability-matrix.md` — one row in registry order, with the exact cells described below.
-7. `README.md` — the `verify-installation` accepted-id sentence, kept truthful.
+7. `Tests/AgentLensCoreTests/CapabilityMatrixTests.swift` — the hardcoded `frozenCatalogue` id
+   list in `dataOnlyContributionLoadsExtraToolWithoutProductionChange`, extended with the new id
+   in registry order. The same test parses `docs/capability-matrix.md`, so the row from item 6
+   must land in the same change.
+8. `README.md` — the `verify-installation` accepted-id sentence, kept truthful.
 
 Do not add a detector for a second executable name, a desktop app, an IDE, or a package that only
 *looks* related. The binding do-not-declare table is in

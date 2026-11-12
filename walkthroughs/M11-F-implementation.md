@@ -141,7 +141,7 @@ All commands ran from the repository root with `TMPDIR=R/tmp` and
 | F-AC04 | build exit 0; full suite 547, zero skips/failures, exit 0; import guard clean; 21 guard fixtures OK; fresh dev app exit 0; 9 packaging OK |
 | F-AC05 | floors are the measured 467 / 80 / 547 / 547; nothing lowered; anchors, guard 21, and packaging 9 unchanged |
 | F-AC06 | CONTRIBUTING states license-pending and no-invitation; vocabularies match the validators; gate commands and CLT plugin note included |
-| F-AC07 | working tree changes are exactly the six allow-listed paths plus this report; no `Sources/**` change; protected manifest diff empty |
+| F-AC07 | the captured `git-status-after.txt` snapshot shows exactly the six allow-listed paths; this report was written after that snapshot and committed by the orchestrator, so it does not appear in it; no `Sources/**` change; protected manifest diff empty |
 
 ## Deviations and interpretations
 
@@ -171,9 +171,10 @@ phrase contiguous. No rule was weakened.
 
 SHA-256 manifests for every tracked file outside the allow-list were captured before editing
 (`R/evidence/f/protected-baseline.sha256`) and after (`protected-after.sha256`); `diff` reports no
-difference (`protected-diff.txt`, 442 files). `git status` records only the three modified
-allow-listed files and the three new allow-listed files, plus this report. No commit, branch,
-stage, reset, merge, push, or publish was performed.
+difference (`protected-diff.txt`, 442 files). The captured `git status` snapshot
+(`R/evidence/f/git-status-after.txt`, taken before this report was written) records only the three
+modified allow-listed files and the three new allow-listed files; the orchestrator committed this
+report afterward. No commit, branch, stage, reset, merge, push, or publish was performed.
 
 Changed-file SHA-256 (`R/evidence/f/changed-sha256.txt`):
 
