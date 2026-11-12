@@ -19,8 +19,9 @@ import Testing
 //   isolation alone let earlier runs write synthetic metadata into ~/Library/Caches/AgentLens.
 //   The denial is applied to the CLI and every child it spawns. A failed cache write is neutral in
 //   the production contract, so the supported-CLI status assertions stay meaningful.
-// * The fixture PATH no longer appends the real login-shell PATH, and fake OpenCode/Grok sit on
-//   it, so the default detectors cannot reach the real ~/.local, ~/.opencode or ~/.grok trees.
+// * The fixture PATH no longer appends the real login-shell PATH, and fake OpenCode/Grok/Claude
+//   sit on it, so the default detectors cannot reach the real ~/.local, ~/.opencode or ~/.grok
+//   trees. Claude declares ~/.local/bin as its one extra root, so it needs the same shadow.
 // * Each launched process has a bounded watchdog; a hang fails the test instead of wedging the
 //   harness.
 // * M10-A portability: fixtures run under the inherited TMPDIR with no Agent Lens override. The
@@ -647,13 +648,15 @@ private func makeBrewCLIScenario(_ label: String, info: String, outdated: String
     )
     try writeFakeBrew(in: binDirectory, cellar: cellar, logURL: logURL, infoJSON: info, outdatedJSON: outdated)
 
-    // Fake OpenCode and Grok on the fixture PATH. Without them the default detectors fall
-    // through to the REAL extra roots (~/.opencode/bin, ~/.grok/bin, ~/.local/bin) — Foundation
-    // resolves ~ to the real user even with a synthetic HOME — and would execute real tools.
+    // Fake OpenCode, Grok, and Claude on the fixture PATH. Without them the default detectors
+    // fall through to the REAL extra roots (~/.opencode/bin, ~/.grok/bin, ~/.local/bin) —
+    // Foundation resolves ~ to the real user even with a synthetic HOME — and would execute real
+    // tools. Gemini and Cline declare no extra roots, so the closed PATH leaves them absent.
     try writeFakeTool(in: binDirectory, named: "opencode", version: "2.0.28")
     try writeFakeTool(in: binDirectory, named: "grok", version: "1.0.52")
+    try writeFakeTool(in: binDirectory, named: "claude", version: "2.1.322")
 
-    // The login shell sees ONLY the fake brew/codex/opencode/grok PATH.
+    // The login shell sees ONLY the fake brew/codex/opencode/grok/claude PATH.
     try writeRC(zdotdir: zdotdir, home: home, pathEntries: [binDirectory.path])
     return BrewCLIScenario(root: root, home: home, zdotdir: zdotdir, binDirectory: binDirectory, logURL: logURL)
 }
@@ -814,7 +817,9 @@ private let emptyOutdated = #"{"formulae":[],"casks":[]}"#
 @Test func realCLIAppendsAfterTheExactM5WinnerAliasShadowedAndInvalidPrefix() throws {
     let scenario = try makeBrewCLIScenario("brew-m5-prefix", info: currentInfo, outdated: emptyOutdated)
     let detectorLog = scenario.root.appendingPathComponent("detector-invocations.log")
-    for (tool, version) in [("codex", "0.162.1"), ("opencode", "2.0.28"), ("grok", "1.0.52")] {
+    for (tool, version) in [
+        ("codex", "0.162.1"), ("opencode", "2.0.28"), ("grok", "1.0.52"), ("claude", "2.1.322"),
+    ] {
         let target = scenario.binDirectory.appendingPathComponent(tool).resolvingSymlinksInPath()
         let script = """
         #!/bin/sh
@@ -862,8 +867,9 @@ private let emptyOutdated = #"{"formulae":[],"casks":[]}"#
             "a shadowed canonical installation is queried exactly once for its own version")
     #expect(readLog(scenario.logURL).count == 3)
     let detectorCalls = readLog(detectorLog)
-    #expect(detectorCalls.count == 3)
-    #expect(Set(detectorCalls) == Set(["codex", "opencode", "grok"]))
+    #expect(detectorCalls.count == 4)
+    #expect(Set(detectorCalls) == Set(["codex", "opencode", "grok", "claude"]),
+            "the four synthetic PATH tools are queried exactly once; gemini and cline are absent")
 }
 
 @Test func delayedManagerLeavesFlushedM5InventoryVisibleBeforeOneAppendedUpdateSection() throws {
@@ -1011,7 +1017,7 @@ private let emptyOutdated = #"{"formulae":[],"casks":[]}"#
         #expect(result.stdout.contains("Grok CLI  category: AI Agent"), "\(arguments)")
         #expect(result.stdout.contains("declared packages: none"), "\(arguments)")
         #expect(result.stdout.contains("official information: https://docs.x.ai/build/overview"), "\(arguments)")
-        #expect(result.stdout.contains("uninstall instructions: https://opencode.ai/v2/docs/cli/#uninstall"), "\(arguments)")
+        #expect(result.stdout.contains("uninstall instructions: https://opencode.ai/docs/cli/#uninstall"), "\(arguments)")
     }
 
     // Plain and offline make zero manager calls; check and refresh each make one batch.

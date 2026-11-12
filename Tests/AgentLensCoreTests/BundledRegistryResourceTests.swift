@@ -590,7 +590,7 @@ private let distinctDecoyRegistry = #"""
 @Test func absentMarkersUseBundledResource() throws {
     // Neither key present, and no injected bundle: identical to the historical call.
     let definitions = try DetectorRegistry.loadDefault()
-    #expect(definitions.map(\.id) == ["codex", "opencode", "grok"])
+    #expect(definitions.map(\.id) == ["codex", "opencode", "grok", "claude", "gemini", "cline"])
 }
 
 @Test func absentMarkersReportAbsentFromTheSeam() throws {

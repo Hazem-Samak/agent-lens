@@ -76,32 +76,72 @@ private func registryJSON(_ detectors: [String], schemaVersion: Int = 2) -> Stri
 
 // MARK: Bundled registry validity
 
-@Test func bundledDefaultDetectorsIsValidWithThreeTools() throws {
+@Test func bundledDefaultDetectorsMatchFrozenCatalogue() throws {
     let definitions = try DetectorRegistry.loadDefault()
     let ids = definitions.map(\.id)
-    #expect(ids == ["codex", "opencode", "grok"])
+    #expect(ids == ["codex", "opencode", "grok", "claude", "gemini", "cline"])
     #expect(definitions.allSatisfy { $0.executableName == $0.id })
-    #expect(definitions[0].fixture == DetectorDefinition.Fixture(layout: "npmGlobal", expectedSource: "npm"))
-    #expect(definitions[1].fixture == DetectorDefinition.Fixture(layout: "singleDirectory", expectedSource: "standalone"))
-    #expect(definitions[2].fixture == DetectorDefinition.Fixture(layout: "singleDirectory", expectedSource: "standalone"))
+    #expect(definitions.map(\.fixture) == [
+        DetectorDefinition.Fixture(layout: "npmGlobal", expectedSource: "npm"),
+        DetectorDefinition.Fixture(layout: "singleDirectory", expectedSource: "standalone"),
+        DetectorDefinition.Fixture(layout: "singleDirectory", expectedSource: "standalone"),
+        DetectorDefinition.Fixture(layout: "singleDirectory", expectedSource: "standalone"),
+        DetectorDefinition.Fixture(layout: "npmGlobal", expectedSource: "npm"),
+        DetectorDefinition.Fixture(layout: "npmGlobal", expectedSource: "npm"),
+    ])
 
-    #expect(definitions.map(\.category) == [.aiAgent, .aiAgent, .aiAgent])
+    #expect(definitions.map(\.category) == [
+        .aiAgent, .aiAgent, .aiAgent, .aiAgent, .aiAgent, .aiAgent,
+    ])
     #expect(definitions.allSatisfy { $0.versionQuery == .standard })
     #expect(definitions[0].acceptedOperations == [.npmUpdate, .npmUninstall])
-    #expect(definitions[1].acceptedOperations.isEmpty)
-    #expect(definitions[2].acceptedOperations.isEmpty)
+    #expect(definitions.dropFirst().allSatisfy { $0.acceptedOperations.isEmpty })
     #expect(definitions[0].packages == [
         try DeclaredPackage(manager: .npm, name: "@openai/codex"),
         try DeclaredPackage(manager: .homebrewCask, name: "codex"),
     ])
     #expect(definitions[0].informationURL?.absoluteString == "https://developers.openai.com/codex/cli")
     #expect(definitions[0].uninstallInstructionsURL == nil)
-    #expect(definitions[1].packages.count == 4)
-    #expect(definitions[1].informationURL?.absoluteString == "https://opencode.ai/v2/docs/")
-    #expect(definitions[1].uninstallInstructionsURL?.absoluteString == "https://opencode.ai/v2/docs/cli/#uninstall")
+    #expect(definitions[1].packages == [
+        try DeclaredPackage(manager: .npm, name: "@opencode/cli"),
+        try DeclaredPackage(manager: .npm, name: "opencode-ai"),
+        try DeclaredPackage(manager: .homebrewFormula, name: "anomalyco/tap/opencode-v2"),
+        try DeclaredPackage(manager: .homebrewFormula, name: "anomalyco/tap/opencode"),
+        try DeclaredPackage(manager: .homebrewFormula, name: "opencode"),
+    ])
+    #expect(definitions[1].informationURL?.absoluteString == "https://opencode.ai/docs/")
+    #expect(definitions[1].uninstallInstructionsURL?.absoluteString == "https://opencode.ai/docs/cli/#uninstall")
     #expect(definitions[2].packages.isEmpty)
     #expect(definitions[2].informationURL?.absoluteString == "https://docs.x.ai/build/overview")
     #expect(definitions[2].uninstallInstructionsURL == nil)
+
+    #expect(definitions[3].displayName == "Claude Code")
+    #expect(definitions[3].extraSearchRoots == ["~/.local/bin"])
+    #expect(definitions[3].packages == [
+        try DeclaredPackage(manager: .npm, name: "@anthropic-ai/claude-code"),
+        try DeclaredPackage(manager: .homebrewCask, name: "claude-code"),
+        try DeclaredPackage(manager: .homebrewCask, name: "claude-code@latest"),
+    ])
+    #expect(definitions[3].informationURL?.absoluteString == "https://code.claude.com/docs/en/setup")
+    #expect(definitions[3].uninstallInstructionsURL?.absoluteString == "https://code.claude.com/docs/en/setup#uninstall-claude-code")
+
+    #expect(definitions[4].displayName == "Gemini CLI")
+    #expect(definitions[4].extraSearchRoots.isEmpty)
+    #expect(definitions[4].packages == [
+        try DeclaredPackage(manager: .npm, name: "@google/gemini-cli"),
+        try DeclaredPackage(manager: .homebrewFormula, name: "gemini-cli"),
+    ])
+    #expect(definitions[4].informationURL?.absoluteString == "https://geminicli.com/docs/get-started/installation/")
+    #expect(definitions[4].uninstallInstructionsURL?.absoluteString == "https://geminicli.com/docs/resources/uninstall/")
+
+    #expect(definitions[5].displayName == "Cline CLI")
+    #expect(definitions[5].extraSearchRoots.isEmpty)
+    #expect(definitions[5].packages == [
+        try DeclaredPackage(manager: .npm, name: "cline"),
+        try DeclaredPackage(manager: .homebrewFormula, name: "cline"),
+    ])
+    #expect(definitions[5].informationURL?.absoluteString == "https://docs.cline.bot/usage/cli-overview")
+    #expect(definitions[5].uninstallInstructionsURL == nil)
 }
 
 // MARK: Schema violations are rejected with named errors

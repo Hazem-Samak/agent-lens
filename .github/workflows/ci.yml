@@ -161,11 +161,12 @@ jobs:
           # OBSERVED BACKEND LAYOUTS for the full suite (both real, neither is a guess):
           #   * Local Swift Build prints TWO Swift Testing summaries (one per test target).
           #   * Hosted native SwiftPM prints ONE combined summary across both targets
-          #     ("Test run with 535 tests in 5 suites" — expected after the R2 regressions).
+          #     ("Test run with N tests in 5 suites"). N now exceeds the 535 floors after the
+          #     M11-B/C cases; the floors are raised only in M11-F.
           # A combined count is therefore NOT reported as separate observed Core/App totals; only the
           # observed total is claimed, and both anchor groups must still appear as PASSED events.
           CORE_ANCHORS = [
-              "bundledDefaultDetectorsIsValidWithThreeTools",
+              "bundledDefaultDetectorsMatchFrozenCatalogue",
               "unknownKeysAreRejectedAtRootDefinitionFixturePackageAndQueryLevels",
               "makeDetectorUsesRegistryArgumentsInTheProductionPath",
           ]
@@ -657,7 +658,7 @@ jobs:
           lines += ["", f"aggregate_gate_elapsed_seconds: {total_elapsed:.3f}"]
           lines.append(
               "registry/schema/query coverage is asserted by PASSED test events that must appear in the "
-              "full-test-suite streams: bundledDefaultDetectorsIsValidWithThreeTools, "
+              "full-test-suite streams: bundledDefaultDetectorsMatchFrozenCatalogue, "
               "unknownKeysAreRejectedAtRootDefinitionFixturePackageAndQueryLevels, "
               "makeDetectorUsesRegistryArgumentsInTheProductionPath."
           )

@@ -37,10 +37,11 @@
         { "manager": "npm", "name": "@opencode/cli" },
         { "manager": "npm", "name": "opencode-ai" },
         { "manager": "homebrewFormula", "name": "anomalyco/tap/opencode-v2" },
-        { "manager": "homebrewFormula", "name": "anomalyco/tap/opencode" }
+        { "manager": "homebrewFormula", "name": "anomalyco/tap/opencode" },
+        { "manager": "homebrewFormula", "name": "opencode" }
       ],
-      "informationURL": "https://opencode.ai/v2/docs/",
-      "uninstallInstructionsURL": "https://opencode.ai/v2/docs/cli/#uninstall",
+      "informationURL": "https://opencode.ai/docs/",
+      "uninstallInstructionsURL": "https://opencode.ai/docs/cli/#uninstall",
       "versionQuery": {
         "arguments": ["--version"],
         "stream": "stdout",
@@ -59,6 +60,72 @@
       "category": "aiAgent",
       "packages": [],
       "informationURL": "https://docs.x.ai/build/overview",
+      "versionQuery": {
+        "arguments": ["--version"],
+        "stream": "stdout",
+        "line": "first"
+      }
+    },
+    {
+      "id": "claude",
+      "displayName": "Claude Code",
+      "executableName": "claude",
+      "extraSearchRoots": ["~/.local/bin"],
+      "fixture": {
+        "layout": "singleDirectory",
+        "expectedSource": "standalone"
+      },
+      "category": "aiAgent",
+      "packages": [
+        { "manager": "npm", "name": "@anthropic-ai/claude-code" },
+        { "manager": "homebrewCask", "name": "claude-code" },
+        { "manager": "homebrewCask", "name": "claude-code@latest" }
+      ],
+      "informationURL": "https://code.claude.com/docs/en/setup",
+      "uninstallInstructionsURL": "https://code.claude.com/docs/en/setup#uninstall-claude-code",
+      "versionQuery": {
+        "arguments": ["--version"],
+        "stream": "stdout",
+        "line": "first"
+      }
+    },
+    {
+      "id": "gemini",
+      "displayName": "Gemini CLI",
+      "executableName": "gemini",
+      "extraSearchRoots": [],
+      "fixture": {
+        "layout": "npmGlobal",
+        "expectedSource": "npm"
+      },
+      "category": "aiAgent",
+      "packages": [
+        { "manager": "npm", "name": "@google/gemini-cli" },
+        { "manager": "homebrewFormula", "name": "gemini-cli" }
+      ],
+      "informationURL": "https://geminicli.com/docs/get-started/installation/",
+      "uninstallInstructionsURL": "https://geminicli.com/docs/resources/uninstall/",
+      "versionQuery": {
+        "arguments": ["--version"],
+        "stream": "stdout",
+        "line": "first"
+      }
+    },
+    {
+      "id": "cline",
+      "displayName": "Cline CLI",
+      "executableName": "cline",
+      "extraSearchRoots": [],
+      "fixture": {
+        "layout": "npmGlobal",
+        "expectedSource": "npm"
+      },
+      "category": "aiAgent",
+      "packages": [
+        { "manager": "npm", "name": "cline" },
+        { "manager": "homebrewFormula", "name": "cline" }
+      ],
+      "informationURL": "https://docs.cline.bot/usage/cli-overview",
       "versionQuery": {
         "arguments": ["--version"],
         "stream": "stdout",
