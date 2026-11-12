@@ -220,7 +220,15 @@ The user approves product tradeoffs, UI, expenses, credentials, publication, and
 ## 8. Immediate next action
 
 The M10 merge is recorded: PR #1 merged on 2026-11-08 at merge commit `65f7a82`, and hosted CI
-passed at that exact SHA. Begin M11 preparation: research the original catalogue from primary
-documentation (DSH/AGY remain named research blockers), then freeze a bounded phase brief for
-owner approval of scope, implementer/route, and acceptance setup. Choose the OSS license (MIT or
-Apache-2.0) before inviting public contributions. No public release is authorized by this status.
+passed at that exact SHA. M11 preparation is done: a Planning Council (MiniMax M3.1-Flash/xhigh
+via mcode and Grok 4.7/high via grok CLI, orchestrated through Herdr Core) produced independent
+proposals on 2026-11-12, and the orchestrator judged and froze the master plan at
+[briefs/M11-plan.md](briefs/M11-plan.md) on base `d0a2b41` (council record:
+[briefs/M11-planning/](briefs/M11-planning/judgment.md)). DSH and AGY identities are resolved from
+primary documentation (DeepSeek Harness; Google Antigravity CLI, official cask `antigravity-cli`)
+and await one-line owner confirmations. The plan adds one safety phase: a fail-closed per-entry
+mutation acceptance gate, because new npm-declared detectors would otherwise silently enable the
+M10 Update/Uninstall workflow. Next: owner approval of scope and decisions OD-1…OD-10, selection
+of implementer and independent reviewers, then the bounded M11-A dispatch brief. Choose the OSS
+license (MIT or Apache-2.0) before inviting public contributions. No implementation, merge, or
+public release is authorized by this status.
