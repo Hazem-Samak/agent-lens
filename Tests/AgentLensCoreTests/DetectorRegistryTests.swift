@@ -79,7 +79,10 @@ private func registryJSON(_ detectors: [String], schemaVersion: Int = 2) -> Stri
 @Test func bundledDefaultDetectorsMatchFrozenCatalogue() throws {
     let definitions = try DetectorRegistry.loadDefault()
     let ids = definitions.map(\.id)
-    #expect(ids == ["codex", "opencode", "grok", "claude", "gemini", "cline"])
+    #expect(ids == [
+        "codex", "opencode", "grok", "claude", "gemini", "cline",
+        "hermes", "aider", "goose", "kiro-cli", "omp", "agy",
+    ])
     #expect(definitions.allSatisfy { $0.executableName == $0.id })
     #expect(definitions.map(\.fixture) == [
         DetectorDefinition.Fixture(layout: "npmGlobal", expectedSource: "npm"),
@@ -88,10 +91,17 @@ private func registryJSON(_ detectors: [String], schemaVersion: Int = 2) -> Stri
         DetectorDefinition.Fixture(layout: "singleDirectory", expectedSource: "standalone"),
         DetectorDefinition.Fixture(layout: "npmGlobal", expectedSource: "npm"),
         DetectorDefinition.Fixture(layout: "npmGlobal", expectedSource: "npm"),
+        DetectorDefinition.Fixture(layout: "singleDirectory", expectedSource: "standalone"),
+        DetectorDefinition.Fixture(layout: "singleDirectory", expectedSource: "standalone"),
+        DetectorDefinition.Fixture(layout: "singleDirectory", expectedSource: "standalone"),
+        DetectorDefinition.Fixture(layout: "singleDirectory", expectedSource: "standalone"),
+        DetectorDefinition.Fixture(layout: "singleDirectory", expectedSource: "standalone"),
+        DetectorDefinition.Fixture(layout: "singleDirectory", expectedSource: "standalone"),
     ])
 
     #expect(definitions.map(\.category) == [
         .aiAgent, .aiAgent, .aiAgent, .aiAgent, .aiAgent, .aiAgent,
+        .aiAgent, .aiCodingTool, .aiCodingTool, .aiCodingTool, .aiHarness, .aiHarness,
     ])
     #expect(definitions.allSatisfy { $0.versionQuery == .standard })
     #expect(definitions[0].acceptedOperations == [.npmUpdate, .npmUninstall])
@@ -142,6 +152,117 @@ private func registryJSON(_ detectors: [String], schemaVersion: Int = 2) -> Stri
     ])
     #expect(definitions[5].informationURL?.absoluteString == "https://docs.cline.bot/usage/cli-overview")
     #expect(definitions[5].uninstallInstructionsURL == nil)
+
+    // M11-D collision batch: identity rows copied from docs/catalogue-identities.md.
+    #expect(definitions[6].displayName == "Hermes")
+    #expect(definitions[6].extraSearchRoots == ["~/.local/bin"])
+    #expect(definitions[6].packages == [
+        try DeclaredPackage(manager: .homebrewFormula, name: "hermes-agent"),
+    ])
+    #expect(definitions[6].informationURL?.absoluteString
+            == "https://hermes-agent.nousresearch.com/docs/getting-started/installation")
+    #expect(definitions[6].uninstallInstructionsURL?.absoluteString
+            == "https://hermes-agent.nousresearch.com/docs/getting-started/updating#uninstalling")
+
+    #expect(definitions[7].displayName == "Aider")
+    #expect(definitions[7].extraSearchRoots.isEmpty)
+    #expect(definitions[7].packages == [
+        try DeclaredPackage(manager: .homebrewFormula, name: "aider"),
+    ])
+    #expect(definitions[7].informationURL?.absoluteString == "https://aider.chat/docs/install.html")
+    #expect(definitions[7].uninstallInstructionsURL == nil)
+
+    #expect(definitions[8].displayName == "Goose")
+    #expect(definitions[8].extraSearchRoots == ["~/.local/bin"])
+    #expect(definitions[8].packages == [
+        try DeclaredPackage(manager: .homebrewFormula, name: "block-goose-cli"),
+    ])
+    #expect(definitions[8].informationURL?.absoluteString
+            == "https://goose-docs.ai/docs/guides/goose-cli-commands")
+    #expect(definitions[8].uninstallInstructionsURL == nil)
+
+    #expect(definitions[9].displayName == "Kiro CLI")
+    #expect(definitions[9].extraSearchRoots == ["~/.local/bin"])
+    #expect(definitions[9].packages == [
+        try DeclaredPackage(manager: .homebrewCask, name: "kiro-cli"),
+    ])
+    #expect(definitions[9].informationURL?.absoluteString == "https://kiro.dev/docs/cli/")
+    #expect(definitions[9].uninstallInstructionsURL?.absoluteString
+            == "https://kiro.dev/docs/getting-started/installation/")
+
+    #expect(definitions[10].displayName == "Oh My Pi")
+    #expect(definitions[10].extraSearchRoots == ["~/.local/bin"])
+    #expect(definitions[10].packages == [
+        try DeclaredPackage(manager: .npm, name: "@oh-my-pi/pi-coding-agent"),
+        try DeclaredPackage(manager: .homebrewFormula, name: "can1357/tap/omp"),
+    ])
+    #expect(definitions[10].informationURL?.absoluteString == "https://omp.sh/docs/quickstart")
+    #expect(definitions[10].uninstallInstructionsURL == nil)
+
+    #expect(definitions[11].displayName == "Antigravity CLI")
+    #expect(definitions[11].extraSearchRoots == ["~/.local/bin", "~/.gemini/bin"])
+    #expect(definitions[11].packages == [
+        try DeclaredPackage(manager: .homebrewCask, name: "antigravity-cli"),
+    ])
+    #expect(definitions[11].informationURL?.absoluteString
+            == "https://antigravity.google/docs/getting-started/")
+    #expect(definitions[11].uninstallInstructionsURL == nil)
+}
+
+// MARK: Collision identities never reach the bundled registry (M11-D)
+
+/// Binding do-not-declare table from `docs/catalogue-identities.md`, keyed by manager raw value.
+/// The manager is part of the key: formula `goose` is pressly's migration CLI, while formula
+/// `block-goose-cli` is the frozen Goose candidate. They are different declarations.
+private let forbiddenCollisionPackages: [String: Set<String>] = [
+    "homebrewFormula": ["dsh", "goose"],
+    "homebrewCask": ["qoder", "opencode-desktop", "block-goose"],
+    "npm": [
+        "goose", "kiro-cli", "qoder", "@qoder-ai/qoder", "@aws/kiro-cli", "@oh-my-pi/cli",
+    ],
+]
+
+/// The IDE/router names: never detector ids and never executable names.
+private let forbiddenCollisionRegistryIDs: Set<String> = ["kiro", "qoder"]
+
+private func collisionIdentityViolations(in definitions: [DetectorDefinition]) -> [String] {
+    var violations: [String] = []
+    for definition in definitions {
+        if forbiddenCollisionRegistryIDs.contains(definition.id) {
+            violations.append("detector id \(definition.id)")
+        }
+        if forbiddenCollisionRegistryIDs.contains(definition.executableName) {
+            violations.append("executable \(definition.executableName) (detector \(definition.id))")
+        }
+        for package in definition.packages {
+            if forbiddenCollisionPackages[package.manager.rawValue]?.contains(package.name) == true {
+                violations.append(
+                    "\(package.manager.rawValue) \(package.name) (detector \(definition.id))"
+                )
+            }
+        }
+    }
+    return violations
+}
+
+@Test func bundledRegistryNeverDeclaresCollisionIdentities() throws {
+    let definitions = try DetectorRegistry.loadDefault()
+    #expect(collisionIdentityViolations(in: definitions).isEmpty,
+            "the bundled registry must never declare a do-not-declare identity")
+
+    // Seeded control: the scan must reject a forbidden identity. Without this, an empty list
+    // could mean the check itself is vacuous.
+    let seeded = try DetectorRegistry.validate(data: Data(#"""
+    {"schemaVersion":2,"detectors":[
+      {"id":"kiro","displayName":"Kiro","executableName":"kiro","category":"aiCodingTool",
+       "packages":[{"manager":"npm","name":"@aws/kiro-cli"}],
+       "versionQuery":{"arguments":["--version"],"stream":"stdout","line":"first"}}
+    ]}
+    """#.utf8))
+    let seededViolations = collisionIdentityViolations(in: seeded)
+    #expect(seededViolations.contains("detector id kiro"))
+    #expect(seededViolations.contains("executable kiro (detector kiro)"))
+    #expect(seededViolations.contains("npm @aws/kiro-cli (detector kiro)"))
 }
 
 // MARK: Schema violations are rejected with named errors

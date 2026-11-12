@@ -131,6 +131,129 @@
         "stream": "stdout",
         "line": "first"
       }
+    },
+    {
+      "id": "hermes",
+      "displayName": "Hermes",
+      "executableName": "hermes",
+      "extraSearchRoots": ["~/.local/bin"],
+      "fixture": {
+        "layout": "singleDirectory",
+        "expectedSource": "standalone"
+      },
+      "category": "aiAgent",
+      "packages": [
+        { "manager": "homebrewFormula", "name": "hermes-agent" }
+      ],
+      "informationURL": "https://hermes-agent.nousresearch.com/docs/getting-started/installation",
+      "uninstallInstructionsURL": "https://hermes-agent.nousresearch.com/docs/getting-started/updating#uninstalling",
+      "versionQuery": {
+        "arguments": ["--version"],
+        "stream": "stdout",
+        "line": "first"
+      }
+    },
+    {
+      "id": "aider",
+      "displayName": "Aider",
+      "executableName": "aider",
+      "extraSearchRoots": [],
+      "fixture": {
+        "layout": "singleDirectory",
+        "expectedSource": "standalone"
+      },
+      "category": "aiCodingTool",
+      "packages": [
+        { "manager": "homebrewFormula", "name": "aider" }
+      ],
+      "informationURL": "https://aider.chat/docs/install.html",
+      "versionQuery": {
+        "arguments": ["--version"],
+        "stream": "stdout",
+        "line": "first"
+      }
+    },
+    {
+      "id": "goose",
+      "displayName": "Goose",
+      "executableName": "goose",
+      "extraSearchRoots": ["~/.local/bin"],
+      "fixture": {
+        "layout": "singleDirectory",
+        "expectedSource": "standalone"
+      },
+      "category": "aiCodingTool",
+      "packages": [
+        { "manager": "homebrewFormula", "name": "block-goose-cli" }
+      ],
+      "informationURL": "https://goose-docs.ai/docs/guides/goose-cli-commands",
+      "versionQuery": {
+        "arguments": ["--version"],
+        "stream": "stdout",
+        "line": "first"
+      }
+    },
+    {
+      "id": "kiro-cli",
+      "displayName": "Kiro CLI",
+      "executableName": "kiro-cli",
+      "extraSearchRoots": ["~/.local/bin"],
+      "fixture": {
+        "layout": "singleDirectory",
+        "expectedSource": "standalone"
+      },
+      "category": "aiCodingTool",
+      "packages": [
+        { "manager": "homebrewCask", "name": "kiro-cli" }
+      ],
+      "informationURL": "https://kiro.dev/docs/cli/",
+      "uninstallInstructionsURL": "https://kiro.dev/docs/getting-started/installation/",
+      "versionQuery": {
+        "arguments": ["--version"],
+        "stream": "stdout",
+        "line": "first"
+      }
+    },
+    {
+      "id": "omp",
+      "displayName": "Oh My Pi",
+      "executableName": "omp",
+      "extraSearchRoots": ["~/.local/bin"],
+      "fixture": {
+        "layout": "singleDirectory",
+        "expectedSource": "standalone"
+      },
+      "category": "aiHarness",
+      "packages": [
+        { "manager": "npm", "name": "@oh-my-pi/pi-coding-agent" },
+        { "manager": "homebrewFormula", "name": "can1357/tap/omp" }
+      ],
+      "informationURL": "https://omp.sh/docs/quickstart",
+      "versionQuery": {
+        "arguments": ["--version"],
+        "stream": "stdout",
+        "line": "first"
+      }
+    },
+    {
+      "id": "agy",
+      "displayName": "Antigravity CLI",
+      "executableName": "agy",
+      "extraSearchRoots": ["~/.local/bin", "~/.gemini/bin"],
+      "fixture": {
+        "layout": "singleDirectory",
+        "expectedSource": "standalone"
+      },
+      "category": "aiHarness",
+      "packages": [
+        { "manager": "homebrewCask", "name": "antigravity-cli" }
+      ],
+      "informationURL": "https://antigravity.google/docs/getting-started/",
+      "versionQuery": {
+        "arguments": ["--version"],
+        "stream": "stdout",
+        "line": "first"
+      }
     }
   ]
 }

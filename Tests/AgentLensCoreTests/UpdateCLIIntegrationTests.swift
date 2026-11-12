@@ -648,15 +648,22 @@ private func makeBrewCLIScenario(_ label: String, info: String, outdated: String
     )
     try writeFakeBrew(in: binDirectory, cellar: cellar, logURL: logURL, infoJSON: info, outdatedJSON: outdated)
 
-    // Fake OpenCode, Grok, and Claude on the fixture PATH. Without them the default detectors
-    // fall through to the REAL extra roots (~/.opencode/bin, ~/.grok/bin, ~/.local/bin) —
-    // Foundation resolves ~ to the real user even with a synthetic HOME — and would execute real
-    // tools. Gemini and Cline declare no extra roots, so the closed PATH leaves them absent.
+    // Fake OpenCode, Grok, Claude, Hermes, Aider, Goose, Kiro CLI, OMP, and AGY on the fixture
+    // PATH. Without them the default detectors fall through to the REAL extra roots
+    // (~/.opencode/bin, ~/.grok/bin, ~/.local/bin, ~/.gemini/bin) — Foundation resolves ~ to the
+    // real user even with a synthetic HOME — and would execute real tools. Gemini and Cline
+    // declare no extra roots, so the closed PATH leaves them absent.
     try writeFakeTool(in: binDirectory, named: "opencode", version: "2.0.28")
     try writeFakeTool(in: binDirectory, named: "grok", version: "1.0.52")
     try writeFakeTool(in: binDirectory, named: "claude", version: "2.1.322")
+    try writeFakeTool(in: binDirectory, named: "hermes", version: "0.23.1")
+    try writeFakeTool(in: binDirectory, named: "aider", version: "0.86.2")
+    try writeFakeTool(in: binDirectory, named: "goose", version: "1.59.0")
+    try writeFakeTool(in: binDirectory, named: "kiro-cli", version: "3.2.1")
+    try writeFakeTool(in: binDirectory, named: "omp", version: "18.19.0")
+    try writeFakeTool(in: binDirectory, named: "agy", version: "1.5.6")
 
-    // The login shell sees ONLY the fake brew/codex/opencode/grok/claude PATH.
+    // The login shell sees ONLY the fake brew and ten-tool PATH.
     try writeRC(zdotdir: zdotdir, home: home, pathEntries: [binDirectory.path])
     return BrewCLIScenario(root: root, home: home, zdotdir: zdotdir, binDirectory: binDirectory, logURL: logURL)
 }
@@ -819,6 +826,8 @@ private let emptyOutdated = #"{"formulae":[],"casks":[]}"#
     let detectorLog = scenario.root.appendingPathComponent("detector-invocations.log")
     for (tool, version) in [
         ("codex", "0.162.1"), ("opencode", "2.0.28"), ("grok", "1.0.52"), ("claude", "2.1.322"),
+        ("hermes", "0.23.1"), ("aider", "0.86.2"), ("goose", "1.59.0"),
+        ("kiro-cli", "3.2.1"), ("omp", "18.19.0"), ("agy", "1.5.6"),
     ] {
         let target = scenario.binDirectory.appendingPathComponent(tool).resolvingSymlinksInPath()
         let script = """
@@ -867,9 +876,11 @@ private let emptyOutdated = #"{"formulae":[],"casks":[]}"#
             "a shadowed canonical installation is queried exactly once for its own version")
     #expect(readLog(scenario.logURL).count == 3)
     let detectorCalls = readLog(detectorLog)
-    #expect(detectorCalls.count == 4)
-    #expect(Set(detectorCalls) == Set(["codex", "opencode", "grok", "claude"]),
-            "the four synthetic PATH tools are queried exactly once; gemini and cline are absent")
+    #expect(detectorCalls.count == 10)
+    #expect(Set(detectorCalls) == Set([
+        "codex", "opencode", "grok", "claude",
+        "hermes", "aider", "goose", "kiro-cli", "omp", "agy",
+    ]), "the ten synthetic PATH tools are queried exactly once; gemini and cline are absent")
 }
 
 @Test func delayedManagerLeavesFlushedM5InventoryVisibleBeforeOneAppendedUpdateSection() throws {
