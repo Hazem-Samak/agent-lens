@@ -81,7 +81,7 @@ struct UninstallHost {
         let environment = ShellEnvironment(shellPath: "/bin/zsh", pathEntries: entries,
             pathJoined: path, raw: raw, isDegraded: false)
         let definitionData = Data("""
-        {"schemaVersion":2,"detectors":[{"id":"codex-id","displayName":"Codex","executableName":"codex","category":"aiAgent","packages":[{"manager":"npm","name":"@openai/codex"}],"versionQuery":{"arguments":["--version"],"stream":"stdout","line":"first"}}]}
+        {"schemaVersion":2,"detectors":[{"id":"codex-id","displayName":"Codex","executableName":"codex","category":"aiAgent","packages":[{"manager":"npm","name":"@openai/codex"}],"acceptedOperations":["npmUninstall"],"versionQuery":{"arguments":["--version"],"stream":"stdout","line":"first"}}]}
         """.utf8)
         let definition = try DetectorRegistry.validate(data: definitionData)[0]
         let diagnostic = PathDiagnosticsScanner.scan(
@@ -271,7 +271,7 @@ struct CombinedHost {
         let environment = ShellEnvironment(shellPath: "/bin/zsh", pathEntries: entries,
             pathJoined: path, raw: raw, isDegraded: false)
         let definitionData = Data("""
-        {"schemaVersion":2,"detectors":[{"id":"codex-id","displayName":"Codex","executableName":"codex","category":"aiAgent","packages":[{"manager":"npm","name":"@openai/codex"}],"versionQuery":{"arguments":["--version"],"stream":"stdout","line":"first"}}]}
+        {"schemaVersion":2,"detectors":[{"id":"codex-id","displayName":"Codex","executableName":"codex","category":"aiAgent","packages":[{"manager":"npm","name":"@openai/codex"}],"acceptedOperations":["npmUpdate","npmUninstall"],"versionQuery":{"arguments":["--version"],"stream":"stdout","line":"first"}}]}
         """.utf8)
         let definition = try DetectorRegistry.validate(data: definitionData)[0]
         let scan: @Sendable () -> ToolPathDiagnostic = {
@@ -459,7 +459,7 @@ struct RenderHost {
         let environment = ShellEnvironment(shellPath: "/bin/zsh", pathEntries: entries,
             pathJoined: path, raw: raw, isDegraded: false)
         let definitionData = Data("""
-        {"schemaVersion":2,"detectors":[{"id":"codex-id","displayName":"Codex","executableName":"codex","category":"aiAgent","packages":[{"manager":"npm","name":"@openai/codex"}],"versionQuery":{"arguments":["--version"],"stream":"stdout","line":"first"}}]}
+        {"schemaVersion":2,"detectors":[{"id":"codex-id","displayName":"Codex","executableName":"codex","category":"aiAgent","packages":[{"manager":"npm","name":"@openai/codex"}],"acceptedOperations":["npmUninstall"],"versionQuery":{"arguments":["--version"],"stream":"stdout","line":"first"}}]}
         """.utf8)
         let definition = try DetectorRegistry.validate(data: definitionData)[0]
         let scan = PathDiagnosticsScanner.scan(detector: definition.makeDetector(),

@@ -66,6 +66,7 @@ public enum NpmUpdateUnavailableReason: String, Equatable, Sendable {
     case budgetExhausted
     case operationRootUnsafe
     case noVerifiedSelection
+    case operationNotAccepted
     case cancelled
     case probeFailed
 
@@ -85,6 +86,7 @@ public enum NpmUpdateUnavailableReason: String, Equatable, Sendable {
         case .budgetExhausted: "The read-only preparation budget was exhausted."
         case .operationRootUnsafe: "An owned operation scratch root could not be claimed safely."
         case .noVerifiedSelection: "The selected entry does not identify a verifiable target."
+        case .operationNotAccepted: "Update is not yet accepted for this tool. Agent Lens detects it, but no managed update has been verified for it."
         case .cancelled: "Preparation was cancelled before any mutation."
         case .probeFailed: "Fresh npm verification failed."
         }
@@ -318,6 +320,7 @@ public enum NpmUninstallUnavailableReason: String, Equatable, Sendable {
     case identityUnverified
     case managerUnavailable
     case operationRootUnsafe
+    case operationNotAccepted
     case cancelled
     case probeFailed
 
@@ -328,6 +331,7 @@ public enum NpmUninstallUnavailableReason: String, Equatable, Sendable {
         case .identityUnverified: "The selected installation could not be freshly verified."
         case .managerUnavailable: "npm is not available on the captured PATH."
         case .operationRootUnsafe: "An owned operation scratch root could not be claimed safely."
+        case .operationNotAccepted: "Uninstall is not yet accepted for this tool. Agent Lens detects it, but no managed uninstall has been verified for it."
         case .cancelled: "Preparation was cancelled before any mutation."
         case .probeFailed: "Fresh npm verification failed."
         }

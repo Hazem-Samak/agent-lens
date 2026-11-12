@@ -87,6 +87,9 @@ private func registryJSON(_ detectors: [String], schemaVersion: Int = 2) -> Stri
 
     #expect(definitions.map(\.category) == [.aiAgent, .aiAgent, .aiAgent])
     #expect(definitions.allSatisfy { $0.versionQuery == .standard })
+    #expect(definitions[0].acceptedOperations == [.npmUpdate, .npmUninstall])
+    #expect(definitions[1].acceptedOperations.isEmpty)
+    #expect(definitions[2].acceptedOperations.isEmpty)
     #expect(definitions[0].packages == [
         try DeclaredPackage(manager: .npm, name: "@openai/codex"),
         try DeclaredPackage(manager: .homebrewCask, name: "codex"),
@@ -164,8 +167,80 @@ private func registryJSON(_ detectors: [String], schemaVersion: Int = 2) -> Stri
     )
 }
 
-// MARK: Per-detector fixture tests (D-010: "each with a fixture test")
+// MARK: Accepted operations (M11-B fail-closed mutation gate)
 
+@Test func acceptedOperationsAreOptionalClosedAndValidatedPerField() throws {
+    func expectError(
+        _ expected: DetectorRegistryError,
+        when extraFields: String
+    ) throws {
+        let data = Data(registryJSON([detectorJSON(extraFields: extraFields)]).utf8)
+        var thrown: DetectorRegistryError?
+        do {
+            _ = try DetectorRegistry.validate(data: data)
+        } catch let error as DetectorRegistryError {
+            thrown = error
+        }
+        #expect(thrown == expected, "for fields: \(extraFields)")
+    }
+
+    // Absent and empty both mean no accepted operation.
+    let absent = try DetectorRegistry.validate(data: Data(registryJSON([detectorJSON()]).utf8))
+    #expect(absent[0].acceptedOperations.isEmpty)
+    let empty = try DetectorRegistry.validate(
+        data: Data(registryJSON([detectorJSON(extraFields: #""acceptedOperations":[]"#)]).utf8)
+    )
+    #expect(empty[0].acceptedOperations.isEmpty)
+
+    // The complete closed vocabulary is accepted in declared order.
+    let both = try DetectorRegistry.validate(data: Data(registryJSON([
+        detectorJSON(extraFields: #""acceptedOperations":["npmUpdate","npmUninstall"]"#)
+    ]).utf8))
+    #expect(both[0].acceptedOperations == [.npmUpdate, .npmUninstall])
+
+    try expectError(
+        .invalidField(
+            field: "acceptedOperations[0]",
+            id: "x",
+            reason: "must be one of npmUpdate, npmUninstall"
+        ),
+        when: #""acceptedOperations":["npmUpgrade"]"#
+    )
+    try expectError(
+        .invalidField(
+            field: "acceptedOperations[1]",
+            id: "x",
+            reason: "duplicate operation 'npmUpdate'"
+        ),
+        when: #""acceptedOperations":["npmUpdate","npmUpdate"]"#
+    )
+    try expectError(
+        .invalidField(
+            field: "acceptedOperations",
+            id: "x",
+            reason: "must be an array of accepted operation strings"
+        ),
+        when: #""acceptedOperations":"npmUpdate""#
+    )
+    try expectError(
+        .invalidField(
+            field: "acceptedOperations[1]",
+            id: "x",
+            reason: "must be a string"
+        ),
+        when: #""acceptedOperations":["npmUpdate",7]"#
+    )
+    try expectError(
+        .invalidField(
+            field: "acceptedOperations",
+            id: "x",
+            reason: "must be an array of accepted operation strings"
+        ),
+        when: #""acceptedOperations":null"#
+    )
+}
+
+// MARK: Per-detector fixture tests (D-010: "each with a fixture test")
 @Test func bundledFixtureDefinitionsMatchSyntheticLayouts() throws {
     let definitions = try DetectorRegistry.loadDefault()
     for definition in definitions {

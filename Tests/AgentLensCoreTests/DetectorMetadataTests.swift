@@ -276,6 +276,95 @@ private func expectUnknownKey(
     )
 }
 
+// MARK: Accepted operations (M11-B fail-closed mutation gate)
+
+@Test func acceptedOperationsDefaultEmptyAndDecodeTheClosedVocabulary() throws {
+    // Direct construction keeps the default and preserves explicit declared order.
+    let defaulted = try DetectorDefinition(
+        id: "tool",
+        displayName: "Tool",
+        executableName: "tool",
+        extraSearchRoots: [],
+        fixture: nil,
+        category: .aiAgent,
+        packages: [],
+        informationURL: nil,
+        uninstallInstructionsURL: nil,
+        versionQuery: .standard
+    )
+    #expect(defaulted.acceptedOperations.isEmpty)
+    let explicit = try DetectorDefinition(
+        id: "tool",
+        displayName: "Tool",
+        executableName: "tool",
+        extraSearchRoots: [],
+        fixture: nil,
+        category: .aiAgent,
+        packages: [],
+        informationURL: nil,
+        uninstallInstructionsURL: nil,
+        versionQuery: .standard,
+        acceptedOperations: [.npmUninstall, .npmUpdate]
+    )
+    #expect(explicit.acceptedOperations == [.npmUninstall, .npmUpdate])
+
+    func decoded(_ extraFields: [String]) throws -> DetectorDefinition {
+        try JSONDecoder().decode(
+            DetectorDefinition.self,
+            from: Data(detectorObject(extraFields: extraFields).utf8)
+        )
+    }
+
+    #expect(try decoded([]).acceptedOperations.isEmpty)
+    #expect(try decoded([#""acceptedOperations":[]"#]).acceptedOperations.isEmpty)
+    #expect(
+        try decoded([#""acceptedOperations":["npmUpdate","npmUninstall"]"#]).acceptedOperations
+            == [.npmUpdate, .npmUninstall]
+    )
+
+    func decodeFailure(_ extraFields: [String]) -> DetectorRegistryError? {
+        do {
+            _ = try decoded(extraFields)
+            return nil
+        } catch let error as DetectorRegistryError {
+            return error
+        } catch {
+            return nil
+        }
+    }
+
+    #expect(decodeFailure([#""acceptedOperations":["npmUpgrade"]"#])
+        == .invalidField(
+            field: "acceptedOperations[0]",
+            id: "tool",
+            reason: "must be one of npmUpdate, npmUninstall"
+        ))
+    #expect(decodeFailure([#""acceptedOperations":["npmUpdate","npmUpdate"]"#])
+        == .invalidField(
+            field: "acceptedOperations[1]",
+            id: "tool",
+            reason: "duplicate operation 'npmUpdate'"
+        ))
+    #expect(decodeFailure([#""acceptedOperations":"npmUpdate""#])
+        == .invalidField(
+            field: "acceptedOperations",
+            id: "tool",
+            reason: "must be an array of accepted operation strings"
+        ))
+    #expect(decodeFailure([#""acceptedOperations":["npmUpdate",7]"#])
+        == .invalidField(
+            field: "acceptedOperations",
+            id: "tool",
+            reason: "must be an array of accepted operation strings"
+        ))
+    #expect(decodeFailure([#""acceptedOperations":null"#])
+        == .invalidField(
+            field: "acceptedOperations",
+            id: "tool",
+            reason: "must be an array of accepted operation strings"
+        ))
+}
+
 // MARK: Codable does not bypass validity
 
 @Test func validDefinitionsRoundTripThroughCodable() throws {

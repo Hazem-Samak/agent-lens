@@ -96,7 +96,8 @@ private struct UninstallFixture {
             packages: [try DeclaredPackage(manager: .npm, name: package)],
             informationURL: nil,
             uninstallInstructionsURL: nil,
-            versionQuery: .standard
+            versionQuery: .standard,
+            acceptedOperations: [.npmUninstall]
         )
     }
 

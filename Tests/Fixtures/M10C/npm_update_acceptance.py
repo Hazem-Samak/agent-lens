@@ -511,7 +511,7 @@ struct ControlledHost {
         let operationRoot = args.count > 10 ? args[10] : root
         let permissionFailure = args.count > 9 && args[9] == "permission"
         let definitionData = Data("""
-        {"schemaVersion":2,"detectors":[{"id":"codex-id","displayName":"Codex","executableName":"codex","category":"aiAgent","packages":[{"manager":"npm","name":"@openai/codex"}],"versionQuery":{"arguments":["--version"],"stream":"stdout","line":"first"}}]}
+        {"schemaVersion":2,"detectors":[{"id":"codex-id","displayName":"Codex","executableName":"codex","category":"aiAgent","packages":[{"manager":"npm","name":"@openai/codex"}],"acceptedOperations":["npmUpdate"],"versionQuery":{"arguments":["--version"],"stream":"stdout","line":"first"}}]}
         """.utf8)
         let definition = try DetectorRegistry.validate(data: definitionData)[0]
         let aliasDir = (alias as NSString).deletingLastPathComponent
@@ -678,7 +678,7 @@ func makeNativeService(manager: String, prefix: String, root: String, alias: Str
                        loopback: String, record: URL, home: String, nodeDir: String,
                        mode: String? = nil) throws -> InventoryService {
     let data = Data("""
-    {"schemaVersion":2,"detectors":[{"id":"codex-id","displayName":"Codex","executableName":"codex","category":"aiAgent","packages":[{"manager":"npm","name":"@openai/codex"}],"versionQuery":{"arguments":["--version"],"stream":"stdout","line":"first"}}]}
+    {"schemaVersion":2,"detectors":[{"id":"codex-id","displayName":"Codex","executableName":"codex","category":"aiAgent","packages":[{"manager":"npm","name":"@openai/codex"}],"acceptedOperations":["npmUpdate"],"versionQuery":{"arguments":["--version"],"stream":"stdout","line":"first"}}]}
     """.utf8)
     let definition = try DetectorRegistry.validate(data: data)[0]
     let aliasDir = (alias as NSString).deletingLastPathComponent

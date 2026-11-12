@@ -72,6 +72,14 @@ public enum PackageManager: String, Codable, Sendable, Equatable, CaseIterable {
     }
 }
 
+/// The mutation operations a detector has been accepted for. The vocabulary is closed: an
+/// operation string outside these cases cannot be constructed, decoded, or executed. An absent or
+/// empty list means the detector is informational and offers no mutation.
+public enum AcceptedOperation: String, Codable, Sendable, Equatable {
+    case npmUpdate
+    case npmUninstall
+}
+
 /// One declared package candidate, e.g. npm `@openai/codex` or Homebrew cask `codex`.
 public struct DeclaredPackage: Codable, Sendable, Equatable {
 
@@ -253,6 +261,38 @@ public struct VersionQuerySpecification: Codable, Sendable, Equatable {
 
 /// Metadata validation helpers shared by the registry and direct construction.
 enum DetectorMetadataValidation {
+
+    /// Validates one raw accepted-operation list for a named detector.
+    ///
+    /// Every value must be a member of the closed `AcceptedOperation` vocabulary and no operation
+    /// may repeat. The returned order is the declared order. Failures name the exact element so a
+    /// malformed registry cannot silently grant, duplicate, or reinterpret a mutation.
+    static func acceptedOperations(
+        for rawValues: [String],
+        id: String
+    ) throws -> [AcceptedOperation] {
+        var seen = Set<AcceptedOperation>()
+        var operations: [AcceptedOperation] = []
+        operations.reserveCapacity(rawValues.count)
+        for (index, rawValue) in rawValues.enumerated() {
+            guard let operation = AcceptedOperation(rawValue: rawValue) else {
+                throw DetectorRegistryError.invalidField(
+                    field: "acceptedOperations[\(index)]",
+                    id: id,
+                    reason: "must be one of npmUpdate, npmUninstall"
+                )
+            }
+            guard seen.insert(operation).inserted else {
+                throw DetectorRegistryError.invalidField(
+                    field: "acceptedOperations[\(index)]",
+                    id: id,
+                    reason: "duplicate operation '\(rawValue)'"
+                )
+            }
+            operations.append(operation)
+        }
+        return operations
+    }
 
     static func validatedHTTPSURL(_ text: String) -> URL? {
         guard !text.isEmpty else { return nil }

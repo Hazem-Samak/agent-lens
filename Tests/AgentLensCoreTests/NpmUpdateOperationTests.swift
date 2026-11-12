@@ -92,7 +92,8 @@ private struct OperationFixture {
             packages: [try DeclaredPackage(manager: .npm, name: package)],
             informationURL: nil,
             uninstallInstructionsURL: nil,
-            versionQuery: .standard
+            versionQuery: .standard,
+            acceptedOperations: [.npmUpdate]
         )
     }
 

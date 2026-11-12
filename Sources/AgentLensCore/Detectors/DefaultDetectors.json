@@ -15,6 +15,7 @@
         { "manager": "npm", "name": "@openai/codex" },
         { "manager": "homebrewCask", "name": "codex" }
       ],
+      "acceptedOperations": ["npmUpdate", "npmUninstall"],
       "informationURL": "https://developers.openai.com/codex/cli",
       "versionQuery": {
         "arguments": ["--version"],
