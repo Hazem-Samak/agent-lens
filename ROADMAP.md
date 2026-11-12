@@ -229,8 +229,9 @@ M11 is technically accepted on `milestone/m11-catalogue` at `b07e321`: the full 
 catalogue, the fail-closed mutation acceptance gate (D-021/D-022), the test-enforced capability
 matrix, and the contributor foundation, with all seven hosted gates passed at the exact SHA
 ([combined acceptance](walkthroughs/M11-combined-acceptance.md)). Awaiting owner decisions:
-(1) merge of the milestone branch to `main` (Git delivery — not authorized by technical acceptance;
-the owner is considering PR-then-merge, the M10 pattern);
+(1) owner review of [PR #2](https://github.com/Hazem-Samak/agent-lens/pull/2)
+(`milestone/m11-catalogue` → `main`) and merge authorization — the orchestrator created the PR and
+verified CI, and intentionally did NOT merge (owner reviews before merging; the M10 pattern);
 (2) M12 dispatch (complete native diagnostic and operation workflow, including the outstanding M8
 keyboard-only gate). The license is settled: **MIT** (D-023, 2026-11-12); public contribution
 invitations remain a separate owner decision. Per-tool mutation promotions remain separate
