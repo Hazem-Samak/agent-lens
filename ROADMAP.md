@@ -228,7 +228,11 @@ proposals on 2026-11-12, and the orchestrator judged and froze the master plan a
 primary documentation (DeepSeek Harness; Google Antigravity CLI, official cask `antigravity-cli`)
 and await one-line owner confirmations. The plan adds one safety phase: a fail-closed per-entry
 mutation acceptance gate, because new npm-declared detectors would otherwise silently enable the
-M10 Update/Uninstall workflow. Next: owner approval of scope and decisions OD-1…OD-10, selection
-of implementer and independent reviewers, then the bounded M11-A dispatch brief. Choose the OSS
-license (MIT or Apache-2.0) before inviting public contributions. No implementation, merge, or
-public release is authorized by this status.
+M10 Update/Uninstall workflow. On 2026-11-12 the owner approved the plan and delegated the
+technical decisions OD-1…OD-10 to orchestrator judgment (OD-7 license remains the owner's open
+choice; no public invitations until chosen), and named the implementer: DeepSeek V4.1 Flash 1017
+via OMP, max reasoning. M11-A (identity freeze) is dispatched on `milestone/m11-catalogue` at
+`d98bf7b` under [briefs/M11-A-identity-freeze.md](briefs/M11-A-identity-freeze.md). Independent
+reviewers for the M11-B gate phase are pending owner selection. Choose the OSS license (MIT or
+Apache-2.0) before inviting public contributions. No merge or public release is authorized by
+this status.
