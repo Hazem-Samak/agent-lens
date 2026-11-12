@@ -238,7 +238,10 @@ acceptance gate) is **technically accepted** at `caae348` with both mandatory in
 PASS and an orchestrator native spot-check (D-021/D-022;
 [acceptance](walkthroughs/M11-B-acceptance.md)). M11-C (settled registry batch: claude/gemini/cline
 plus opencode corrections) is **technically accepted** — six-entry registry, 543 tests
-([acceptance](walkthroughs/M11-C-acceptance.md)). M11-D (collision batch) is next. Independent
+([acceptance](walkthroughs/M11-C-acceptance.md)). M11-D (collision batch:
+hermes/aider/goose/kiro-cli/omp/agy plus a do-not-declare regression test) is dispatched under
+[briefs/M11-D-collision-batch.md](briefs/M11-D-collision-batch.md) with mandatory independent
+review. Independent
 reviewers are the planning council models — MiniMax M3.1-Flash/xhigh (mcode) and Grok 4.7/high
 (grok CLI) — mandatory for the M11-B gate. All agents are orchestrated through Herdr panels and
 hc only (owner rule; no delegate skills). Choose the OSS license (MIT or
