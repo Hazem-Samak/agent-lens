@@ -489,3 +489,31 @@ Inviting public contributions remains a SEPARATE owner decision — the guide st
 contributions are not publicly invited. This is an owner-authorized documentation addition after
 the M11 combined acceptance candidate `b07e321`; it changes no product code, test, or gate. The
 copyright notice uses the owner's handle; the owner may substitute a legal name at any time.
+
+---
+
+## M12 — planning freeze and phase acceptances (2026-11-13)
+
+Planning Council (MiniMax M3.1-Flash/xhigh via mcode; Grok 4.7/high via grok CLI; Herdr/hc
+orchestration) produced independent proposals; the orchestrator judged and froze
+`briefs/M12-plan.md` on base `0589fac` (`milestone/m11-catalogue` tip; M11 accepted + MIT D-023),
+commit `1f251d4`, on the new branch `milestone/m12-workflow`. Rulings R1–R16
+(`briefs/M12-planning/judgment.md`) bind the dispatch briefs. The owner pre-authorized the full M12
+flow (implement → independent review → PR → owner merge decision); merge is NOT authorized in
+advance. Sole product writer: DeepSeek V4.1 Flash 1017 via OMP (`river`, max). Standing independent
+reviewers: the two council models. Verified baseline at the base: 467 Core + 80 AppSupport = 547.
+
+- **M12-A — presentation-state foundation: technically accepted** at `64a5056` + R1 (`2ed3a77`).
+  AppSupport-only safety phase: `listScope`/`detailPane`/`updateStatusFilter`, scope→filter→search
+  `filteredEntries` (search predicate unchanged), three-kind conflict classification,
+  `ManagementPresentation` (Core reason strings read never retyped), additive snapshot counts, and
+  the extended confirmation-invalidation trigger set (executing-mutation early-return preserved).
+  App visually unchanged. Both mandatory independent reviews PASS (MiniMax 0 blocking/3 low; Grok
+  0 blocking/2 low); R1 added the LOW-1 filter-inertness pin + corrected the seeded-trigger comment
+  and report slip (no production change). Orchestrator rerun: 467 Core + 119 AppSupport = 586, zero
+  skips/failures; guard 21, packaging 9, both import guards clean, dev-app built. LOW-2 recorded as a
+  documented Core coupling (R3 unchanged). [Acceptance](walkthroughs/M12-A-acceptance.md).
+
+No merge to `main`, no release. M12 continues with M12-B (seven-destination navigation shell).
+OD-M12-1 (temporary Full Keyboard Access / VoiceOver / appearance for the M8 keyboard gate, restored
+after) is the one open owner gate and blocks M12-F only.
