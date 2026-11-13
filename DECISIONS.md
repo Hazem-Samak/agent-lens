@@ -546,7 +546,20 @@ reviewers: the two council models. Verified baseline at the base: 467 Core + 80 
   Orchestrator rerun: 467 Core + 119 AppSupport = 586, zero skips/failures; guard 21, packaging 9.
   Native C-1 proof: Return did not confirm the Uninstall preview, Escape cancelled it (zero
   mutation). [Acceptance](walkthroughs/M12-D-acceptance.md).
+- **M12-E — native menus, keyboard, accessibility, layout: technically accepted** at `5214d63` + R1
+  (`407882b`). App-only phase (R9/R10/R11): native menu bar via FocusedValues (no menu item confirms a
+  mutation; Tool items prepare/verify only, busy/sheet/affordance gated); VoiceOver labels/hints/
+  headers, sidebar VO activation, path-action feedback announced via the real AppKit
+  `.announcementRequested` API; semantic text + wrapping safety copy; 760×480 content minimum; system
+  appearance. Both reviews initially CHANGES_REQUIRED (0 blocking); R1 corrected MEDIUM-1 (Verify
+  disabled while a sheet is presented — R9 prose governs; the brief table had dropped the conjunct),
+  the sidebar spoken badge count, the Conflicts header trait, and the verify-predicate duplication;
+  both re-reviews PASS. Orchestrator rerun: 467 Core + 119 AppSupport = 586, zero skips/failures;
+  guard 21, packaging 9. [Acceptance](walkthroughs/M12-E-acceptance.md).
 
-No merge to `main`, no release. M12 continues with M12-E (menus, keyboard, accessibility, layout).
-OD-M12-1 (temporary Full Keyboard Access / VoiceOver / appearance for the M8 keyboard gate, restored
-after) is the one open owner gate and blocks M12-F only.
+**OD-M12-1 SETTLED (owner approved 2026-11-13):** during M12-F only, the orchestrator may temporarily
+enable Full Keyboard Access + VoiceOver and toggle appearance/text size, restoring each previous
+value before finishing. This unblocks the M8 keyboard gate and the VoiceOver spoken checks.
+
+No merge to `main`, no release. M12 continues with M12-F (orchestrator-run M8 keyboard gate +
+VoiceOver + combined acceptance). All five implementer phases (A–E) are accepted.
