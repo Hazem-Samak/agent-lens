@@ -69,7 +69,8 @@ public struct ToolDetailView: View {
     }
 
     private func detailContent(_ entry: InventoryEntry) -> some View {
-        ScrollView {
+        let presentation = ManagementPresentation(entry: entry)
+        return ScrollView {
             VStack(alignment: .leading, spacing: 20) {
                 if isDegradedEnvironment {
                     degradedEnvironmentBanner
@@ -93,9 +94,11 @@ public struct ToolDetailView: View {
 
                 ownershipSection(entry)
 
-                if hasDeclaredNpmPackage(entry) {
+                // The npm block is offered only for a tool that declares an npm package; the
+                // manager-limit sentences are independent text and appear for any installed tool.
+                if hasDeclaredNpmPackage(entry) || !presentation.otherLimits.isEmpty {
                     Divider()
-                    managementSection(entry)
+                    managementSection(entry, presentation: presentation)
                 }
 
                 Divider()
@@ -104,7 +107,7 @@ public struct ToolDetailView: View {
 
                 Divider()
 
-                updateSection(entry)
+                updateSection(entry, presentation: presentation)
             }
             .padding(24)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -125,8 +128,10 @@ public struct ToolDetailView: View {
                 Text("The login shell could not be captured; PATH uses the documented fallback PATH. Results may not represent the login shell's authoritative PATH.")
                     .font(.caption)
                     .foregroundColor(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
+        .accessibilityElement(children: .combine)
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color.orange.opacity(0.1), in: RoundedRectangle(cornerRadius: 8))
@@ -144,8 +149,10 @@ public struct ToolDetailView: View {
                 Text("\(failure.message). Displaying retained local inventory.")
                     .font(.caption)
                     .foregroundColor(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
+        .accessibilityElement(children: .combine)
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color.orange.opacity(0.1), in: RoundedRectangle(cornerRadius: 8))
@@ -163,8 +170,10 @@ public struct ToolDetailView: View {
                 Text("\(failure.message). Displaying retained local inventory.")
                     .font(.caption)
                     .foregroundColor(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
+        .accessibilityElement(children: .combine)
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color.orange.opacity(0.1), in: RoundedRectangle(cornerRadius: 8))
@@ -177,6 +186,7 @@ public struct ToolDetailView: View {
             Text(entry.definition.displayName)
                 .font(.title)
                 .fontWeight(.bold)
+                .accessibilityAddTraits(.isHeader)
 
             HStack(spacing: 8) {
                 Text(entry.definition.executableName)
@@ -200,6 +210,7 @@ public struct ToolDetailView: View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Installation")
                 .font(.headline)
+                .accessibilityAddTraits(.isHeader)
 
             Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 10) {
                 GridRow {
@@ -254,7 +265,9 @@ public struct ToolDetailView: View {
         )
     }
 
-    private static func canVerifyOwnership(_ entry: InventoryEntry) -> Bool {
+    /// The single winner/off-PATH ownership-verification rule. The menu bar reuses this predicate,
+    /// so the eligibility rule exists in exactly one place.
+    static func canVerifyOwnership(_ entry: InventoryEntry) -> Bool {
         switch entry.diagnostic.selection {
         case .winner, .offPath:
             true
@@ -269,44 +282,59 @@ public struct ToolDetailView: View {
         entry.definition.packages.contains { $0.manager == .npm }
     }
 
-    private static func hasSelectedInstallation(_ entry: InventoryEntry) -> Bool {
-        switch entry.diagnostic.selection {
-        case .winner, .offPath: true
-        case .notInstalled, .inconsistent: false
+    /// The Manage section renders the frozen `ManagementPresentation`: the npm uninstall slot only
+    /// for a declared npm package, plus the manager-limit sentences as text. No eligibility
+    /// predicate is re-derived here — the model already decided what is offered and why not.
+    private func managementSection(
+        _ entry: InventoryEntry,
+        presentation: ManagementPresentation
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Manage")
+                .font(.headline)
+                .accessibilityAddTraits(.isHeader)
+            if hasDeclaredNpmPackage(entry) {
+                uninstallAffordance(entry, affordance: presentation.uninstall)
+            }
+            ForEach(presentation.otherLimits, id: \.self) { limit in
+                Text(limit)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }
     }
 
     @ViewBuilder
-    private func managementSection(_ entry: InventoryEntry) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("Manage")
-                .font(.headline)
-            if !entry.definition.acceptedOperations.contains(.npmUninstall) {
-                Text(NpmUninstallUnavailableReason.operationNotAccepted.message)
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            } else if let verified = entry.ownership?.verifiedInstallation,
-               verified.manager == .npm,
-               Self.hasSelectedInstallation(entry)
-            {
+    private func uninstallAffordance(
+        _ entry: InventoryEntry,
+        affordance: ManagementPresentation.UninstallAffordance
+    ) -> some View {
+        switch affordance {
+        case .prepareNpmUninstall:
+            if let verified = entry.ownership?.verifiedInstallation {
                 Text("Verified npm-global package: \(verified.packageName)")
                     .font(.subheadline)
                     .foregroundColor(.secondary)
-                Button(role: .destructive) {
-                    onPrepareUninstall()
-                } label: {
-                    Label(isPreparingUninstall ? "Preparing Uninstall…" : "Uninstall…",
-                          systemImage: "trash")
-                }
-                .disabled(isBusy)
-                Text("Prepares an exact preview first. Confirmation, output and the post-removal PATH delta are shown before anything is removed.")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            } else {
-                Text("Verify Installation to enable Uninstall for this npm package.")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
             }
+            Button(role: .destructive) {
+                onPrepareUninstall()
+            } label: {
+                Label(isPreparingUninstall ? "Preparing Uninstall…" : "Uninstall…",
+                      systemImage: "trash")
+            }
+            .disabled(isBusy)
+            Text("Prepares an exact preview first. Confirmation, output and the post-removal PATH delta are shown before anything is removed.")
+                .font(.caption)
+                .foregroundColor(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        case .unavailable(let text), .needsVerification(let text):
+            Text(text)
+                .font(.caption)
+                .foregroundColor(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        case .hidden:
+            EmptyView()
         }
     }
 
@@ -319,6 +347,7 @@ public struct ToolDetailView: View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Tool Metadata")
                 .font(.headline)
+                .accessibilityAddTraits(.isHeader)
 
             Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 10) {
                 GridRow {
@@ -436,10 +465,14 @@ public struct ToolDetailView: View {
 
     // MARK: Update Status
 
-    private func updateSection(_ entry: InventoryEntry) -> some View {
+    private func updateSection(
+        _ entry: InventoryEntry,
+        presentation: ManagementPresentation
+    ) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Update Status")
                 .font(.headline)
+                .accessibilityAddTraits(.isHeader)
 
             if let update = entry.update {
                 Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 10) {
@@ -520,23 +553,32 @@ public struct ToolDetailView: View {
                     .foregroundColor(.secondary)
             }
 
-            if case .updateAvailable = entry.updateStatus,
-               entry.update?.npmPackage != nil
-            {
-                if entry.definition.acceptedOperations.contains(.npmUpdate) {
-                    Button {
-                        onPrepareUpdate()
-                    } label: {
-                        Label(isPreparingUpdate ? "Preparing Update…" : "Prepare Update…",
-                              systemImage: "arrow.down.circle")
-                    }
-                    .disabled(isBusy)
-                } else {
-                    Text(NpmUpdateUnavailableReason.operationNotAccepted.message)
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
+            updateAffordance(presentation.update)
+        }
+    }
+
+    /// The one update affordance, exactly as the frozen presentation decided it. The titles,
+    /// system image, and disabled rule are the accepted M10 control.
+    @ViewBuilder
+    private func updateAffordance(
+        _ affordance: ManagementPresentation.UpdateAffordance
+    ) -> some View {
+        switch affordance {
+        case .prepareNpmUpdate:
+            Button {
+                onPrepareUpdate()
+            } label: {
+                Label(isPreparingUpdate ? "Preparing Update…" : "Prepare Update…",
+                      systemImage: "arrow.down.circle")
             }
+            .disabled(isBusy)
+        case .unavailable(let text):
+            Text(text)
+                .font(.caption)
+                .foregroundColor(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        case .hidden:
+            EmptyView()
         }
     }
 

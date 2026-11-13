@@ -5,21 +5,27 @@ import AgentLensCore
 public struct ToolListView: View {
     @Bindable var model: InventoryViewModel
     private let onRescan: (@MainActor () -> Void)?
+    /// True only for the Updates destination: the status filter is not part of any other list,
+    /// including the Diagnostics content column when it preserves the Updates scope.
+    private let showsUpdateFilter: Bool
 
-    public init(model: InventoryViewModel, onRescan: (@MainActor () -> Void)? = nil) {
+    public init(
+        model: InventoryViewModel,
+        onRescan: (@MainActor () -> Void)? = nil,
+        showsUpdateFilter: Bool = false
+    ) {
         self.model = model
         self.onRescan = onRescan
+        self.showsUpdateFilter = showsUpdateFilter
     }
 
     public var body: some View {
-        Group {
-            if model.entries.isEmpty {
-                emptyInventoryView
-            } else if model.filteredEntries.isEmpty {
-                ContentUnavailableView.search(text: model.searchText)
-            } else {
-                toolList
+        VStack(spacing: 0) {
+            if showsUpdateFilter {
+                updatesFilterBar
+                Divider()
             }
+            inventoryContent
         }
         .navigationTitle("Tools")
         .searchable(
@@ -27,6 +33,58 @@ public struct ToolListView: View {
             placement: .toolbar,
             prompt: "Search name, executable, or path"
         )
+    }
+
+    @ViewBuilder
+    private var inventoryContent: some View {
+        if model.entries.isEmpty {
+            InventoryEmptyStateView(model: model, onRescan: onRescan)
+        } else if model.filteredEntries.isEmpty {
+            if showsUpdateFilter, !isSearching {
+                updatesEmptyView
+            } else {
+                ContentUnavailableView.search(text: model.searchText)
+            }
+        } else {
+            toolList
+        }
+    }
+
+    private var isSearching: Bool {
+        !model.searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    /// The Updates destination's filter. The five options map one-to-one onto A's frozen
+    /// `UpdateStatusFilter`; writing it goes through the ViewModel's R1 invalidation hook, so the
+    /// App adds no second trigger.
+    private var updatesFilterBar: some View {
+        HStack(spacing: 8) {
+            Picker("Update status", selection: $model.updateStatusFilter) {
+                Text("All")
+                    .tag(UpdateStatusFilter.all)
+                Text("Update available")
+                    .tag(UpdateStatusFilter.updateAvailable)
+                Text("Up to date")
+                    .tag(UpdateStatusFilter.upToDate)
+                Text("Unknown")
+                    .tag(UpdateStatusFilter.unknown)
+                Text("Not checked")
+                    .tag(UpdateStatusFilter.notChecked)
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            .accessibilityLabel("Update status")
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+    }
+
+    private var updatesEmptyView: some View {
+        ContentUnavailableView {
+            Label("No Verified Updates", systemImage: "checkmark.circle")
+        } description: {
+            Text("No verified updates. Check Updates reads supported latest versions. Unknown stays unknown.")
+        }
     }
 
     private var toolList: some View {
@@ -38,14 +96,20 @@ public struct ToolListView: View {
                 set: { model.select(registryID: $0) }
             )
         ) { entry in
-            ToolRow(entry: entry)
+            ToolRow(entry: entry, showsUpdateCell: model.listScope == .updates)
                 .tag(entry.registryID)
         }
         .listStyle(.inset)
     }
+}
 
-    @ViewBuilder
-    private var emptyInventoryView: some View {
+/// The shared "no inventory facts yet" presentation: the same copy is used by the list
+/// destinations and by Overview, so loading, failure, and the empty registry read identically.
+struct InventoryEmptyStateView: View {
+    let model: InventoryViewModel
+    let onRescan: (@MainActor () -> Void)?
+
+    var body: some View {
         switch model.phase {
         case .loadingLocal:
             VStack(spacing: 12) {
@@ -77,8 +141,10 @@ public struct ToolListView: View {
     }
 }
 
-private struct ToolRow: View {
+struct ToolRow: View {
     let entry: InventoryEntry
+    /// Shows the Updates destination's tri-state cell for every non-`updateAvailable` status.
+    var showsUpdateCell: Bool = false
 
     var body: some View {
         HStack(alignment: .center, spacing: 8) {
@@ -90,19 +156,50 @@ private struct ToolRow: View {
                     .font(.caption)
                     .fontDesign(.monospaced)
                     .foregroundColor(.secondary)
+                Text(localVersionText)
+                    .font(.caption)
+                    .fontDesign(.monospaced)
+                    .foregroundColor(.secondary)
+                Text(sourceText)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                declaredPackageRows
             }
 
             Spacer()
 
             installBadge
 
-            if case .updateAvailable = entry.updateStatus {
-                updateBadge
-            }
+            updateStatusCell
         }
         .padding(.vertical, 2)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(accessibilityDescription)
+    }
+
+    /// The local version fact exactly as published; `—` when no local measurement exists.
+    private var localVersionText: String {
+        entry.diagnostic.detectedTool.version ?? "—"
+    }
+
+    /// The source heuristic as a labeled fact, never a verdict. A tool that is not installed has no
+    /// source observation to report. `—` means "not observed", never "standalone".
+    private var sourceText: String {
+        guard entry.installState != .notInstalled else { return "—" }
+        let source = entry.diagnostic.detectedTool.source
+        return source.isEmpty ? "—" : "Source: \(source)"
+    }
+
+    private var declaredPackageRows: some View {
+        ForEach(Array(entry.definition.packages.enumerated()), id: \.offset) { _, package in
+            Text(packageText(package))
+                .font(.caption)
+                .foregroundColor(.secondary)
+        }
+    }
+
+    private func packageText(_ package: DeclaredPackage) -> String {
+        "\(package.manager.label): \(package.name)"
     }
 
     @ViewBuilder
@@ -126,6 +223,33 @@ private struct ToolRow: View {
             Text("Not installed")
                 .font(.caption2)
                 .foregroundColor(.secondary)
+        }
+    }
+
+    /// `updateAvailable` keeps its badge everywhere; the Updates destination additionally shows a
+    /// neutral tri-state cell so up-to-date, unknown, and not-checked are distinguishable without
+    /// ever reading as "current" or "update available".
+    @ViewBuilder
+    private var updateStatusCell: some View {
+        if case .updateAvailable = entry.updateStatus {
+            updateBadge
+        } else if showsUpdateCell {
+            Text(neutralUpdateText)
+                .font(.caption2)
+                .foregroundColor(.secondary)
+        }
+    }
+
+    private var neutralUpdateText: String {
+        switch entry.updateStatus {
+        case .upToDate?:
+            "Up to date"
+        case .unknown?:
+            "Unknown"
+        case .updateAvailable?:
+            "Update available"
+        case nil:
+            "Not checked"
         }
     }
 
@@ -156,9 +280,33 @@ private struct ToolRow: View {
         case .notInstalled:
             parts.append("Not installed")
         }
+        parts.append(entry.definition.category.label)
+        if let version = entry.diagnostic.detectedTool.version {
+            parts.append("version \(version)")
+        } else {
+            parts.append("version unknown")
+        }
+        let conflicts = conflictLabels
+        if !conflicts.isEmpty {
+            parts.append("conflict: " + conflicts.joined(separator: ", "))
+        }
         if case .updateAvailable = entry.updateStatus {
             parts.append("Update available")
         }
         return parts.joined(separator: ", ")
+    }
+
+    private var conflictLabels: [String] {
+        guard let conflict = ToolConflict(entry: entry) else { return [] }
+        return conflict.kinds.map { kind in
+            switch kind {
+            case .shadowedCopy:
+                "shadowed copy"
+            case .offPathCopy:
+                "off PATH copy"
+            case .inconsistentDiagnostics:
+                "inconsistent diagnostics"
+            }
+        }
     }
 }

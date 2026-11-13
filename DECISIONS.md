@@ -489,3 +489,115 @@ Inviting public contributions remains a SEPARATE owner decision — the guide st
 contributions are not publicly invited. This is an owner-authorized documentation addition after
 the M11 combined acceptance candidate `b07e321`; it changes no product code, test, or gate. The
 copyright notice uses the owner's handle; the owner may substitute a legal name at any time.
+
+---
+
+## M12 — planning freeze and phase acceptances (2026-11-13)
+
+Planning Council (MiniMax M3.1-Flash/xhigh via mcode; Grok 4.7/high via grok CLI; Herdr/hc
+orchestration) produced independent proposals; the orchestrator judged and froze
+`briefs/M12-plan.md` on base `0589fac` (`milestone/m11-catalogue` tip; M11 accepted + MIT D-023),
+commit `1f251d4`, on the new branch `milestone/m12-workflow`. Rulings R1–R16
+(`briefs/M12-planning/judgment.md`) bind the dispatch briefs. The owner pre-authorized the full M12
+flow (implement → independent review → PR → owner merge decision); merge is NOT authorized in
+advance. Sole product writer: DeepSeek V4.1 Flash 1017 via OMP (`river`, max). Standing independent
+reviewers: the two council models. Verified baseline at the base: 467 Core + 80 AppSupport = 547.
+
+- **M12-A — presentation-state foundation: technically accepted** at `64a5056` + R1 (`2ed3a77`).
+  AppSupport-only safety phase: `listScope`/`detailPane`/`updateStatusFilter`, scope→filter→search
+  `filteredEntries` (search predicate unchanged), three-kind conflict classification,
+  `ManagementPresentation` (Core reason strings read never retyped), additive snapshot counts, and
+  the extended confirmation-invalidation trigger set (executing-mutation early-return preserved).
+  App visually unchanged. Both mandatory independent reviews PASS (MiniMax 0 blocking/3 low; Grok
+  0 blocking/2 low); R1 added the LOW-1 filter-inertness pin + corrected the seeded-trigger comment
+  and report slip (no production change). Orchestrator rerun: 467 Core + 119 AppSupport = 586, zero
+  skips/failures; guard 21, packaging 9, both import guards clean, dev-app built. LOW-2 recorded as a
+  documented Core coupling (R3 unchanged). [Acceptance](walkthroughs/M12-A-acceptance.md).
+- **M12-B — seven-destination navigation shell: technically accepted** at `ea08ad8`. App-only phase
+  wiring the frozen A model (R1/R7/R14): seven sidebar destinations with snapshot-derived badges;
+  Overview summary tiles (no second inventory); read-only truthful Settings; list rows carry local
+  version, source heuristic, declared packages, and extended accessibility labels (category, version,
+  conflict kind). Selection persists across scope changes; operation sheets unchanged. Orchestrator
+  acceptance + native spot-check (R15; no council review — App-only, no ViewModel/operation-view
+  diff). Orchestrator rerun: 467 Core + 119 AppSupport = 586, zero skips/failures; guard 21,
+  packaging 9, both import guards clean. Native spot-check observed Overview tiles/badges, category
+  filtering, read-only Settings, keyboard navigation, selection persistence, extended row labels.
+  Forward note: sidebar `AXPress` does not select (SwiftUI characteristic); M12-E owns VoiceOver
+  activation. [Acceptance](walkthroughs/M12-B-acceptance.md).
+- **M12-C — conflict summary + Updates status filter: technically accepted** at `e66872d`. App-only
+  phase (R2/R3/R14): `ConflictSummaryView` in Overview lists each conflict tool (three kinds, copy
+  count, measured local versions) with "Show PATH evidence" → the existing `DiagnosticsView` via the
+  frozen `showPathEvidence`; the Updates destination gains the five-option status filter bound to the
+  frozen `updateStatusFilter`; Diagnostics empty-selection copy updated. No second candidate table.
+  Orchestrator acceptance + native spot-check (R15; no council review — no AppSupport diff).
+  Orchestrator rerun: 467 Core + 119 AppSupport = 586, zero skips/failures; guard 21, packaging 9.
+  Native spot-check observed four live conflict tools (Codex/Cline/OMP/DSH shadowed copies), Show PATH
+  evidence navigating to Cline CLI Diagnostics, the Updates filter narrowing to a truthful empty
+  state, and selection persistence. [Acceptance](walkthroughs/M12-C-acceptance.md).
+- **M12-D — operation-journey completion: technically accepted** at `6c1405a`. Mutation-presentation
+  safety phase (R4/R5/R6/R13): `ToolDetailView` renders the frozen `ManagementPresentation` (codex
+  affordances + Core reason strings byte-identical; formula/cask/standalone limits as text); both
+  sheets gain an in-flight progress region; **contract decision C-1** normalizes the footer (preview
+  state: no `.defaultAction`, Cancel on Escape, destructive confirm has no key equivalent;
+  result/unavailable keep Done/Close default). Public initializers source-compatible (M10-D fixture
+  untouched). Both mandatory independent reviews PASS (MiniMax 0 blocking/1 low; Grok 0 blocking/0
+  low), both adjudicating C-1 SAFE — it removes Return-to-confirm and restores the M10-D planning
+  constraint the shipped M10-C update sheet had violated; no M10 safety property weakened.
+  Orchestrator rerun: 467 Core + 119 AppSupport = 586, zero skips/failures; guard 21, packaging 9.
+  Native C-1 proof: Return did not confirm the Uninstall preview, Escape cancelled it (zero
+  mutation). [Acceptance](walkthroughs/M12-D-acceptance.md).
+- **M12-E — native menus, keyboard, accessibility, layout: technically accepted** at `5214d63` + R1
+  (`407882b`). App-only phase (R9/R10/R11): native menu bar via FocusedValues (no menu item confirms a
+  mutation; Tool items prepare/verify only, busy/sheet/affordance gated); VoiceOver labels/hints/
+  headers, sidebar VO activation, path-action feedback announced via the real AppKit
+  `.announcementRequested` API; semantic text + wrapping safety copy; 760×480 content minimum; system
+  appearance. Both reviews initially CHANGES_REQUIRED (0 blocking); R1 corrected MEDIUM-1 (Verify
+  disabled while a sheet is presented — R9 prose governs; the brief table had dropped the conjunct),
+  the sidebar spoken badge count, the Conflicts header trait, and the verify-predicate duplication;
+  both re-reviews PASS. Orchestrator rerun: 467 Core + 119 AppSupport = 586, zero skips/failures;
+  guard 21, packaging 9. [Acceptance](walkthroughs/M12-E-acceptance.md).
+
+**OD-M12-1 SETTLED (owner approved 2026-11-13):** during M12-F only, the orchestrator may temporarily
+enable Full Keyboard Access + VoiceOver and toggle appearance/text size, restoring each previous
+value before finishing. This unblocks the M8 keyboard gate and the VoiceOver spoken checks.
+
+No merge to `main`, no release. M12 continues with M12-F (orchestrator-run M8 keyboard gate +
+VoiceOver + combined acceptance). All five implementer phases (A–E) are accepted.
+
+## M12-F — keyboard-only Copy/Reveal gate + combined acceptance (2026-11-13)
+
+- **M12-F R1 (keyboard focus traversal fix) at `255fd9c`: accepted.** Replaced the sidebar
+  `List`/`NavigationLink` rows with a `ScrollView` + `VStack` of real `Button` destination rows so
+  Tab is not trapped by list cells; `FocusState` + arrow keys + VoiceOver action all preserved the
+  same `selectedDestination` write. Both mandatory independent reviews PASS (MiniMax 0
+  blocking/1 low, sidebar appearance-change noted for explicit comparison vs. M12-B screenshots;
+  Grok 0 blocking/1 low, Space log notes). Orchestrator rerun: 467 Core + 119 AppSupport = 586,
+  zero skips/failures; guard 21, packaging 9. Full evidence:
+  [implementation](walkthroughs/M12-F-implementation.md), [measurement (worker evidence)](walkthroughs/M12-F-measurement.md),
+  reviews [minimax](walkthroughs/M12-F-evidence/reviews/minimax.md), [grok](walkthroughs/M12-F-evidence/reviews/grok.md).
+- **M8 keyboard-only gate — CLOSED.** Real `CGEvent` Tab/Space (never `AXPress`) + AX focus reads
+  against the disposable fixture: Tab reaches all four detail path buttons (stops 2–5), Space
+  activates each; Copy Selected/Resolved is byte-equal with SHA match (clipboard restored); Reveal
+  Selected/Resolved selects the exact symlink / canonical target in Finder; category content-list
+  Tab traversal works. Fixture digest unchanged; clipboard clean before/after.
+- **M12-F R2 (hint fix) at `a411661`: accepted.** `PathActions.swift:74,85` — `.help()` now carries
+  the R10-required hint text ("Copies the path text." / "Asks Finder to select this path.") instead
+  of the long action label, so AXHelp and the tooltip are no longer masked by the accessibility
+  label; `.accessibilityHint`, `.accessibilityLabel`, visible labels, dispatch, eligibility, and
+  feedback are untouched. Independent R2 reviews: MiniMax PASS (0 blocking/High/Medium; 1 low,
+  visible tooltip loses the tool/target distinction which survives in the accessible name), Grok
+  PASS (0 blocking).
+- **Combined M12 acceptance (final SHA `c0aec94dd73042b8b6e2e95e1ef11255a8afebf1`):** all seven
+  hosted CI gates green at the final SHA (run 43421859618, macos15 arm64: guard ✓, guard-fixtures
+  21 ✓, swift-build ✓, isolation-gate ✓, full-test-suite 586 = 467+119 zero skips/failures ✓,
+  build-dev-app ✓, packaging 9 ✓). Orchestrator rerun (D-014): build 24.91s, full suite 586/0,
+  import guards clean, 21 fixture tests OK, dev app built, 9 packaging tests OK, `git diff --check`
+  clean. Product diff vs M12-E base `775d5bc`: only `PathActions.swift` (hint fix); CI floors moved
+  upward only in the orchestrator's own commit 3212255 (AppSupport 80→119, total 547→586; Core
+  floor 467 unchanged). Zero Core/CLI/registry change; Core stays 467. M12 goal (ROADMAP §4) fully
+  achieved, including closing the M8 keyboard-only Copy/Reveal measurement. Limitations: VoiceOver
+  list-row/Settings captions PARTIAL (caption panel emitted help/instructions inside scroll text);
+  large-text limited (semantic font sizes not triggered in the measurement environment — wrap
+  behavior at narrow width proven, scale not). Full record:
+  [M12-combined-acceptance.md](walkthroughs/M12-combined-acceptance.md). No merge to `main`; PR
+  creation and owner merge decision follow.

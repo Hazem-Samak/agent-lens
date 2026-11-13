@@ -101,4 +101,18 @@ public struct InventorySnapshot: Equatable, Sendable {
             return false
         }.count
     }
+
+    /// Tools whose selected installation is a declared extra-root candidate rather than a PATH
+    /// winner. This is the Overview's off-PATH tile fact; it is never inferred from text.
+    public var offPathToolCount: Int {
+        entries.filter { entry in
+            if case .offPath = entry.diagnostic.selection { return true }
+            return false
+        }.count
+    }
+
+    /// Tools with at least one actionable conflict kind. One tool with two kinds counts once.
+    public var conflictToolCount: Int {
+        entries.filter { !ToolConflict.kinds(for: $0.diagnostic).isEmpty }.count
+    }
 }

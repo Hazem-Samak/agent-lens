@@ -1309,3 +1309,577 @@ private final class VMGatedOperationRunner: OperationCommandRunner, @unchecked S
     #expect(!viewModel.isBusy)
     #expect(viewModel.phase == .ready)
 }
+
+// MARK: M12-A presentation-state foundation
+//
+// The invalidation matrix (R1): `listScope`, `updateStatusFilter`, `searchText`, and a selection-ID
+// change each release a pending preview with zero mutation; a pure `detailPane` change does not;
+// a LAUNCHED operation is never cancelled by any of them (the :621 early-return is preserved).
+//
+// The fixture publishes two installed tools — `codex-id` (npm-shaped, probe reports 2.0.0) and
+// `beta-id` (installed, no managed source, so its probe is neutral) — plus a real pending preview
+// produced by the accepted `prepareSelectedUpdate` path. No process is ever launched by the
+// invalidation vectors: the operation runner is a counter that would record one.
+
+@MainActor
+private struct PresentationFixture {
+    let root: URL
+    let viewModel: InventoryViewModel
+    let counted: VMCountingOperationRunner?
+    let gate: VMGate?
+
+    init(_ label: String, gated: Bool = false) throws {
+        root = try appSupportScratchRoot(label)
+        let prefix = root.appendingPathComponent("prefix", isDirectory: true)
+        let globalRoot = prefix.appendingPathComponent("lib/node_modules", isDirectory: true)
+        let managerDir = root.appendingPathComponent("manager-bin", isDirectory: true)
+        let aliasDir = root.appendingPathComponent("alias-bin", isDirectory: true)
+        let packageRoot = globalRoot.appendingPathComponent("@openai/codex", isDirectory: true)
+        let target = packageRoot.appendingPathComponent("bin/codex")
+        try writeFixtureExecutable(managerDir.appendingPathComponent("npm"))
+        try vmWriteCodex(target, version: "1.0.0")
+        try Data("{\"name\":\"@openai/codex\",\"version\":\"1.0.0\",\"bin\":{\"codex\":\"bin/codex\"}}".utf8)
+            .write(to: packageRoot.appendingPathComponent("package.json"))
+        try FileManager.default.createDirectory(
+            at: prefix.appendingPathComponent("bin"), withIntermediateDirectories: true
+        )
+        try FileManager.default.createSymbolicLink(
+            atPath: prefix.appendingPathComponent("bin/codex").path,
+            withDestinationPath: target.path
+        )
+        try FileManager.default.createDirectory(at: aliasDir, withIntermediateDirectories: true)
+        try FileManager.default.createSymbolicLink(
+            atPath: aliasDir.appendingPathComponent("codex").path,
+            withDestinationPath: target.path
+        )
+        // A second installed tool with no managed source: its update probe is neutral.
+        try writeFixtureExecutable(aliasDir.appendingPathComponent("beta"))
+
+        let path = [managerDir.path, aliasDir.path].joined(separator: ":")
+        let environment = ShellEnvironment(
+            shellPath: "/bin/zsh",
+            pathEntries: [managerDir.path, aliasDir.path],
+            pathJoined: path,
+            raw: ["PATH": path, "HOME": "/synthetic/home"],
+            isDegraded: false
+        )
+        let data = Data("""
+        {"schemaVersion":2,"detectors":[{"id":"codex-id","displayName":"Codex","executableName":"codex","category":"aiAgent","packages":[{"manager":"npm","name":"@openai/codex"}],"acceptedOperations":["npmUpdate"],"versionQuery":{"arguments":["--version"],"stream":"stdout","line":"first"}},{"id":"beta-id","displayName":"Beta","executableName":"beta","category":"aiHarness","packages":[{"manager":"homebrewCask","name":"beta-formula"}],"versionQuery":{"arguments":["--version"],"stream":"stdout","line":"first"}}]}
+        """.utf8)
+        let definitions = try DetectorRegistry.validate(data: data)
+        let scratch = root.appendingPathComponent("scratch", isDirectory: true)
+        let operationBase = root.appendingPathComponent("operation-base", isDirectory: true)
+        try FileManager.default.createDirectory(at: scratch, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(
+            at: operationBase, withIntermediateDirectories: false,
+            attributes: [.posixPermissions: 0o700]
+        )
+        let source = SessionEnvironmentSource(
+            resolve: { environment },
+            loginShellPath: { "/bin/sh" },
+            capture: { _ in
+                ShellEnvironmentResolver.CaptureOutcome(dump: environment.raw, timedOut: false)
+            },
+            build: { _, _ in environment }
+        )
+        let gate = gated ? VMGate() : nil
+        let counted = gated ? nil : VMCountingOperationRunner()
+        let operationRunner: any OperationCommandRunner = if let gate {
+            VMGatedOperationRunner(gate: gate, target: target, packageRoot: packageRoot)
+        } else {
+            counted!
+        }
+        viewModel = InventoryViewModel(
+            service: InventoryService(
+                environment: SessionEnvironmentProvider(source: source),
+                registry: { definitions },
+                scanner: { detector, env, cwd in
+                    PathDiagnosticsScanner.scan(
+                        detector: detector, environment: env, currentDirectory: cwd
+                    )
+                },
+                updateRunner: VMNpmRunner(prefix: prefix.path, root: globalRoot.path, gate: VMGate()),
+                operationRunner: operationRunner,
+                operationGate: OperationExecutionGate(),
+                operationRootBaseURL: operationBase,
+                updateCacheURL: root.appendingPathComponent("cache.json"),
+                npmScratchBaseURL: scratch,
+                currentDirectory: root.path,
+                clock: fixedClock()
+            )
+        )
+        self.gate = gate
+        self.counted = counted
+    }
+
+    /// Launches, checks updates, and seeds the one pending npm Update preview.
+    func loadAndPrepare() async {
+        await viewModel.launch()
+        await viewModel.checkForUpdates()
+        await viewModel.prepareSelectedUpdate()
+    }
+
+    func cleanUp() {
+        gate?.release()
+        try? FileManager.default.removeItem(at: root)
+    }
+}
+
+@MainActor
+@Test func listScopeChangeReleasesThePendingPreviewWithoutStartingAMutation() async throws {
+    let fixture = try PresentationFixture("m12a-invalidate-scope")
+    defer { fixture.cleanUp() }
+    let viewModel = fixture.viewModel
+    await fixture.loadAndPrepare()
+    #expect(viewModel.updatePreparation != nil)
+    #expect(viewModel.updatePreview?.registryID == "codex-id")
+
+    viewModel.listScope = .updates
+
+    #expect(viewModel.updatePreparation == nil)
+    #expect(viewModel.updatePreview == nil)
+    #expect(viewModel.updateOutcome == nil)
+    #expect(viewModel.updateUnavailableReason == nil)
+    #expect(!viewModel.isExecutingUpdate)
+    #expect(!viewModel.isBusy)
+    #expect(viewModel.selectedRegistryID == "codex-id")
+    #expect(fixture.counted?.invocations ?? 0 == 0)
+}
+
+@MainActor
+@Test func updateStatusFilterChangeReleasesThePendingPreviewWithoutStartingAMutation() async throws {
+    let fixture = try PresentationFixture("m12a-invalidate-filter")
+    defer { fixture.cleanUp() }
+    let viewModel = fixture.viewModel
+    await viewModel.launch()
+    await viewModel.checkForUpdates()
+    viewModel.listScope = .updates
+    await viewModel.prepareSelectedUpdate()
+    #expect(viewModel.updatePreparation != nil)
+
+    viewModel.updateStatusFilter = .upToDate
+
+    #expect(viewModel.updatePreparation == nil)
+    #expect(viewModel.updatePreview == nil)
+    #expect(viewModel.updateOutcome == nil)
+    #expect(!viewModel.isExecutingUpdate)
+    #expect(!viewModel.isBusy)
+    #expect(fixture.counted?.invocations ?? 0 == 0)
+
+    // The trigger is the change itself, not the row's visibility: it releases a pending preview
+    // even while the scope does not consult the filter.
+    viewModel.listScope = .all
+    await viewModel.prepareSelectedUpdate()
+    #expect(viewModel.updatePreparation != nil)
+    viewModel.updateStatusFilter = .notChecked
+    #expect(viewModel.updatePreparation == nil)
+    #expect(viewModel.updatePreview == nil)
+    #expect(!viewModel.isBusy)
+    #expect(fixture.counted?.invocations ?? 0 == 0)
+}
+
+@MainActor
+@Test func searchTextChangeReleasesThePendingPreviewWithoutStartingAMutation() async throws {
+    let fixture = try PresentationFixture("m12a-invalidate-search")
+    defer { fixture.cleanUp() }
+    let viewModel = fixture.viewModel
+    await fixture.loadAndPrepare()
+    #expect(viewModel.updatePreparation != nil)
+
+    viewModel.searchText = "codex"
+
+    #expect(viewModel.updatePreparation == nil)
+    #expect(viewModel.updatePreview == nil)
+    #expect(viewModel.updateOutcome == nil)
+    #expect(!viewModel.isExecutingUpdate)
+    #expect(!viewModel.isBusy)
+    #expect(fixture.counted?.invocations ?? 0 == 0)
+}
+
+@MainActor
+@Test func selectionIDChangeReleasesThePendingPreviewWithoutStartingAMutation() async throws {
+    let fixture = try PresentationFixture("m12a-invalidate-selection")
+    defer { fixture.cleanUp() }
+    let viewModel = fixture.viewModel
+    await fixture.loadAndPrepare()
+    #expect(viewModel.updatePreparation != nil)
+
+    viewModel.select(registryID: "beta-id")
+
+    #expect(viewModel.selectedRegistryID == "beta-id")
+    #expect(viewModel.updatePreparation == nil)
+    #expect(viewModel.updatePreview == nil)
+    #expect(viewModel.updateOutcome == nil)
+    #expect(!viewModel.isExecutingUpdate)
+    #expect(!viewModel.isBusy)
+    #expect(fixture.counted?.invocations ?? 0 == 0)
+}
+
+@MainActor
+@Test func seededPendingPreviewDiesOnlyOnATrigger() async throws {
+    let fixture = try PresentationFixture("m12a-seeded-trigger")
+    defer { fixture.cleanUp() }
+    let viewModel = fixture.viewModel
+    await fixture.loadAndPrepare()
+
+    // The seed is real: an unconsumed preparation and its reviewed preview.
+    #expect(viewModel.updatePreparation != nil)
+    #expect(viewModel.updatePreview != nil)
+
+    // These non-triggers must leave the seed in place. If the `listScope` invalidation hook were
+    // removed, the final assertion below would FAIL because the preparation would stay non-nil and
+    // the preview populated: the test is discriminating, not satisfied by an eventually-nil state.
+    viewModel.detailPane = .diagnostics
+    viewModel.listScope = .all
+    viewModel.select(registryID: "codex-id")
+    #expect(viewModel.updatePreparation != nil)
+    #expect(viewModel.updatePreview != nil)
+
+    viewModel.listScope = .category(.aiAgent)
+    #expect(viewModel.updatePreparation == nil)
+    #expect(viewModel.updatePreview == nil)
+    #expect(!viewModel.isBusy)
+}
+
+@MainActor
+@Test func pureDetailPaneChangeKeepsThePendingPreview() async throws {
+    let fixture = try PresentationFixture("m12a-detail-pane")
+    defer { fixture.cleanUp() }
+    let viewModel = fixture.viewModel
+    await fixture.loadAndPrepare()
+    #expect(viewModel.updatePreparation != nil)
+
+    viewModel.detailPane = .diagnostics
+    #expect(viewModel.updatePreparation != nil)
+    #expect(viewModel.updatePreview?.registryID == "codex-id")
+
+    viewModel.detailPane = .settings
+    #expect(viewModel.updatePreparation != nil)
+    #expect(viewModel.updatePreview?.registryID == "codex-id")
+    #expect(!viewModel.isBusy)
+    #expect(fixture.counted?.invocations ?? 0 == 0)
+}
+
+@MainActor
+@Test func showPathEvidenceForTheSelectedIDKeepsThePreviewAndSwitchesThePane() async throws {
+    let fixture = try PresentationFixture("m12a-evidence-same")
+    defer { fixture.cleanUp() }
+    let viewModel = fixture.viewModel
+    await fixture.loadAndPrepare()
+    #expect(viewModel.selectedRegistryID == "codex-id")
+
+    viewModel.showPathEvidence(registryID: "codex-id")
+
+    #expect(viewModel.detailPane == .diagnostics)
+    #expect(viewModel.selectedRegistryID == "codex-id")
+    #expect(viewModel.updatePreparation != nil)
+    #expect(viewModel.updatePreview?.registryID == "codex-id")
+    #expect(!viewModel.isBusy)
+}
+
+@MainActor
+@Test func showPathEvidenceForAnotherIDInvalidatesThenSelects() async throws {
+    let fixture = try PresentationFixture("m12a-evidence-other")
+    defer { fixture.cleanUp() }
+    let viewModel = fixture.viewModel
+    await fixture.loadAndPrepare()
+    #expect(viewModel.updatePreparation != nil)
+
+    viewModel.showPathEvidence(registryID: "beta-id")
+
+    #expect(viewModel.detailPane == .diagnostics)
+    #expect(viewModel.selectedRegistryID == "beta-id")
+    #expect(viewModel.updatePreparation == nil)
+    #expect(viewModel.updatePreview == nil)
+    #expect(!viewModel.isBusy)
+    #expect(fixture.counted?.invocations ?? 0 == 0)
+}
+
+@MainActor
+@Test func showPathEvidenceRefusesAnUnknownIDAndChangesNothing() async throws {
+    let fixture = try PresentationFixture("m12a-evidence-unknown")
+    defer { fixture.cleanUp() }
+    let viewModel = fixture.viewModel
+    await fixture.loadAndPrepare()
+    #expect(viewModel.updatePreparation != nil)
+    #expect(viewModel.detailPane == .tool)
+
+    viewModel.showPathEvidence(registryID: "missing-id")
+
+    #expect(viewModel.selectedRegistryID == "codex-id")
+    #expect(viewModel.detailPane == .tool)
+    #expect(viewModel.updatePreparation != nil)
+    #expect(viewModel.updatePreview != nil)
+}
+
+@MainActor
+@Test func launchedUpdateSurvivesEveryPresentationChangeAndKeepsItsPreviewIdentity() async throws {
+    let fixture = try PresentationFixture("m12a-launched-exemption", gated: true)
+    defer { fixture.cleanUp() }
+    let viewModel = fixture.viewModel
+    await viewModel.launch()
+    await viewModel.checkForUpdates()
+    await viewModel.prepareSelectedUpdate()
+    #expect(viewModel.updatePreparation != nil)
+
+    let confirm = Task { await viewModel.confirmSelectedUpdate() }
+    let deadline = Date().addingTimeInterval(3)
+    while !(viewModel.isExecutingUpdate && fixture.gate?.isWaiting == true) && Date() < deadline {
+        try await Task.sleep(nanoseconds: 5_000_000)
+    }
+    #expect(viewModel.isExecutingUpdate)
+    #expect(viewModel.updatePreview?.registryID == "codex-id")
+
+    viewModel.listScope = .updates
+    viewModel.updateStatusFilter = .upToDate
+    viewModel.searchText = "beta"
+    viewModel.select(registryID: "beta-id")
+
+    #expect(viewModel.isExecutingUpdate)
+    #expect(viewModel.updateOutcome == nil)
+    #expect(viewModel.updatePreview?.registryID == "codex-id")
+    #expect(viewModel.selectedRegistryID == "beta-id")
+
+    fixture.gate?.release()
+    await confirm.value
+
+    #expect(!viewModel.isExecutingUpdate)
+    #expect(!viewModel.isBusy)
+    #expect(viewModel.updateOutcome?.preview.registryID == "codex-id")
+    #expect(viewModel.updatePreview?.registryID == "codex-id")
+}
+
+/// An operation runner that parks inside the destructive command until the test releases it, so the
+/// in-flight Uninstall slot is observable while every presentation change is applied.
+private final class VMGatedRemovingOperationRunner: OperationCommandRunner, @unchecked Sendable {
+    let gate: VMGate
+    let packageRoot: URL
+    let prefixBin: URL
+
+    init(gate: VMGate, packageRoot: URL, prefixBin: URL) {
+        self.gate = gate
+        self.packageRoot = packageRoot
+        self.prefixBin = prefixBin
+    }
+
+    func run(executablePath: String, arguments: [String], environment: [String: String],
+             currentDirectory: String, timeout: TimeInterval) async -> OperationCommandResult {
+        await gate.wait()
+        try? FileManager.default.removeItem(at: prefixBin.appendingPathComponent("codex"))
+        try? FileManager.default.removeItem(at: packageRoot)
+        return OperationCommandResult(
+            stdout: Data("removed\n".utf8), stderr: Data(),
+            stdoutTruncated: false, stderrTruncated: false,
+            exitStatus: 0, processStarted: true,
+            timedOut: false, cancelled: false, cleanupWarning: false
+        )
+    }
+}
+
+@MainActor
+@Test func launchedUninstallSurvivesEveryPresentationChangeAndKeepsItsPreviewIdentity() async throws {
+    let root = try appSupportScratchRoot("m12a-launched-uninstall")
+    defer { try? FileManager.default.removeItem(at: root) }
+    let prefix = root.appendingPathComponent("prefix", isDirectory: true)
+    let globalRoot = prefix.appendingPathComponent("lib/node_modules", isDirectory: true)
+    let managerDir = root.appendingPathComponent("manager-bin", isDirectory: true)
+    let aliasDir = root.appendingPathComponent("alias-bin", isDirectory: true)
+    let packageRoot = globalRoot.appendingPathComponent("@openai/codex", isDirectory: true)
+    let target = packageRoot.appendingPathComponent("bin/codex")
+    try writeFixtureExecutable(managerDir.appendingPathComponent("npm"))
+    try vmWriteCodex(target, version: "1.0.0")
+    try Data("{\"name\":\"@openai/codex\",\"version\":\"1.0.0\",\"bin\":{\"codex\":\"bin/codex\"}}".utf8)
+        .write(to: packageRoot.appendingPathComponent("package.json"))
+    let prefixBin = prefix.appendingPathComponent("bin", isDirectory: true)
+    try FileManager.default.createDirectory(at: prefixBin, withIntermediateDirectories: true)
+    try FileManager.default.createSymbolicLink(
+        atPath: prefixBin.appendingPathComponent("codex").path,
+        withDestinationPath: target.path
+    )
+    try FileManager.default.createDirectory(at: aliasDir, withIntermediateDirectories: true)
+    try FileManager.default.createSymbolicLink(
+        atPath: aliasDir.appendingPathComponent("codex").path,
+        withDestinationPath: target.path
+    )
+    try writeFixtureExecutable(aliasDir.appendingPathComponent("beta"))
+
+    let path = [managerDir.path, aliasDir.path].joined(separator: ":")
+    let environment = ShellEnvironment(
+        shellPath: "/bin/zsh", pathEntries: [managerDir.path, aliasDir.path],
+        pathJoined: path, raw: ["PATH": path, "HOME": "/synthetic/home"], isDegraded: false
+    )
+    let data = Data("""
+    {"schemaVersion":2,"detectors":[{"id":"codex-id","displayName":"Codex","executableName":"codex","category":"aiAgent","packages":[{"manager":"npm","name":"@openai/codex"}],"acceptedOperations":["npmUninstall"],"versionQuery":{"arguments":["--version"],"stream":"stdout","line":"first"}},{"id":"beta-id","displayName":"Beta","executableName":"beta","category":"aiHarness","packages":[],"versionQuery":{"arguments":["--version"],"stream":"stdout","line":"first"}}]}
+    """.utf8)
+    let loader = ScriptedRegistryLoader(payloads: [data, data, data])
+    let scratch = root.appendingPathComponent("scratch", isDirectory: true)
+    let operationBase = root.appendingPathComponent("operation-base", isDirectory: true)
+    try FileManager.default.createDirectory(at: scratch, withIntermediateDirectories: true)
+    try FileManager.default.createDirectory(
+        at: operationBase, withIntermediateDirectories: false,
+        attributes: [.posixPermissions: 0o700]
+    )
+    let source = SessionEnvironmentSource(
+        resolve: { environment },
+        loginShellPath: { "/bin/sh" },
+        capture: { _ in
+            ShellEnvironmentResolver.CaptureOutcome(dump: environment.raw, timedOut: false)
+        },
+        build: { _, _ in environment }
+    )
+    let gate = VMGate()
+    let service = InventoryService(
+        environment: SessionEnvironmentProvider(source: source),
+        registry: { try loader.load() },
+        scanner: { detector, env, cwd in
+            PathDiagnosticsScanner.scan(detector: detector, environment: env, currentDirectory: cwd)
+        },
+        updateRunner: VMNpmRunner(prefix: prefix.path, root: globalRoot.path, gate: VMGate()),
+        operationRunner: VMGatedRemovingOperationRunner(
+            gate: gate, packageRoot: packageRoot, prefixBin: prefixBin
+        ),
+        operationGate: OperationExecutionGate(),
+        operationRootBaseURL: operationBase,
+        updateCacheURL: root.appendingPathComponent("cache.json"),
+        npmScratchBaseURL: scratch,
+        currentDirectory: root.path,
+        clock: fixedClock()
+    )
+    let viewModel = InventoryViewModel(service: service)
+    await viewModel.launch()
+    await viewModel.verifySelectedInstallation()
+    #expect(viewModel.selectedEntry?.ownership?.verifiedInstallation?.manager == .npm)
+    await viewModel.prepareSelectedUninstall()
+    #expect(viewModel.uninstallPreparation != nil)
+    #expect(viewModel.uninstallPreview?.registryID == "codex-id")
+
+    let confirm = Task { await viewModel.confirmSelectedUninstall() }
+    let deadline = Date().addingTimeInterval(3)
+    while !(viewModel.isExecutingUninstall && gate.isWaiting) && Date() < deadline {
+        try await Task.sleep(nanoseconds: 5_000_000)
+    }
+    #expect(viewModel.isExecutingUninstall)
+    #expect(viewModel.uninstallPreview?.registryID == "codex-id")
+
+    viewModel.listScope = .updates
+    viewModel.updateStatusFilter = .upToDate
+    viewModel.searchText = "beta"
+    viewModel.select(registryID: "beta-id")
+
+    #expect(viewModel.isExecutingUninstall)
+    #expect(viewModel.uninstallOutcome == nil)
+    #expect(viewModel.uninstallPreview?.registryID == "codex-id")
+    #expect(viewModel.selectedRegistryID == "beta-id")
+
+    gate.release()
+    await confirm.value
+
+    #expect(!viewModel.isExecutingUninstall)
+    #expect(!viewModel.isBusy)
+    #expect(viewModel.uninstallOutcome?.preview.registryID == "codex-id")
+    #expect(viewModel.uninstallPreview?.registryID == "codex-id")
+}
+
+@MainActor
+@Test func updatesScopeListsInstalledEntriesAndNarrowsByTriState() async throws {
+    let fixture = try PresentationFixture("m12a-updates-scope")
+    defer { fixture.cleanUp() }
+    let viewModel = fixture.viewModel
+    await viewModel.launch()
+    await viewModel.checkForUpdates()
+    #expect(viewModel.updateAvailableCount == 1)
+
+    viewModel.listScope = .updates
+    #expect(viewModel.filteredEntries.map(\.registryID) == ["codex-id", "beta-id"])
+
+    viewModel.updateStatusFilter = .updateAvailable
+    #expect(viewModel.filteredEntries.map(\.registryID) == ["codex-id"])
+
+    viewModel.searchText = "beta"
+    #expect(viewModel.filteredEntries.isEmpty)
+
+    viewModel.updateStatusFilter = .unknown
+    #expect(viewModel.filteredEntries.map(\.registryID) == ["beta-id"])
+
+    viewModel.searchText = ""
+    viewModel.updateStatusFilter = .upToDate
+    #expect(viewModel.filteredEntries.isEmpty)
+
+    viewModel.updateStatusFilter = .notChecked
+    #expect(viewModel.filteredEntries.isEmpty)
+
+    // Counts are snapshot facts: no scope, filter, or search ever moves them.
+    #expect(viewModel.knownToolCount == 2)
+    #expect(viewModel.installedToolCount == 2)
+    #expect(viewModel.updateAvailableCount == 1)
+}
+
+@MainActor
+@Test func updateStatusFilterIsInertOutsideTheUpdatesScope() async throws {
+    let fixture = try PresentationFixture("m12a-filter-inert")
+    defer { fixture.cleanUp() }
+    let viewModel = fixture.viewModel
+    await viewModel.launch()
+    await viewModel.checkForUpdates()
+    #expect(viewModel.filteredEntries.map(\.registryID) == ["codex-id", "beta-id"])
+
+    viewModel.listScope = .all
+    viewModel.updateStatusFilter = .updateAvailable
+
+    // The status filter narrows Updates only. Both installed tools stay listed under `.all` —
+    // including neutral `beta-id` — so dropping the scope-conditioning guard in `filteredEntries`
+    // (which would leave only `codex-id`) fails this test.
+    #expect(viewModel.filteredEntries.map(\.registryID) == ["codex-id", "beta-id"])
+}
+
+@MainActor
+@Test func categoryScopeIntersectsSearchAndPreservesRegistryOrder() async throws {
+    let fixture = try PresentationFixture("m12a-category-scope")
+    defer { fixture.cleanUp() }
+    let viewModel = fixture.viewModel
+    await viewModel.launch()
+
+    viewModel.listScope = .category(.aiHarness)
+    #expect(viewModel.filteredEntries.map(\.registryID) == ["beta-id"])
+
+    viewModel.listScope = .category(.aiAgent)
+    viewModel.searchText = "a"
+    #expect(viewModel.filteredEntries.map(\.registryID) == ["codex-id"])
+
+    viewModel.listScope = .all
+    #expect(viewModel.filteredEntries.map(\.registryID) == ["codex-id", "beta-id"])
+}
+
+@MainActor
+@Test func searchFieldsAreUnchangedByThePresentationModel() async throws {
+    let fixture = try PresentationFixture("m12a-search-fields")
+    defer { fixture.cleanUp() }
+    let viewModel = fixture.viewModel
+    await viewModel.launch()
+    #expect(viewModel.filteredEntries.count == 2)
+
+    // The category label is not a search field (R8).
+    viewModel.searchText = "AI Agent"
+    #expect(viewModel.filteredEntries.isEmpty)
+
+    // A declared package name is not a search field when it appears nowhere in the paths.
+    viewModel.searchText = "beta-formula"
+    #expect(viewModel.filteredEntries.isEmpty)
+
+    viewModel.searchText = "codex"
+    #expect(viewModel.filteredEntries.map(\.registryID) == ["codex-id"])
+}
+
+@MainActor
+@Test func detailPaneDefaultsAndCountsAreAvailableWithoutAFilter() async throws {
+    let fixture = try PresentationFixture("m12a-defaults")
+    defer { fixture.cleanUp() }
+    let viewModel = fixture.viewModel
+    await viewModel.launch()
+
+    #expect(viewModel.listScope == .all)
+    #expect(viewModel.detailPane == .tool)
+    #expect(viewModel.updateStatusFilter == .all)
+    #expect(viewModel.snapshot?.conflictToolCount == 0)
+    #expect(viewModel.snapshot?.offPathToolCount == 0)
+}

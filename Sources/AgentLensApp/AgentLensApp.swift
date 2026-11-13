@@ -155,6 +155,153 @@ enum AgentLensAppEntry {
     }
 }
 
+/// Everything the menu bar needs from the focused window, captured as values plus main-actor
+/// actions. The ViewModel's R1 hooks stay the only invalidation path: menu items call the same
+/// public actions the toolbar calls, and destination selection writes the same destination state.
+@MainActor
+struct AppCommandActions {
+    let isBusy: Bool
+    let isSheetPresented: Bool
+    let updateAffordanceIsPrepare: Bool
+    let uninstallAffordanceIsPrepare: Bool
+    let canVerifyInstallation: Bool
+    let selectDestination: @MainActor (NavigationDestination) -> Void
+    let rescan: @MainActor () -> Void
+    let checkForUpdates: @MainActor () -> Void
+    let refreshUpdates: @MainActor () -> Void
+    let prepareUpdate: @MainActor () -> Void
+    let prepareUninstall: @MainActor () -> Void
+    let verifyInstallation: @MainActor () -> Void
+}
+
+private struct AppCommandActionsKey: FocusedValueKey {
+    typealias Value = AppCommandActions
+}
+
+extension FocusedValues {
+    var appCommandActions: AppCommandActions? {
+        get { self[AppCommandActionsKey.self] }
+        set { self[AppCommandActionsKey.self] = newValue }
+    }
+}
+
+/// The native menu bar (R9). No item ever confirms a mutation: the Tool items prepare or verify
+/// only. Edit keeps the standard system items (⌘C is not overridden), ⌘F stays the searchable
+/// field's own shortcut, and path actions remain the detail-view buttons.
+struct AgentLensCommands: Commands {
+    @FocusedValue(\.appCommandActions) private var actions
+
+    var body: some Commands {
+        CommandGroup(replacing: .appSettings) {
+            Button("Settings…") {
+                actions?.selectDestination(.settings)
+            }
+            .keyboardShortcut(",", modifiers: .command)
+        }
+
+        CommandGroup(after: .newItem) {
+            Divider()
+            Button("Rescan") {
+                actions?.rescan()
+            }
+            .keyboardShortcut("r", modifiers: .command)
+            .disabled(fileItemsDisabled)
+
+            Button("Check for Updates") {
+                actions?.checkForUpdates()
+            }
+            .keyboardShortcut("u", modifiers: .command)
+            .disabled(fileItemsDisabled)
+
+            Button("Refresh Update Metadata") {
+                actions?.refreshUpdates()
+            }
+            .keyboardShortcut("u", modifiers: [.command, .shift])
+            .disabled(fileItemsDisabled)
+        }
+
+        CommandGroup(after: .sidebar) {
+            Divider()
+            Button("Overview") {
+                actions?.selectDestination(.overview)
+            }
+            .keyboardShortcut("1", modifiers: .command)
+
+            Button("AI Agents") {
+                actions?.selectDestination(.aiAgents)
+            }
+            .keyboardShortcut("2", modifiers: .command)
+
+            Button("AI Coding Tools") {
+                actions?.selectDestination(.aiCodingTools)
+            }
+            .keyboardShortcut("3", modifiers: .command)
+
+            Button("AI Harnesses") {
+                actions?.selectDestination(.aiHarnesses)
+            }
+            .keyboardShortcut("4", modifiers: .command)
+
+            Button("Updates") {
+                actions?.selectDestination(.updates)
+            }
+            .keyboardShortcut("5", modifiers: .command)
+
+            Button("Diagnostics") {
+                actions?.selectDestination(.diagnostics)
+            }
+            .keyboardShortcut("6", modifiers: .command)
+
+            Button("Settings") {
+                actions?.selectDestination(.settings)
+            }
+            .keyboardShortcut("7", modifiers: .command)
+        }
+
+        CommandMenu("Tool") {
+            Button("Prepare Update…") {
+                actions?.prepareUpdate()
+            }
+            .keyboardShortcut("u", modifiers: [.command, .option])
+            .disabled(!canPrepareUpdate)
+
+            Button("Prepare Uninstall…") {
+                actions?.prepareUninstall()
+            }
+            .keyboardShortcut(.delete, modifiers: [.command, .option])
+            .disabled(!canPrepareUninstall)
+
+            Divider()
+
+            Button("Verify Installation") {
+                actions?.verifyInstallation()
+            }
+            .keyboardShortcut("i", modifiers: [.command, .option])
+            .disabled(!canVerifyInstallation)
+        }
+    }
+
+    private var fileItemsDisabled: Bool {
+        actions?.isBusy ?? true
+    }
+
+    private var canPrepareUpdate: Bool {
+        guard let actions else { return false }
+        return !actions.isBusy && !actions.isSheetPresented && actions.updateAffordanceIsPrepare
+    }
+
+    private var canPrepareUninstall: Bool {
+        guard let actions else { return false }
+        return !actions.isBusy && !actions.isSheetPresented && actions.uninstallAffordanceIsPrepare
+    }
+
+    private var canVerifyInstallation: Bool {
+        guard let actions else { return false }
+        // R9: no menu action may run while a confirmation sheet owns the mutation slot.
+        return !actions.isBusy && !actions.isSheetPresented && actions.canVerifyInstallation
+    }
+}
+
 struct AgentLensApp: App {
     @NSApplicationDelegateAdaptor(AgentLensTerminationDelegate.self) private var terminationDelegate
 
@@ -163,5 +310,8 @@ struct AgentLensApp: App {
             MainWindow()
         }
         .defaultSize(width: 960, height: 600)
+        .commands {
+            AgentLensCommands()
+        }
     }
 }

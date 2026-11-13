@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 import AgentLensCore
 
 /// Native confirmation/result sheet for one M10-C npm update. Every dynamic value is plain text;
@@ -69,22 +70,31 @@ public struct UpdateOperationView: View {
                 Button("Close") { onDismiss() }
                     .keyboardShortcut(.defaultAction)
             } else if preview != nil {
+                // C-1: the preview state has no default action. Escape cancels; the destructive
+                // confirmation is reachable by Tab + Space or click only.
                 Button("Cancel") { onCancel() }
+                    .keyboardShortcut(.cancelAction)
                     .disabled(isCancelling)
+                    .accessibilityHint("Closes this confirmation without a change.")
                 Button(isExecuting ? (isCancelling ? "Cancelling…" : "Installing…") : "Confirm Update") {
                     onConfirm()
                 }
-                .keyboardShortcut(.defaultAction)
                 .disabled(isExecuting || isCancelling)
+                .accessibilityHint("Applies the reviewed npm update after this confirmation.")
             }
         }
     }
 
     private func previewView(_ preview: NpmUpdatePreview) -> some View {
         VStack(alignment: .leading, spacing: 14) {
+            if isExecuting {
+                progressRegion(preview)
+            }
+
             Text("Update \(preview.displayName)")
                 .font(.title2)
                 .fontWeight(.bold)
+                .accessibilityAddTraits(.isHeader)
 
             Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 8) {
                 row("Registry ID", preview.registryID)
@@ -124,6 +134,34 @@ public struct UpdateOperationView: View {
         }
     }
 
+    /// R6 progress region bound to the prepared preview. Only shown while executing; the sheet
+    /// body already prefers the result view when an outcome exists, and no stdout is subscribed.
+    private func progressRegion(_ preview: NpmUpdatePreview) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+            ProgressView()
+                .controlSize(.small)
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Update in progress")
+                    .font(.headline)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Registry ID: \(preview.registryID)")
+                    Text("Package: \(preview.packageName)")
+                    Text("Prefix: \(preview.prefix)")
+                }
+                .font(.caption)
+                .foregroundColor(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.accentColor.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(
+            "Update in progress, registry ID \(preview.registryID), package \(preview.packageName), prefix \(preview.prefix)"
+        )
+    }
+
     private func unavailableView(_ reason: NpmUpdateUnavailableReason) -> some View {
         VStack(alignment: .leading, spacing: 14) {
             Text("Update Unavailable")
@@ -131,6 +169,12 @@ public struct UpdateOperationView: View {
                 .fontWeight(.bold)
             Text(reason.message)
                 .foregroundColor(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Update unavailable. \(reason.message)")
+        .onAppear {
+            Self.announce("Update unavailable. \(reason.message)")
         }
     }
 
@@ -139,9 +183,14 @@ public struct UpdateOperationView: View {
             Text(resultTitle(outcome.state))
                 .font(.title2)
                 .fontWeight(.bold)
+                .accessibilityAddTraits(.isHeader)
+                .accessibilityLabel(
+                    "\(resultTitle(outcome.state)), exit status \(outcome.exitStatus.map(String.init) ?? "unavailable")"
+                )
             if let message = outcome.message {
                 Text(message)
                     .foregroundColor(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             Text("Exit status: \(outcome.exitStatus.map(String.init) ?? "unavailable")")
                 .font(.subheadline)
@@ -161,6 +210,23 @@ public struct UpdateOperationView: View {
             outputView("stderr", outcome.stderrText, truncated: outcome.stderrTruncated)
 
         }
+        .onAppear {
+            Self.announce(
+                "\(resultTitle(outcome.state)), exit status \(outcome.exitStatus.map(String.init) ?? "unavailable")"
+            )
+        }
+    }
+
+    /// VoiceOver announcement for the terminal state (R10). The visible content is unchanged.
+    private static func announce(_ message: String) {
+        NSAccessibility.post(
+            element: NSApplication.shared,
+            notification: .announcementRequested,
+            userInfo: [
+                .announcement: message,
+                .priority: NSAccessibilityPriorityLevel.high.rawValue,
+            ]
+        )
     }
 
     private func deltaView(_ delta: InstallationDelta) -> some View {

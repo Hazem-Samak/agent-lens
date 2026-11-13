@@ -152,6 +152,7 @@ jobs:
           #   M10-D final (hosted run 42486797150):          532 = Core 454 + AppSupport 78
           #   M10-D R2 self-review (+3 regressions):         535 = Core 456 + AppSupport 79
           #   M11-F final (measured at this candidate):      547 = Core 467 + AppSupport 80
+          #   M12-E/F final (orchestrator-measured):         586 = Core 467 + AppSupport 119
           # Floors sit at the final candidate, so a lost/zero/regressed target fails while an extra case
           # never does. R8's 37 new cases live in BundledRegistryResourceTests.swift; the new
           # local-only Python parser controls (Tests/Packaging/test_build_dev_app_accessor.py) are
@@ -191,10 +192,10 @@ jobs:
                   "summaries": [1, 2],
                   "targets": [
                       {"label": "Core", "floor": 467},
-                      {"label": "AppSupport", "floor": 80},
+                      {"label": "AppSupport", "floor": 119},
                   ],
-                  "total_floor": 547,
-                  "combined_total_floor": 547,
+                  "total_floor": 586,
+                  "combined_total_floor": 586,
                   # Each anchor is a real test FUNCTION name that appears on a passing run; file names
                   # never do. Both groups are required in either layout.
                   "required_passed_events": CORE_ANCHORS + APPSUPPORT_ANCHORS,
