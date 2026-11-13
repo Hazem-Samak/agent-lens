@@ -563,3 +563,41 @@ value before finishing. This unblocks the M8 keyboard gate and the VoiceOver spo
 
 No merge to `main`, no release. M12 continues with M12-F (orchestrator-run M8 keyboard gate +
 VoiceOver + combined acceptance). All five implementer phases (A–E) are accepted.
+
+## M12-F — keyboard-only Copy/Reveal gate + combined acceptance (2026-11-13)
+
+- **M12-F R1 (keyboard focus traversal fix) at `255fd9c`: accepted.** Replaced the sidebar
+  `List`/`NavigationLink` rows with a `ScrollView` + `VStack` of real `Button` destination rows so
+  Tab is not trapped by list cells; `FocusState` + arrow keys + VoiceOver action all preserved the
+  same `selectedDestination` write. Both mandatory independent reviews PASS (MiniMax 0
+  blocking/1 low, sidebar appearance-change noted for explicit comparison vs. M12-B screenshots;
+  Grok 0 blocking/1 low, Space log notes). Orchestrator rerun: 467 Core + 119 AppSupport = 586,
+  zero skips/failures; guard 21, packaging 9. Full evidence:
+  [implementation](walkthroughs/M12-F-implementation.md), [measurement (worker evidence)](walkthroughs/M12-F-measurement.md),
+  reviews [minimax](walkthroughs/M12-F-evidence/reviews/minimax.md), [grok](walkthroughs/M12-F-evidence/reviews/grok.md).
+- **M8 keyboard-only gate — CLOSED.** Real `CGEvent` Tab/Space (never `AXPress`) + AX focus reads
+  against the disposable fixture: Tab reaches all four detail path buttons (stops 2–5), Space
+  activates each; Copy Selected/Resolved is byte-equal with SHA match (clipboard restored); Reveal
+  Selected/Resolved selects the exact symlink / canonical target in Finder; category content-list
+  Tab traversal works. Fixture digest unchanged; clipboard clean before/after.
+- **M12-F R2 (hint fix) at `a411661`: accepted.** `PathActions.swift:74,85` — `.help()` now carries
+  the R10-required hint text ("Copies the path text." / "Asks Finder to select this path.") instead
+  of the long action label, so AXHelp and the tooltip are no longer masked by the accessibility
+  label; `.accessibilityHint`, `.accessibilityLabel`, visible labels, dispatch, eligibility, and
+  feedback are untouched. Independent R2 reviews: MiniMax PASS (0 blocking/High/Medium; 1 low,
+  visible tooltip loses the tool/target distinction which survives in the accessible name), Grok
+  PASS (0 blocking).
+- **Combined M12 acceptance (final SHA `c0aec94dd73042b8b6e2e95e1ef11255a8afebf1`):** all seven
+  hosted CI gates green at the final SHA (run 43421859618, macos15 arm64: guard ✓, guard-fixtures
+  21 ✓, swift-build ✓, isolation-gate ✓, full-test-suite 586 = 467+119 zero skips/failures ✓,
+  build-dev-app ✓, packaging 9 ✓). Orchestrator rerun (D-014): build 24.91s, full suite 586/0,
+  import guards clean, 21 fixture tests OK, dev app built, 9 packaging tests OK, `git diff --check`
+  clean. Product diff vs M12-E base `775d5bc`: only `PathActions.swift` (hint fix); CI floors moved
+  upward only in the orchestrator's own commit 3212255 (AppSupport 80→119, total 547→586; Core
+  floor 467 unchanged). Zero Core/CLI/registry change; Core stays 467. M12 goal (ROADMAP §4) fully
+  achieved, including closing the M8 keyboard-only Copy/Reveal measurement. Limitations: VoiceOver
+  list-row/Settings captions PARTIAL (caption panel emitted help/instructions inside scroll text);
+  large-text limited (semantic font sizes not triggered in the measurement environment — wrap
+  behavior at narrow width proven, scale not). Full record:
+  [M12-combined-acceptance.md](walkthroughs/M12-combined-acceptance.md). No merge to `main`; PR
+  creation and owner merge decision follow.
