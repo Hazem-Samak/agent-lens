@@ -100,6 +100,25 @@ public final class InventoryViewModel {
         }
     }
 
+    /// The list's membership, orthogonal to `detailPane` and to selection. A change releases a
+    /// pending preview with zero mutation; it never cancels a launched operation.
+    public var listScope: ListScope = .all {
+        didSet {
+            if listScope != oldValue { invalidatePendingUpdate() }
+        }
+    }
+
+    /// The Updates destination's status narrowing. Applies only while `listScope == .updates`.
+    /// A change is a confirmation-retargeting trigger on its own, exactly like a scope change.
+    public var updateStatusFilter: UpdateStatusFilter = .all {
+        didSet {
+            if updateStatusFilter != oldValue { invalidatePendingUpdate() }
+        }
+    }
+
+    /// The detail column's content. A pure pane change neither retargets nor releases anything.
+    public var detailPane: DetailPane = .tool
+
     /// The selected registry ID — never a row index, display name, or executable basename, so two
     /// tools sharing a display name stay distinguishable.
     public private(set) var selectedRegistryID: String?
@@ -175,13 +194,19 @@ public final class InventoryViewModel {
     public private(set) var isPreparingUninstall: Bool = false
     public private(set) var isExecutingUninstall: Bool = false
 
-    /// The entries the window lists: the full snapshot filtered by search text, in registry order.
-    /// Nothing is re-associated after filtering — each entry carries its own definition, diagnostic,
-    /// and update result, so a filter can never mix facts across tools.
+    /// The entries the window lists: the full snapshot filtered by `listScope`, then (only in the
+    /// Updates scope) by `updateStatusFilter`, then by search text — always in registry order.
+    /// Nothing is re-associated or re-sorted after filtering: each entry carries its own
+    /// definition, diagnostic, and update result, so a filter can never mix facts across tools.
     public var filteredEntries: [InventoryEntry] {
+        let scoped = entries.filter { entry in
+            guard listScope.includes(entry) else { return false }
+            guard listScope == .updates else { return true }
+            return updateStatusFilter.includes(entry)
+        }
         let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        guard !query.isEmpty else { return entries }
-        return entries.filter { Self.matches($0, query: query) }
+        guard !query.isEmpty else { return scoped }
+        return scoped.filter { Self.matches($0, query: query) }
     }
 
     /// The selected entry, resolved by ID against the published snapshot. nil when nothing is
@@ -211,6 +236,15 @@ public final class InventoryViewModel {
             activePipeline?.cancel()
         }
         selectedRegistryID = registryID
+    }
+
+    /// Shows one tool's PATH evidence: selects that registry ID (a different ID releases a pending
+    /// preview through `select`) and switches the detail pane to Diagnostics. An unknown ID is
+    /// refused exactly as `select` refuses it, so the pane never points at unpublished facts.
+    public func showPathEvidence(registryID: String) {
+        guard entries.contains(where: { $0.registryID == registryID }) else { return }
+        select(registryID: registryID)
+        detailPane = .diagnostics
     }
 
     // MARK: Actions
