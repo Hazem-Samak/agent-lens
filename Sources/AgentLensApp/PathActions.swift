@@ -71,7 +71,7 @@ struct PathActionRow: View {
                 .disabled(!target.isActionable)
                 .accessibilityLabel(actionLabel("Copy"))
                 .accessibilityHint("Copies the path text.")
-                .help(actionLabel("Copy"))
+                .help("Copies the path text.")
 
                 Button {
                     perform(.revealInFinder)
@@ -82,7 +82,7 @@ struct PathActionRow: View {
                 .disabled(!target.isActionable)
                 .accessibilityLabel(actionLabel("Reveal in Finder"))
                 .accessibilityHint("Asks Finder to select this path.")
-                .help(actionLabel("Reveal in Finder"))
+                .help("Asks Finder to select this path.")
 
                 Spacer(minLength: 0)
             }
