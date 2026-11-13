@@ -70,8 +70,10 @@ public struct UninstallOperationView: View {
                 Button("Close") { onDismiss() }
                     .keyboardShortcut(.defaultAction)
             } else if preview != nil {
+                // C-1: the preview state has no default action. Escape cancels; the destructive
+                // confirmation has no key equivalent and is reachable by Tab + Space or click only.
                 Button("Cancel") { onCancel() }
-                    .keyboardShortcut(.defaultAction)
+                    .keyboardShortcut(.cancelAction)
                     .disabled(isCancelling)
                 Button(role: .destructive) {
                     onConfirm()
@@ -87,6 +89,10 @@ public struct UninstallOperationView: View {
 
     private func previewView(_ preview: NpmUninstallPreview) -> some View {
         VStack(alignment: .leading, spacing: 14) {
+            if isExecuting {
+                progressRegion(preview)
+            }
+
             Text("Uninstall \(preview.displayName)")
                 .font(.title2)
                 .fontWeight(.bold)
@@ -126,6 +132,34 @@ public struct UninstallOperationView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 6))
         }
+    }
+
+    /// R6 progress region bound to the prepared preview. Only shown while executing; the sheet
+    /// body already prefers the result view when an outcome exists, and no stdout is subscribed.
+    private func progressRegion(_ preview: NpmUninstallPreview) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+            ProgressView()
+                .controlSize(.small)
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Uninstall in progress")
+                    .font(.headline)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Registry ID: \(preview.registryID)")
+                    Text("Package: \(preview.packageName)")
+                    Text("Prefix: \(preview.prefix)")
+                }
+                .font(.caption)
+                .foregroundColor(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.accentColor.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(
+            "Uninstall in progress, registry ID \(preview.registryID), package \(preview.packageName), prefix \(preview.prefix)"
+        )
     }
 
     private func unavailableView(_ reason: NpmUninstallUnavailableReason) -> some View {

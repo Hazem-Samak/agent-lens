@@ -69,12 +69,14 @@ public struct UpdateOperationView: View {
                 Button("Close") { onDismiss() }
                     .keyboardShortcut(.defaultAction)
             } else if preview != nil {
+                // C-1: the preview state has no default action. Escape cancels; the destructive
+                // confirmation is reachable by Tab + Space or click only.
                 Button("Cancel") { onCancel() }
+                    .keyboardShortcut(.cancelAction)
                     .disabled(isCancelling)
                 Button(isExecuting ? (isCancelling ? "Cancelling…" : "Installing…") : "Confirm Update") {
                     onConfirm()
                 }
-                .keyboardShortcut(.defaultAction)
                 .disabled(isExecuting || isCancelling)
             }
         }
@@ -82,6 +84,10 @@ public struct UpdateOperationView: View {
 
     private func previewView(_ preview: NpmUpdatePreview) -> some View {
         VStack(alignment: .leading, spacing: 14) {
+            if isExecuting {
+                progressRegion(preview)
+            }
+
             Text("Update \(preview.displayName)")
                 .font(.title2)
                 .fontWeight(.bold)
@@ -122,6 +128,34 @@ public struct UpdateOperationView: View {
             .background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 6))
 
         }
+    }
+
+    /// R6 progress region bound to the prepared preview. Only shown while executing; the sheet
+    /// body already prefers the result view when an outcome exists, and no stdout is subscribed.
+    private func progressRegion(_ preview: NpmUpdatePreview) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+            ProgressView()
+                .controlSize(.small)
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Update in progress")
+                    .font(.headline)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Registry ID: \(preview.registryID)")
+                    Text("Package: \(preview.packageName)")
+                    Text("Prefix: \(preview.prefix)")
+                }
+                .font(.caption)
+                .foregroundColor(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.accentColor.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(
+            "Update in progress, registry ID \(preview.registryID), package \(preview.packageName), prefix \(preview.prefix)"
+        )
     }
 
     private func unavailableView(_ reason: NpmUpdateUnavailableReason) -> some View {
