@@ -138,11 +138,13 @@ Candidate SHA-256 (from `evidence/changed-files.sha256`):
 1e7a41d64dced2ba98becbd4c2fa328704f2dd3f714ca7de67935fb71591c01c  Sources/AgentLensAppSupport/InventorySnapshot.swift
 9b5257dab19b7d87d65018337c7b5b23fb1a01f2f633f4d960b7a566bb572b55  Sources/AgentLensAppSupport/InventoryViewModel.swift
 420c20da464fddfdec84e9919feb44f95c23dab300247896b8d38a21657b93f4  Sources/AgentLensAppSupport/WorkflowPresentation.swift
-de20ee4af556303cc44b0722c19cb65fbf8cd5a209cdb8cf548764033ae431e7  Tests/AgentLensAppSupportTests/InventoryViewModelTests.swift
+1fc0f2cf23db2051f3d3ef75d99d0b1c44cbe1f06c3e11bbd28e6bc1155bbeca  Tests/AgentLensAppSupportTests/InventoryViewModelTests.swift
 287b37ed14129bf0db18626f1916d14f983a0ff361bbd90a063d136e53424124  Tests/AgentLensAppSupportTests/WorkflowPresentationTests.swift
 ```
 
 This report's own SHA-256 is recorded in the same evidence file after the report's final write.
+(R1 supersedes this block's VM-test and report hashes; §8 records the R1 candidate state, the
+external review artifacts, and the regenerated evidence.)
 
 ## 6. Stop-condition audit
 
@@ -151,7 +153,8 @@ This report's own SHA-256 is recorded in the same evidence file after the report
   demonstrates a scope/filter/search/selection change does not cancel an executing update and the
   outcome/preview stay bound to `codex-id`.
 - `filteredEntries` does not re-sort; `matches` is byte-identical to the accepted predicate.
-- The AppSupport floor is raised to a measured 117 (above 80); `ci.yml` was not edited.
+- The AppSupport floor is raised to a measured 118 at the reviewed candidate (119 after the R1
+  pin; see §8); `ci.yml` was not edited.
 - No design choice outside the brief/rulings was made. The unconditional `updateStatusFilter`
   invalidation follows R1's literal trigger list and is recorded above.
 
@@ -164,3 +167,44 @@ This report's own SHA-256 is recorded in the same evidence file after the report
   any test. The new tests use synthetic registries, fixtures under `TMPDIR`, and injected seams.
 - Review/acceptance is not claimed. Both independent reviewers and the orchestrator's rerun are
   outside this report.
+
+## 8. R1 focused corrections (post-review)
+
+Both reviewers PASSed the candidate (0 blocking; 3 + 2 low findings). This R1 applies only the
+findings that correct test pinning and this report. **No production code changed**; the allow-list
+was `Tests/AgentLensAppSupportTests/InventoryViewModelTests.swift` and this report.
+
+1. **LOW-1 — filter inertness outside Updates is now pinned.**
+   `updateStatusFilterIsInertOutsideTheUpdatesScope` installs the normal two-tool fixture (both
+   installed), sets `listScope = .all`, then `updateStatusFilter = .updateAvailable`, and asserts
+   both registry IDs remain listed (`["codex-id", "beta-id"]`, including neutral `beta-id`). This
+   discriminates the `guard listScope == .updates` in `filteredEntries`: dropping that
+   scope-conditioning guard would leave only `codex-id` and fail the pin.
+2. **Seeded-trigger comment direction corrected.** The previous comment claimed a removed hook would
+   make the final assertion *pass*; the assertions do the opposite. The comment now states that
+   removing the `listScope` hook leaves the preparation non-nil and makes
+   `#expect(viewModel.updatePreparation == nil)` **fail**. No assertion was weakened or changed.
+3. **Floor transcription corrected.** The stop-condition audit said 117; the reviewed candidate was
+   118. Corrected above, with the post-R1 count recorded here.
+
+**LOW-2 (not changed by instruction).** The conflict classifier does not special-case
+`installState`; Core publishes `shadowedInstallationCount == 0` for `notInstalled`, so R3's
+`shadowedCopy` rule already produces no conflict for a not-installed tool. This raises no Core
+coupling beyond R3 as written.
+
+Post-R1 counts and evidence (fresh scratch, `--no-parallel`, CLT plugin flag):
+
+| Run | Result |
+|---|---|
+| AppSupport suite (`--filter AgentLensAppSupportTests`) | exit 0 — **119 tests passed** (80 baseline + 39 new) |
+| Full gate set | every command exit 0 — Core **467**, AppSupport **119** (total **586**), zero failures/skips; guard fixtures **21**; packaging **9**; both import guards clean; dev-app built; `git diff --check` clean |
+
+Raw R1 logs, argv, exit codes, and durations: `$R/evidence/r1/`. The changed-file SHA-256 list and
+protected manifests were regenerated at the R1 candidate (`evidence/r1/` and `evidence/`).
+
+R1 candidate state: the reviewed candidate was committed by the orchestrator as `64a5056`
+(`feat(workflow): M12-A presentation-state foundation candidate`); these two R1 edits are
+uncommitted on top of it. `walkthroughs/M12-A-evidence/reviews/{grok,minimax}.md` were filed by the
+orchestrator/reviewers after that commit; they are **not** implementer changes and were not edited.
+The R1 hashes therefore list the two R1 edits separately from the six allow-listed candidate files
+(`evidence/r1/candidate-files.sha256`).

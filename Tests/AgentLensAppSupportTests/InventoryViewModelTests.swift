@@ -1526,9 +1526,9 @@ private struct PresentationFixture {
     #expect(viewModel.updatePreparation != nil)
     #expect(viewModel.updatePreview != nil)
 
-    // Non-triggers leave it in place; a removed trigger hook would make the last assertion pass
-    // vacuously here (the preview would already be gone), so this test is not content with
-    // "eventually nil".
+    // These non-triggers must leave the seed in place. If the `listScope` invalidation hook were
+    // removed, the final assertion below would FAIL because the preparation would stay non-nil and
+    // the preview populated: the test is discriminating, not satisfied by an eventually-nil state.
     viewModel.detailPane = .diagnostics
     viewModel.listScope = .all
     viewModel.select(registryID: "codex-id")
@@ -1812,6 +1812,24 @@ private final class VMGatedRemovingOperationRunner: OperationCommandRunner, @unc
     #expect(viewModel.knownToolCount == 2)
     #expect(viewModel.installedToolCount == 2)
     #expect(viewModel.updateAvailableCount == 1)
+}
+
+@MainActor
+@Test func updateStatusFilterIsInertOutsideTheUpdatesScope() async throws {
+    let fixture = try PresentationFixture("m12a-filter-inert")
+    defer { fixture.cleanUp() }
+    let viewModel = fixture.viewModel
+    await viewModel.launch()
+    await viewModel.checkForUpdates()
+    #expect(viewModel.filteredEntries.map(\.registryID) == ["codex-id", "beta-id"])
+
+    viewModel.listScope = .all
+    viewModel.updateStatusFilter = .updateAvailable
+
+    // The status filter narrows Updates only. Both installed tools stay listed under `.all` —
+    // including neutral `beta-id` — so dropping the scope-conditioning guard in `filteredEntries`
+    // (which would leave only `codex-id`) fails this test.
+    #expect(viewModel.filteredEntries.map(\.registryID) == ["codex-id", "beta-id"])
 }
 
 @MainActor
