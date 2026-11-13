@@ -293,7 +293,7 @@ public struct MainWindow: View {
             isSheetPresented: model.isUpdateSheetPresented || model.isUninstallSheetPresented,
             updateAffordanceIsPrepare: presentation?.update == .prepareNpmUpdate,
             uninstallAffordanceIsPrepare: presentation?.uninstall == .prepareNpmUninstall,
-            canVerifyInstallation: Self.canVerifySelection(model.selectedEntry),
+            canVerifyInstallation: model.selectedEntry.map(ToolDetailView.canVerifyOwnership) ?? false,
             selectDestination: { destination in
                 selectedDestination = destination
             },
@@ -330,16 +330,6 @@ public struct MainWindow: View {
         )
     }
 
-    private static func canVerifySelection(_ entry: InventoryEntry?) -> Bool {
-        guard let entry else { return false }
-        return switch entry.diagnostic.selection {
-        case .winner, .offPath:
-            true
-        case .notInstalled, .inconsistent:
-            false
-        }
-    }
-
     // MARK: - Sidebar
 
     private var sidebarView: some View {
@@ -360,7 +350,7 @@ public struct MainWindow: View {
                     Image(systemName: destinationIcon(destination))
                 }
             }
-            .accessibilityLabel(destination.rawValue)
+            .accessibilityLabel(accessibilityLabel(for: destination))
             // VoiceOver activation selects exactly what a click selects: the same destination
             // state write, and therefore the same single R1 invalidation path.
             .accessibilityAction {
@@ -401,6 +391,13 @@ public struct MainWindow: View {
         case .diagnostics, .settings:
             nil
         }
+    }
+
+    /// The spoken row name keeps the destination and the same badge count the row shows. Rows
+    /// without a badge (Diagnostics, Settings) stay just the name.
+    private func accessibilityLabel(for destination: NavigationDestination) -> String {
+        guard let badge = badgeCount(destination) else { return destination.rawValue }
+        return "\(destination.rawValue), \(badge)"
     }
 
     /// A presentation derivation of published snapshot facts: installed tools in one category.

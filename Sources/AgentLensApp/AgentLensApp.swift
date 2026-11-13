@@ -297,7 +297,8 @@ struct AgentLensCommands: Commands {
 
     private var canVerifyInstallation: Bool {
         guard let actions else { return false }
-        return !actions.isBusy && actions.canVerifyInstallation
+        // R9: no menu action may run while a confirmation sheet owns the mutation slot.
+        return !actions.isBusy && !actions.isSheetPresented && actions.canVerifyInstallation
     }
 }
 

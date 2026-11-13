@@ -265,7 +265,9 @@ public struct ToolDetailView: View {
         )
     }
 
-    private static func canVerifyOwnership(_ entry: InventoryEntry) -> Bool {
+    /// The single winner/off-PATH ownership-verification rule. The menu bar reuses this predicate,
+    /// so the eligibility rule exists in exactly one place.
+    static func canVerifyOwnership(_ entry: InventoryEntry) -> Bool {
         switch entry.diagnostic.selection {
         case .winner, .offPath:
             true

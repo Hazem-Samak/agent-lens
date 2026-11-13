@@ -29,6 +29,7 @@ public struct ConflictSummaryView: View {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Text("Conflicts")
                     .font(.headline)
+                    .accessibilityAddTraits(.isHeader)
                 Text("\(conflicts.count)")
                     .font(.subheadline)
                     .foregroundColor(.secondary)
