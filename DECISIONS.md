@@ -524,7 +524,17 @@ reviewers: the two council models. Verified baseline at the base: 467 Core + 80 
   filtering, read-only Settings, keyboard navigation, selection persistence, extended row labels.
   Forward note: sidebar `AXPress` does not select (SwiftUI characteristic); M12-E owns VoiceOver
   activation. [Acceptance](walkthroughs/M12-B-acceptance.md).
+- **M12-C — conflict summary + Updates status filter: technically accepted** at `e66872d`. App-only
+  phase (R2/R3/R14): `ConflictSummaryView` in Overview lists each conflict tool (three kinds, copy
+  count, measured local versions) with "Show PATH evidence" → the existing `DiagnosticsView` via the
+  frozen `showPathEvidence`; the Updates destination gains the five-option status filter bound to the
+  frozen `updateStatusFilter`; Diagnostics empty-selection copy updated. No second candidate table.
+  Orchestrator acceptance + native spot-check (R15; no council review — no AppSupport diff).
+  Orchestrator rerun: 467 Core + 119 AppSupport = 586, zero skips/failures; guard 21, packaging 9.
+  Native spot-check observed four live conflict tools (Codex/Cline/OMP/DSH shadowed copies), Show PATH
+  evidence navigating to Cline CLI Diagnostics, the Updates filter narrowing to a truthful empty
+  state, and selection persistence. [Acceptance](walkthroughs/M12-C-acceptance.md).
 
-No merge to `main`, no release. M12 continues with M12-C (conflict summary + Updates status filter).
+No merge to `main`, no release. M12 continues with M12-D (operation-journey completion).
 OD-M12-1 (temporary Full Keyboard Access / VoiceOver / appearance for the M8 keyboard gate, restored
 after) is the one open owner gate and blocks M12-F only.
