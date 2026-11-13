@@ -82,8 +82,10 @@ public struct DiagnosticsView: View {
                 Text("The login shell could not be captured; PATH uses the documented fallback PATH. Results may not represent the login shell's authoritative PATH.")
                     .font(.caption)
                     .foregroundColor(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
+        .accessibilityElement(children: .combine)
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color.orange.opacity(0.1), in: RoundedRectangle(cornerRadius: 8))
@@ -101,8 +103,10 @@ public struct DiagnosticsView: View {
                 Text("\(failure.message). Displaying retained local diagnostics.")
                     .font(.caption)
                     .foregroundColor(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
+        .accessibilityElement(children: .combine)
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color.orange.opacity(0.1), in: RoundedRectangle(cornerRadius: 8))
@@ -115,6 +119,7 @@ public struct DiagnosticsView: View {
             Text(entry.definition.displayName)
                 .font(.title)
                 .fontWeight(.bold)
+                .accessibilityAddTraits(.isHeader)
 
             HStack(spacing: 8) {
                 Text(entry.definition.executableName)
@@ -138,6 +143,7 @@ public struct DiagnosticsView: View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Selection Status")
                 .font(.headline)
+                .accessibilityAddTraits(.isHeader)
 
             switch diagnostic.selection {
             case .winner(let winner):
@@ -224,6 +230,7 @@ public struct DiagnosticsView: View {
                     Text("No live executable found in PATH or declared extra roots")
                         .font(.subheadline)
                         .foregroundColor(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
 
             case .inconsistent(let reason):
@@ -233,6 +240,7 @@ public struct DiagnosticsView: View {
                     Text("Consistency Failure: \(reason)")
                         .font(.subheadline)
                         .foregroundColor(.orange)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
         }
@@ -244,6 +252,7 @@ public struct DiagnosticsView: View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Summary Counts")
                 .font(.headline)
+                .accessibilityAddTraits(.isHeader)
 
             Grid(alignment: .leading, horizontalSpacing: 24, verticalSpacing: 8) {
                 GridRow {
@@ -292,6 +301,7 @@ public struct DiagnosticsView: View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Canonical Installation Versions")
                 .font(.headline)
+                .accessibilityAddTraits(.isHeader)
 
             if diagnostic.installationVersions.isEmpty {
                 Text("No live canonical installation was observed.")
@@ -389,12 +399,14 @@ public struct DiagnosticsView: View {
         VStack(alignment: .leading, spacing: 16) {
             Text("Observed Candidates")
                 .font(.headline)
+                .accessibilityAddTraits(.isHeader)
 
             // Live PATH candidates
             VStack(alignment: .leading, spacing: 8) {
                 Text("Live PATH Entries")
                     .font(.subheadline)
                     .fontWeight(.semibold)
+                    .accessibilityAddTraits(.isHeader)
 
                 if diagnostic.liveCandidates.isEmpty {
                     Text("None observed")
@@ -413,6 +425,7 @@ public struct DiagnosticsView: View {
                     Text("Off-PATH Selected Candidate")
                         .font(.subheadline)
                         .fontWeight(.semibold)
+                        .accessibilityAddTraits(.isHeader)
 
                     VStack(alignment: .leading, spacing: 4) {
                         HStack {
@@ -448,6 +461,7 @@ public struct DiagnosticsView: View {
                     Text("Invalid PATH Entries")
                         .font(.subheadline)
                         .fontWeight(.semibold)
+                        .accessibilityAddTraits(.isHeader)
 
                     ForEach(Array(diagnostic.invalidCandidates.enumerated()), id: \.offset) { _, candidate in
                         VStack(alignment: .leading, spacing: 4) {

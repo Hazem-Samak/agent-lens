@@ -66,6 +66,8 @@ public struct MainWindow: View {
         .toolbar {
             toolbarItems
         }
+        .frame(minWidth: 760, minHeight: 480)
+        .focusedSceneValue(\.appCommandActions, commandActions)
         .onChange(of: selectedDestination) { _, destination in
             applyDestination(destination)
         }
@@ -280,6 +282,64 @@ public struct MainWindow: View {
         }
     }
 
+    // MARK: - Menu bar wiring (R9)
+
+    /// The focused window's menu state. Every action uses the toolbar's `runAction` lifetime, so a
+    /// menu-started pipeline is visible to the termination gate and coalesces like any other.
+    private var commandActions: AppCommandActions {
+        let presentation = model.selectedEntry.map { ManagementPresentation(entry: $0) }
+        return AppCommandActions(
+            isBusy: model.isBusy,
+            isSheetPresented: model.isUpdateSheetPresented || model.isUninstallSheetPresented,
+            updateAffordanceIsPrepare: presentation?.update == .prepareNpmUpdate,
+            uninstallAffordanceIsPrepare: presentation?.uninstall == .prepareNpmUninstall,
+            canVerifyInstallation: Self.canVerifySelection(model.selectedEntry),
+            selectDestination: { destination in
+                selectedDestination = destination
+            },
+            rescan: {
+                runAction {
+                    await model.rescan()
+                }
+            },
+            checkForUpdates: {
+                runAction {
+                    await model.checkForUpdates()
+                }
+            },
+            refreshUpdates: {
+                runAction {
+                    await model.refreshUpdates()
+                }
+            },
+            prepareUpdate: {
+                runAction {
+                    await model.prepareSelectedUpdate()
+                }
+            },
+            prepareUninstall: {
+                runAction {
+                    await model.prepareSelectedUninstall()
+                }
+            },
+            verifyInstallation: {
+                runAction {
+                    await model.verifySelectedInstallation()
+                }
+            }
+        )
+    }
+
+    private static func canVerifySelection(_ entry: InventoryEntry?) -> Bool {
+        guard let entry else { return false }
+        return switch entry.diagnostic.selection {
+        case .winner, .offPath:
+            true
+        case .notInstalled, .inconsistent:
+            false
+        }
+    }
+
     // MARK: - Sidebar
 
     private var sidebarView: some View {
@@ -299,6 +359,12 @@ public struct MainWindow: View {
                 } icon: {
                     Image(systemName: destinationIcon(destination))
                 }
+            }
+            .accessibilityLabel(destination.rawValue)
+            // VoiceOver activation selects exactly what a click selects: the same destination
+            // state write, and therefore the same single R1 invalidation path.
+            .accessibilityAction {
+                selectedDestination = destination
             }
         }
         .navigationTitle("Agent Lens")

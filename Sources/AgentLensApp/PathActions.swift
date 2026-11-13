@@ -70,6 +70,7 @@ struct PathActionRow: View {
                 .buttonStyle(.borderless)
                 .disabled(!target.isActionable)
                 .accessibilityLabel(actionLabel("Copy"))
+                .accessibilityHint("Copies the path text.")
                 .help(actionLabel("Copy"))
 
                 Button {
@@ -80,6 +81,7 @@ struct PathActionRow: View {
                 .buttonStyle(.borderless)
                 .disabled(!target.isActionable)
                 .accessibilityLabel(actionLabel("Reveal in Finder"))
+                .accessibilityHint("Asks Finder to select this path.")
                 .help(actionLabel("Reveal in Finder"))
 
                 Spacer(minLength: 0)
@@ -132,6 +134,20 @@ struct PathActionRow: View {
     private func setFeedback(_ text: String, isError: Bool) {
         feedback = text
         feedbackIsError = isError
+        Self.announce(text)
+    }
+
+    /// VoiceOver announcement for the transient outcome (R10). The visible feedback string is
+    /// unchanged; the AppKit accessibility announcement reads the same text.
+    private static func announce(_ text: String) {
+        NSAccessibility.post(
+            element: NSApplication.shared,
+            notification: .announcementRequested,
+            userInfo: [
+                .announcement: text,
+                .priority: NSAccessibilityPriorityLevel.high.rawValue,
+            ]
+        )
     }
 
     // MARK: - Native effects

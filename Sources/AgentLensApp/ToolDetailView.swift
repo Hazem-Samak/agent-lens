@@ -128,8 +128,10 @@ public struct ToolDetailView: View {
                 Text("The login shell could not be captured; PATH uses the documented fallback PATH. Results may not represent the login shell's authoritative PATH.")
                     .font(.caption)
                     .foregroundColor(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
+        .accessibilityElement(children: .combine)
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color.orange.opacity(0.1), in: RoundedRectangle(cornerRadius: 8))
@@ -147,8 +149,10 @@ public struct ToolDetailView: View {
                 Text("\(failure.message). Displaying retained local inventory.")
                     .font(.caption)
                     .foregroundColor(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
+        .accessibilityElement(children: .combine)
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color.orange.opacity(0.1), in: RoundedRectangle(cornerRadius: 8))
@@ -166,8 +170,10 @@ public struct ToolDetailView: View {
                 Text("\(failure.message). Displaying retained local inventory.")
                     .font(.caption)
                     .foregroundColor(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
+        .accessibilityElement(children: .combine)
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color.orange.opacity(0.1), in: RoundedRectangle(cornerRadius: 8))
@@ -180,6 +186,7 @@ public struct ToolDetailView: View {
             Text(entry.definition.displayName)
                 .font(.title)
                 .fontWeight(.bold)
+                .accessibilityAddTraits(.isHeader)
 
             HStack(spacing: 8) {
                 Text(entry.definition.executableName)
@@ -203,6 +210,7 @@ public struct ToolDetailView: View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Installation")
                 .font(.headline)
+                .accessibilityAddTraits(.isHeader)
 
             Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 10) {
                 GridRow {
@@ -282,6 +290,7 @@ public struct ToolDetailView: View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Manage")
                 .font(.headline)
+                .accessibilityAddTraits(.isHeader)
             if hasDeclaredNpmPackage(entry) {
                 uninstallAffordance(entry, affordance: presentation.uninstall)
             }
@@ -336,6 +345,7 @@ public struct ToolDetailView: View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Tool Metadata")
                 .font(.headline)
+                .accessibilityAddTraits(.isHeader)
 
             Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 10) {
                 GridRow {
@@ -460,6 +470,7 @@ public struct ToolDetailView: View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Update Status")
                 .font(.headline)
+                .accessibilityAddTraits(.isHeader)
 
             if let update = entry.update {
                 Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 10) {
