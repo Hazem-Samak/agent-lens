@@ -534,7 +534,19 @@ reviewers: the two council models. Verified baseline at the base: 467 Core + 80 
   Native spot-check observed four live conflict tools (Codex/Cline/OMP/DSH shadowed copies), Show PATH
   evidence navigating to Cline CLI Diagnostics, the Updates filter narrowing to a truthful empty
   state, and selection persistence. [Acceptance](walkthroughs/M12-C-acceptance.md).
+- **M12-D — operation-journey completion: technically accepted** at `6c1405a`. Mutation-presentation
+  safety phase (R4/R5/R6/R13): `ToolDetailView` renders the frozen `ManagementPresentation` (codex
+  affordances + Core reason strings byte-identical; formula/cask/standalone limits as text); both
+  sheets gain an in-flight progress region; **contract decision C-1** normalizes the footer (preview
+  state: no `.defaultAction`, Cancel on Escape, destructive confirm has no key equivalent;
+  result/unavailable keep Done/Close default). Public initializers source-compatible (M10-D fixture
+  untouched). Both mandatory independent reviews PASS (MiniMax 0 blocking/1 low; Grok 0 blocking/0
+  low), both adjudicating C-1 SAFE — it removes Return-to-confirm and restores the M10-D planning
+  constraint the shipped M10-C update sheet had violated; no M10 safety property weakened.
+  Orchestrator rerun: 467 Core + 119 AppSupport = 586, zero skips/failures; guard 21, packaging 9.
+  Native C-1 proof: Return did not confirm the Uninstall preview, Escape cancelled it (zero
+  mutation). [Acceptance](walkthroughs/M12-D-acceptance.md).
 
-No merge to `main`, no release. M12 continues with M12-D (operation-journey completion).
+No merge to `main`, no release. M12 continues with M12-E (menus, keyboard, accessibility, layout).
 OD-M12-1 (temporary Full Keyboard Access / VoiceOver / appearance for the M8 keyboard gate, restored
 after) is the one open owner gate and blocks M12-F only.
