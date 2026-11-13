@@ -513,7 +513,18 @@ reviewers: the two council models. Verified baseline at the base: 467 Core + 80 
   and report slip (no production change). Orchestrator rerun: 467 Core + 119 AppSupport = 586, zero
   skips/failures; guard 21, packaging 9, both import guards clean, dev-app built. LOW-2 recorded as a
   documented Core coupling (R3 unchanged). [Acceptance](walkthroughs/M12-A-acceptance.md).
+- **M12-B — seven-destination navigation shell: technically accepted** at `ea08ad8`. App-only phase
+  wiring the frozen A model (R1/R7/R14): seven sidebar destinations with snapshot-derived badges;
+  Overview summary tiles (no second inventory); read-only truthful Settings; list rows carry local
+  version, source heuristic, declared packages, and extended accessibility labels (category, version,
+  conflict kind). Selection persists across scope changes; operation sheets unchanged. Orchestrator
+  acceptance + native spot-check (R15; no council review — App-only, no ViewModel/operation-view
+  diff). Orchestrator rerun: 467 Core + 119 AppSupport = 586, zero skips/failures; guard 21,
+  packaging 9, both import guards clean. Native spot-check observed Overview tiles/badges, category
+  filtering, read-only Settings, keyboard navigation, selection persistence, extended row labels.
+  Forward note: sidebar `AXPress` does not select (SwiftUI characteristic); M12-E owns VoiceOver
+  activation. [Acceptance](walkthroughs/M12-B-acceptance.md).
 
-No merge to `main`, no release. M12 continues with M12-B (seven-destination navigation shell).
+No merge to `main`, no release. M12 continues with M12-C (conflict summary + Updates status filter).
 OD-M12-1 (temporary Full Keyboard Access / VoiceOver / appearance for the M8 keyboard gate, restored
 after) is the one open owner gate and blocks M12-F only.
