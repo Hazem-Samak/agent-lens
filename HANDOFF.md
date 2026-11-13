@@ -1,107 +1,114 @@
-# M12 HANDOFF — safe stop point (2026-11-13)
+# M12 hand-off — safe stop point (2026-11-13)
 
-Resume prompt is at the bottom. Everything below is committed; the working tree is clean.
+Resume here. This file is the orchestrator's hand-off after an owner-requested pause (laptop
+shutdown). It is a status snapshot, not a frozen brief or acceptance record.
 
-## Where the project is
+## Where things stand
 
-Agent Lens, milestone **M12 — complete native diagnostic and operation workflow**, on branch
-`milestone/m12-workflow` (stacks on unmerged M11 / PR #2; base `0589fac`). Orchestrator/main judge:
-Qoder. Planning Council + standing independent reviewers: **MiniMax M3.1-Flash/xhigh via `mcode`**
-and **Grok 4.7/high via `grok`**. Sole implementer: **DeepSeek V4.1 Flash 1017 via `omp`**
-(`river/deepseek-ai/DeepSeek-V4.1-Flash-1017`, `--thinking max`). All agents run through **Herdr
-Core (`hc`)** in the "Agent Lens" space (tabs: M12 Planning Council, M12 Implementer, M12 Reviews).
+- **Project:** Agent Lens (native Swift 6 / SwiftUI macOS app). Repo remote:
+  `https://github.com/Hazem-Samak/agent-lens.git` (use this exact URL; no proxies).
+- **Branch:** `milestone/m12-workflow` (stacks on unmerged M11; PR #2 `milestone/m11-catalogue → main`
+  is still open and NOT merged). Base product commit `0589fac`. Local HEAD `6b8e2f4`, working tree
+  clean, **22 commits ahead of origin — PUSH THE BRANCH FIRST on resume** (back up before any work).
+- **Milestone plan:** `briefs/M12-plan.md` (frozen), rulings R1–R16 in
+  `briefs/M12-planning/judgment.md`. Council: MiniMax M3.1-Flash/xhigh (mcode) + Grok 4.7/high (grok).
+  Sole implementer: DeepSeek V4.1 Flash 1017 via OMP (`river/deepseek-ai/DeepSeek-V4.1-Flash-1017`,
+  `--thinking max`). All agents summoned via Herdr/hc only.
 
-**HEAD: `6b8e2f4`** (clean tree). Remote: `https://github.com/Hazem-Samak/agent-lens.git`.
+## Phase status
 
-## Completed and accepted (all committed)
-
-| Phase | Content | Candidate | Reviews |
+| Phase | Status | Candidate | Reviews |
 |---|---|---|---|
-| Plan | Council proposals + judgment R1–R16 + frozen `briefs/M12-plan.md` | `1f251d4` | council |
-| M12-A | AppSupport presentation foundation (scope/filter/conflict/capability/invalidation) | `64a5056`+R1 `2ed3a77` | both PASS |
-| M12-B | Seven-destination navigation shell + Overview + read-only Settings + row details | `ea08ad8` | orchestrator + native spot-check |
-| M12-C | Conflict summary + Updates status filter | `e66872d` | orchestrator + native spot-check |
-| M12-D | Operation journey: ManagementPresentation render, progress region, **C-1** (Return never confirms) | `6c1405a` | both PASS, C-1 adjudicated safe |
-| M12-E | Native menus + VoiceOver labels + layout/appearance | `5214d63`+R1 `407882b` | both PASS (after R1) |
-| M12-F | **M8 keyboard gate CLOSED** + sidebar focus fix + hint fix | `255fd9c` (fix) + `a411661` (measure+R2) | both PASS (sidebar) |
-| CI | Floors raised to measured counts (Core 467 / AppSupport 119 / total 586) | `3212255` | orchestrator |
+| M12-A presentation foundation | **ACCEPTED** | `64a5056`+R1 `2ed3a77` | both PASS |
+| M12-B navigation shell | **ACCEPTED** | `ea08ad8` | orchestrator + native spot-check |
+| M12-C conflict summary + Updates filter | **ACCEPTED** | `e66872d` | orchestrator + native spot-check |
+| M12-D operation journey + C-1 | **ACCEPTED** | `6c1405a` | both PASS (C-1 adjudicated safe) |
+| M12-E menus/a11y/layout | **ACCEPTED** | `5214d63`+R1 `407882b` | both PASS after R1 |
+| M12-F M8 keyboard gate + measurement | **fix done, acceptance pending** | `255fd9c` (sidebar) + `a411661` (hint fix) | sidebar both PASS; hint fix re-review pending |
 
-Acceptance records: `walkthroughs/M12-{A,B,C,D,E}-acceptance.md`. Measurement:
-`walkthroughs/M12-F-measurement.md`. Reviews under `walkthroughs/M12-*-evidence/reviews/`.
-Milestone log: `DECISIONS.md` (M12 section). **OD-M12-1 owner-approved** (temporary FKA/VoiceOver/
-appearance for measurement, restored after).
+- **M8 keyboard-only gate: CLOSED** on the disposable fixture (full matrix: Tab reaches all four
+  path buttons; Space activates each; Copy Selected/Resolved byte-equal with SHA match; Reveal
+  Selected/Resolved selects the exact symlink/canonical target in Finder; category-list Tab traversal
+  works; clipboard + fixture restored). Evidence:
+  `~/.hermes/cache/scratch/agent-lens-m12-f-measure/evidence/` (INDEX.md).
+- **Hint defect fixed** (`a411661`): `PathActions.swift` `.help()` now carries the hint text so AXHelp
+  is not masked. Implementer R2 gates green (586). **Independent re-review of the hint fix is pending.**
+- **VoiceOver:** captions captured for path buttons, unavailable sentence, path-feedback announcement;
+  list row / Settings recorded with AX evidence where captions were not observed (partial — see
+  `walkthroughs/M12-F-measurement.md`). Large-text: macOS semantic-text scaling limitation recorded;
+  safety text wraps fully; light/dark + narrow-window screenshots captured.
+- **CI floors raised** (`3212255`): Core 467, AppSupport 119, total/combined 586; guard 21, packaging 9;
+  anchors frozen. Suite green throughout (467 Core + 119 AppSupport = 586, zero skips/failures).
+- **OD-M12-1 SETTLED** (owner approved): temporary FKA/VoiceOver/appearance toggles for M12-F, restored.
+  **System settings already restored** (FKA unset/off, VoiceOver off, appearance Dark).
 
-**Test suite: 467 Core + 119 AppSupport = 586, zero skips/failures** (orchestrator-rerun, multiple
-times). Guards 21, packaging 9, both import guards clean, dev-app builds.
+## What remains (resume tasks, in order)
 
-**M8 keyboard gate is CLOSED** on the disposable fixture: Tab reaches all four path buttons, Space
-activates each; Copy Selected/Resolved byte-equal (SHA match); Reveal Selected/Resolved selects the
-exact symlink/canonical target in Finder; category-list Tab traversal works; clipboard+fixture
-restored. Evidence: `~/.hermes/cache/scratch/agent-lens-m12-f-measure/evidence/` (INDEX.md).
+1. **Push the branch** to origin (back up the 22 local commits): `git push -u origin milestone/m12-workflow`.
+2. **Independent re-review of the hint fix** (`a411661`, PathActions.swift only) by BOTH council models
+   (small; confirm AXHelp = hint, labels preserved, no behavior change). Reuse reviewer terminals or
+   summon fresh. File `walkthroughs/M12-F-evidence/reviews/{minimax,grok}-r2.md`.
+3. **Hosted gates at the final candidate SHA**: push triggers CI; verify all seven gates green at the
+   exact SHA (guard, guard-fixtures, swift-build, isolation-gate, full-test-suite [586, anchors],
+   build-dev-app, packaging). Use `gh run watch <id> --exit-status`. Record the run ID + receipt.
+4. **Combined M12 acceptance record**: `walkthroughs/M12-combined-acceptance.md` (orchestrator-run;
+   requirement-to-evidence across A–F; the ROADMAP journey matrix; honest limitations: VoiceOver
+   list-row/Settings captions partial, macOS large-text scaling note). Update `DECISIONS.md` milestone
+   log (M12-F + combined). The orchestrator reruns the full local gate set itself (D-014).
+5. **Create the PR** `milestone/m12-workflow → main` (note it stacks on unmerged PR #2; GitHub
+   auto-retargets when #2 merges, or retarget manually). Title < 70 chars; body summarizes the phase,
+   evidence, reviews, limitations. **Do NOT merge** — owner authorizes merge separately.
+6. **Merge-readiness assessment** to the owner: ready / not-ready, with the honest limitations.
 
-**System settings RESTORED**: Full Keyboard Access off (`AppleKeyboardUIMode` unset), VoiceOver off,
-appearance Dark, window 960×600, clipboard empty.
+## Key commands / environment
 
-## Remaining work (NOT done — resume here)
-
-1. **Hosted CI gates at the exact candidate SHA.** Push the branch (if not pushed) and verify all
-   seven hosted gates pass at HEAD (`guard`, `guard-fixtures`, `swift-build`, `isolation-gate`,
-   `full-test-suite` with floors 467/119/586 + anchors, `build-dev-app`, `packaging`). Use
-   `gh run watch <id> --exit-status`. The local suite is green; hosted confirmation is pending.
-2. **Combined M12 acceptance record** (`walkthroughs/M12-combined-acceptance.md`) + DECISIONS.md
-   combined entry: requirement-to-evidence matrix (ROADMAP M12 acceptance), hosted receipt, limits.
-3. **Create the PR** (`milestone/m12-workflow` → `main`; note it stacks on unmerged PR #2). Review it
-   and give the owner a **merge-readiness assessment**. **DO NOT MERGE** — owner authorizes merge.
-4. **Optional cleanup**: remove this HANDOFF.md before the PR (or keep as a record); kill leftover
-   hc terminals.
-
-## Known limitations to disclose honestly in the PR/assessment
-
-- **VoiceOver spoken check is PARTIAL**: caption panel captured the path buttons, the unavailable
-  sentence, and the path-feedback announcement. The **list row and Settings** could not be captioned
-  (VoiceOver Item-Chooser/interact mode replaces the element caption with interaction instructions);
-  exact AX evidence is retained and the reason is recorded in `M12-F-measurement.md`. The labels are
-  implemented and AX-verified; the audible confirmation for those two surfaces is limited.
-- **Large-text**: `.dynamicTypeSize(.accessibility5)` did not scale macOS semantic text (a macOS
-  behavior, recorded); safety text wraps with full AX value at narrow width (320 pt). Light/dark +
-  narrow-window (760×480 content) screenshots captured.
-- The M8 measurement used the disposable fixture (correct); an earlier partial proof used a live
-  read-only path (superseded by the full fixture matrix).
-- Sidebar changed from `List` to Button rows (M12-F fix) — a visual surface change vs M12-B; both
-  reviewers PASS, noted for the light/dark comparison.
-
-## Key reference facts
-
-- Local suite command (CLT-only workstation; `--no-parallel` is REQUIRED — parallel runs give
-  load-sensitive Core version-query failures):
+- Local suite (CLT-only workstation; documented plugin flag, `--no-parallel` is authoritative):
   ```sh
   env -u AGENT_LENS_TEST_SCRATCH -u AGENT_LENS_TEST_PRODUCTS \
-    swift test --build-system swiftbuild --scratch-path <scratch> --no-parallel \
+    swift test --build-system swiftbuild --scratch-path <scratch>/full-suite --no-parallel \
     -Xswiftc -load-plugin-library \
     -Xswiftc /Library/Developer/CommandLineTools/usr/lib/swift/host/plugins/testing/libTestingMacros.dylib
   ```
-- Dev app: `python3 scripts/build-dev-app.py --scratch-root <dir> --configuration debug`.
-- Evidence roots: `~/.hermes/cache/scratch/agent-lens-m12-{a,b,c,d,e,f,f-r1,f-measure,f-r2}*`.
-- hc agent terminals (may be dead after shutdown): implementer `m12a-impl`, reviewers
-  `review-minimax`/`review-grok`, council `council-minimax`/`council-grok`. Restart with
-  `hc run --bg --name <name> --cwd "<repo>" --label herdr.space=<AgentLens-space-id> <cli> ...`.
-  mcode: launch without `-m` (default M3.1-Flash), effort xhigh via `/model`. grok:
-  `-m grok-4.7 --reasoning-effort high`. omp: `--model river/deepseek-ai/DeepSeek-V4.1-Flash-1017
-  --thinking max --approval-mode yolo`.
-- The orchestrator's shell context lacks the Accessibility TCC grant for system-wide focus reads;
-  the implementer's omp context has it (use it for keyboard/VoiceOver measurement).
+  Run slow commands in an `hc` terminal (`hc run --bg --name <n> ... ; hc wait <n>`), not the shell.
+  Under concurrent-agent load the Core version-query tests can flake; a clean serial rerun is authoritative.
+- Guards: `python3 scripts/check-core-ui-imports.py` (+ `--source-root Sources/AgentLensAppSupport`);
+  `python3 Tests/Packaging/test_core_ui_imports.py` (21); dev app `python3 scripts/build-dev-app.py
+  --scratch-root <s>/app --configuration debug`; packaging `python3 Tests/Packaging/test_dev_app_bundle.py
+  --app <s>/app/AgentLensApp-debug.app` (9).
+- CLI launch paths: mcode `/Users/corvette/.minimax-code/bin/mcode` (default model M3.1-Flash; effort
+  xhigh via TUI; launch WITHOUT `-m`); grok `/Users/corvette/.local/bin/grok -m grok-4.7
+  --reasoning-effort high`; omp `/Users/corvette/.local/bin/omp --model
+  river/deepseek-ai/DeepSeek-V4.1-Flash-1017 --thinking max`. Use absolute paths (hc spawn PATH differs).
+- Herdr: orchestrator terminal `t7x`; Agent Lens space `sp1a17b60a6b77c9dbc2c8772fae054522`.
+  `hc --skill` / `herdr-app --skill` for the manuals. Reviewer terminals were `t9q` (minimax),
+  `t9r` (grok); implementer `t9n` (omp). These end on laptop shutdown — resummon on resume.
+- Native driving: `cua-driver` (daemon has Accessibility + Screen Recording). The orchestrator's own
+  shell context LACKS the system-wide-focus TCC grant; the implementer's omp context HAS it (use it for
+  CGEvent key + AX focus measurement). System Events `entire contents` can read focus but `description`
+  reads generically; the implementer's Swift AXUIElement reader reads kAXDescriptionAttribute correctly.
 
-## RESUME PROMPT (paste this to continue)
+## Process rules (binding)
 
-> Continue Agent Lens milestone M12 from the safe stop point in HANDOFF.md (branch
-> `milestone/m12-workflow`, HEAD `6b8e2f4`, clean tree). Phases A–F are implemented and accepted;
-> the M8 keyboard gate is closed; CI floors are raised to 586; system settings are restored. You are
-> the orchestrator/main judge; the Planning Council/independent reviewers are MiniMax M3.1-Flash
-> (xhigh, `mcode`) and Grok 4.7 (high, `grok`); the implementer is DeepSeek V4.1 Flash 1017 (`omp`,
-> `river/deepseek-ai/DeepSeek-V4.1-Flash-1017`, max). Use Herdr Core (`hc`) for agents. Remaining:
-> (1) push the branch and verify all seven hosted CI gates pass at the exact candidate SHA;
-> (2) write the combined M12 acceptance record + DECISIONS.md entry with the requirement-to-evidence
-> matrix and honest limitations (VoiceOver list-row/Settings captions partial; large-text macOS
-> behavior); (3) create the PR to main (stacks on unmerged PR #2), review it, and tell me if it is
-> ready to merge. DO NOT MERGE until I authorise. Read HANDOFF.md, briefs/M12-plan.md,
-> briefs/M12-planning/judgment.md, and walkthroughs/M12-F-measurement.md first.
+- One milestone branch, sequential phases, one product writer; reviewers read-only; orchestrator runs
+  acceptance (D-014) and owns Git delivery. Implementer gets the brief, not the scope doc.
+- Zero Core/CLI/registry change in M12 (Core stays 467). Floors raise-only to measured counts.
+- Mutation acceptance only against disposable npm fixtures (`Tests/Fixtures/M10C`, `M10D`); never a
+  personal installation. Copy/Reveal are read-only.
+- Evidence roots under `~/.hermes/cache/scratch/agent-lens-m12-*` (outside the repo). Raw transcripts,
+  SHA-256 manifests, protected-file diffs. Worker reports labeled worker evidence, not acceptance.
+- **Note:** the omp implementer used its git `checkpoint` tool and created commits (`a411661`,
+  `6b8e2f4`) despite the "do not commit" instruction. The commits are coherent checkpoints and the
+  work is intact; on resume, reassert "do not commit/push — orchestrator owns Git" if continuing to use
+  omp, or disable its checkpoint tool.
+
+## Resume prompt (paste to continue)
+
+> Continue M12 from the hand-off in `HANDOFF.md` on branch `milestone/m12-workflow`. You are the
+> orchestrator/main judge; planning council and independent reviewers are MiniMax M3.1-Flash/xhigh
+> (mcode) and Grok 4.7/high (grok CLI); implementer is DeepSeek V4.1 Flash 1017 via OMP (max). Use
+> Herdr/hc for all agents. First push the branch to back it up. Then: (1) independent re-review of the
+> M12-F hint fix (commit a411661, PathActions.swift) by both reviewers; (2) verify all seven hosted CI
+> gates green at the final candidate SHA; (3) write the combined M12 acceptance record + DECISIONS log
+> (orchestrator reruns the local gates); (4) create the PR milestone/m12-workflow → main (stacks on
+> unmerged PR #2); (5) give me a merge-readiness assessment. Do NOT merge until I authorise. M12-A…E
+> are accepted; the M8 keyboard gate is closed on the disposable fixture; CI floors are raised to 586.
