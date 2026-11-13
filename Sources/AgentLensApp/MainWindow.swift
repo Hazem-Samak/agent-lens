@@ -36,6 +36,12 @@ public struct MainWindow: View {
 
     private var _lifecycleToken: State<UUID?> = State(initialValue: nil)
 
+    private var _focusedDestination = FocusState<NavigationDestination?>()
+    private var focusedDestination: NavigationDestination? {
+        get { _focusedDestination.wrappedValue }
+        nonmutating set { _focusedDestination.wrappedValue = newValue }
+    }
+
     public init(service: InventoryService = Self.makeDefaultService()) {
         self._model = State(initialValue: InventoryViewModel(service: service))
         self._selectedDestination = State(initialValue: .overview)
@@ -333,32 +339,16 @@ public struct MainWindow: View {
     // MARK: - Sidebar
 
     private var sidebarView: some View {
-        List(NavigationDestination.allCases, selection: _selectedDestination.projectedValue) { destination in
-            NavigationLink(value: destination) {
-                Label {
-                    HStack {
-                        Text(destination.rawValue)
-                        Spacer()
-                        if let badge = badgeCount(destination) {
-                            Text("\(badge)")
-                                .font(.caption2)
-                                .foregroundColor(.secondary)
-                                .monospacedDigit()
-                        }
-                    }
-                } icon: {
-                    Image(systemName: destinationIcon(destination))
+        ScrollView {
+            VStack(spacing: 2) {
+                ForEach(NavigationDestination.allCases) { destination in
+                    sidebarRow(destination)
                 }
             }
-            .accessibilityLabel(accessibilityLabel(for: destination))
-            // VoiceOver activation selects exactly what a click selects: the same destination
-            // state write, and therefore the same single R1 invalidation path.
-            .accessibilityAction {
-                selectedDestination = destination
-            }
+            .padding(8)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
         .navigationTitle("Agent Lens")
-        .listStyle(.sidebar)
         .safeAreaInset(edge: .bottom) {
             if model.isDegradedEnvironment {
                 HStack(alignment: .top, spacing: 6) {
@@ -372,6 +362,67 @@ public struct MainWindow: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
+    }
+
+    /// One sidebar destination. A real Button keeps each destination a single, explicit keyboard
+    /// stop: Tab enters the sidebar once per destination and then leaves for the content and detail
+    /// columns. A `List` row can expose its internal cells as key-view stops and keep Tab captured
+    /// inside the sidebar, which blocks the keyboard-only path-action gate.
+    private func sidebarRow(_ destination: NavigationDestination) -> some View {
+        Button {
+            selectedDestination = destination
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: destinationIcon(destination))
+                    .symbolRenderingMode(.multicolor)
+                    .frame(width: 18, alignment: .center)
+                Text(destination.rawValue)
+                Spacer(minLength: 8)
+                if let badge = badgeCount(destination) {
+                    Text("\(badge)")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                        .monospacedDigit()
+                }
+            }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 5)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
+            .background(
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .fill(selectedDestination == destination
+                          ? Color.accentColor.opacity(0.2)
+                          : Color.clear)
+            )
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(accessibilityLabel(for: destination))
+        .accessibilityAddTraits(selectedDestination == destination ? .isSelected : [])
+        // VoiceOver activation selects exactly what a click selects: the same destination state
+        // write, and therefore the same single R1 invalidation path.
+        .accessibilityAction {
+            selectedDestination = destination
+        }
+        .focused(_focusedDestination.projectedValue, equals: destination)
+        .onKeyPress(.downArrow) {
+            moveSidebarFocus(from: destination, offset: 1)
+            return .handled
+        }
+        .onKeyPress(.upArrow) {
+            moveSidebarFocus(from: destination, offset: -1)
+            return .handled
+        }
+    }
+
+    /// Arrow keys keep the accepted sidebar behavior: move to the adjacent destination (wrapping)
+    /// and carry keyboard focus with the selection.
+    private func moveSidebarFocus(from destination: NavigationDestination, offset: Int) {
+        let all = NavigationDestination.allCases
+        guard let index = all.firstIndex(of: destination) else { return }
+        let target = all[(index + offset + all.count) % all.count]
+        selectedDestination = target
+        focusedDestination = target
     }
 
     /// Every badge is a published snapshot fact; a zero shows `0` rather than disappearing.
