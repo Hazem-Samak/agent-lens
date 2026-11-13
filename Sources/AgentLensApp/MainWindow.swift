@@ -4,8 +4,13 @@ import AgentLensAppSupport
 import AgentLensCore
 
 public enum NavigationDestination: String, CaseIterable, Identifiable, Hashable {
-    case inventory = "Inventory"
+    case overview = "Overview"
+    case aiAgents = "AI Agents"
+    case aiCodingTools = "AI Coding Tools"
+    case aiHarnesses = "AI Harnesses"
+    case updates = "Updates"
     case diagnostics = "Diagnostics"
+    case settings = "Settings"
 
     public var id: String { rawValue }
 }
@@ -17,7 +22,7 @@ public struct MainWindow: View {
         nonmutating set { _model.wrappedValue = newValue }
     }
 
-    private var _selectedDestination: State<NavigationDestination?> = State(initialValue: .inventory)
+    private var _selectedDestination: State<NavigationDestination?> = State(initialValue: .overview)
     private var selectedDestination: NavigationDestination? {
         get { _selectedDestination.wrappedValue }
         nonmutating set { _selectedDestination.wrappedValue = newValue }
@@ -33,7 +38,7 @@ public struct MainWindow: View {
 
     public init(service: InventoryService = Self.makeDefaultService()) {
         self._model = State(initialValue: InventoryViewModel(service: service))
-        self._selectedDestination = State(initialValue: .inventory)
+        self._selectedDestination = State(initialValue: .overview)
         self._activeActionTask = State(initialValue: nil)
         self._lifecycleToken = State(initialValue: nil)
     }
@@ -54,18 +59,20 @@ public struct MainWindow: View {
         NavigationSplitView {
             sidebarView
         } content: {
-            ToolListView(model: model, onRescan: {
-                runAction {
-                    await model.rescan()
-                }
-            })
+            contentView
         } detail: {
             detailView
         }
         .toolbar {
             toolbarItems
         }
+        .onChange(of: selectedDestination) { _, destination in
+            applyDestination(destination)
+        }
         .onAppear {
+            // The launch destination is Overview; writing the same values is a no-op for the
+            // ViewModel's invalidation hooks (it compares before releasing).
+            applyDestination(selectedDestination)
             if _lifecycleToken.wrappedValue == nil {
                 _lifecycleToken.wrappedValue = AppLifecycleGate.shared.register(
                     shouldWait: {
@@ -187,6 +194,84 @@ public struct MainWindow: View {
         activeActionTask?.cancel()
     }
 
+    // MARK: - Content column
+
+    @ViewBuilder
+    private var contentView: some View {
+        switch selectedDestination {
+        case .overview, .none:
+            OverviewView(
+                model: model,
+                onRescan: {
+                    runAction {
+                        await model.rescan()
+                    }
+                },
+                onSelectMatch: { entry in
+                    selectedDestination = Self.destination(for: entry.definition.category)
+                    model.select(registryID: entry.registryID)
+                }
+            )
+        case .settings:
+            settingsContentPane
+        case .aiAgents, .aiCodingTools, .aiHarnesses, .updates, .diagnostics:
+            ToolListView(model: model, onRescan: {
+                runAction {
+                    await model.rescan()
+                }
+            })
+        }
+    }
+
+    private var settingsContentPane: some View {
+        Text("Settings apply to this window. There are no preferences to turn on.")
+            .foregroundColor(.secondary)
+            .multilineTextAlignment(.center)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .padding(24)
+    }
+
+    // MARK: - Destination → presentation state (R1)
+
+    /// A destination writes scope and pane only. Scope writes go through the ViewModel's own
+    /// invalidation hook, so a pending confirmation is released with zero mutation; pane writes
+    /// are pure. Diagnostics and Settings keep the current scope by design, and no destination
+    /// touches selection or a sheet binding.
+    private func applyDestination(_ destination: NavigationDestination?) {
+        switch destination {
+        case .overview, .none:
+            model.listScope = .all
+            model.detailPane = .tool
+        case .aiAgents:
+            model.listScope = .category(.aiAgent)
+            model.detailPane = .tool
+        case .aiCodingTools:
+            model.listScope = .category(.aiCodingTool)
+            model.detailPane = .tool
+        case .aiHarnesses:
+            model.listScope = .category(.aiHarness)
+            model.detailPane = .tool
+        case .updates:
+            model.listScope = .updates
+            model.detailPane = .tool
+        case .diagnostics:
+            model.detailPane = .diagnostics
+        case .settings:
+            model.detailPane = .settings
+        }
+    }
+
+    private static func destination(for category: ToolCategory) -> NavigationDestination {
+        switch category {
+        case .aiAgent:
+            .aiAgents
+        case .aiCodingTool:
+            .aiCodingTools
+        case .aiHarness:
+            .aiHarnesses
+        }
+    }
+
     // MARK: - Sidebar
 
     private var sidebarView: some View {
@@ -196,10 +281,11 @@ public struct MainWindow: View {
                     HStack {
                         Text(destination.rawValue)
                         Spacer()
-                        if destination == .inventory {
-                            Text("\(model.installedToolCount)/\(model.knownToolCount)")
+                        if let badge = badgeCount(destination) {
+                            Text("\(badge)")
                                 .font(.caption2)
                                 .foregroundColor(.secondary)
+                                .monospacedDigit()
                         }
                     }
                 } icon: {
@@ -224,12 +310,49 @@ public struct MainWindow: View {
         }
     }
 
+    /// Every badge is a published snapshot fact; a zero shows `0` rather than disappearing.
+    /// Diagnostics and Settings have no count to state, so they have no badge.
+    private func badgeCount(_ destination: NavigationDestination) -> Int? {
+        switch destination {
+        case .overview:
+            model.snapshot?.conflictToolCount ?? 0
+        case .aiAgents:
+            installedCount(in: .aiAgent)
+        case .aiCodingTools:
+            installedCount(in: .aiCodingTool)
+        case .aiHarnesses:
+            installedCount(in: .aiHarness)
+        case .updates:
+            model.updateAvailableCount
+        case .diagnostics, .settings:
+            nil
+        }
+    }
+
+    /// A presentation derivation of published snapshot facts: installed tools in one category.
+    /// This is not a Core re-derivation — the install state comes verbatim from the diagnostic.
+    private func installedCount(in category: ToolCategory) -> Int {
+        model.entries.filter { entry in
+            entry.definition.category == category && entry.installState != .notInstalled
+        }.count
+    }
+
     private func destinationIcon(_ destination: NavigationDestination) -> String {
         switch destination {
-        case .inventory:
+        case .overview:
+            "square.grid.2x2"
+        case .aiAgents:
+            "brain.head.profile"
+        case .aiCodingTools:
+            "hammer"
+        case .aiHarnesses:
             "shippingbox"
+        case .updates:
+            "arrow.triangle.2.circlepath"
         case .diagnostics:
             "stethoscope"
+        case .settings:
+            "gearshape"
         }
     }
 
@@ -238,7 +361,15 @@ public struct MainWindow: View {
     @ViewBuilder
     private var detailView: some View {
         switch selectedDestination {
-        case .inventory, .none:
+        case .diagnostics:
+            DiagnosticsView(
+                entry: model.selectedEntry,
+                isDegradedEnvironment: model.isDegradedEnvironment,
+                freshnessFailure: model.freshnessFailure
+            )
+        case .settings:
+            SettingsView(model: model)
+        case .overview, .aiAgents, .aiCodingTools, .aiHarnesses, .updates, .none:
             ToolDetailView(
                 entry: model.selectedEntry,
                 isDegradedEnvironment: model.isDegradedEnvironment,
@@ -269,12 +400,6 @@ public struct MainWindow: View {
                         await model.prepareSelectedUninstall()
                     }
                 }
-            )
-        case .diagnostics:
-            DiagnosticsView(
-                entry: model.selectedEntry,
-                isDegradedEnvironment: model.isDegradedEnvironment,
-                freshnessFailure: model.freshnessFailure
             )
         }
     }
@@ -323,6 +448,12 @@ public struct MainWindow: View {
                     .foregroundColor(.secondary)
                 if model.updateAvailableCount > 0 {
                     Text("• \(model.updateAvailableCount) update available")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                let conflictCount = model.snapshot?.conflictToolCount ?? 0
+                if conflictCount > 0 {
+                    Text(conflictCount == 1 ? "• 1 conflict tool" : "• \(conflictCount) conflict tools")
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
