@@ -1,5 +1,18 @@
 # M12 hand-off — safe stop point (2026-11-13)
 
+> **STATUS: SUPERSEDED — M12 IS COMPLETE.** This file is retained as the historical pause snapshot
+> only. Resume tasks 1–5 below were all executed on 2026-11-13 after the pause. For the authoritative
+> record read **[walkthroughs/M12-combined-acceptance.md](walkthroughs/M12-combined-acceptance.md)**
+> and the M12-F entry in `DECISIONS.md`. Current state: branch `milestone/m12-workflow` pushed and
+> clean; all A–F phases accepted; M8 keyboard gate closed; hint fix re-reviewed by both council
+> models (both PASS); all seven hosted gates green at the final SHA; **PR #3 open and mergeable
+> (`mergeStateStatus: CLEAN`) — NOT merged, owner decision pending.**
+>
+> Corrections to what follows: PR #2 (`milestone/m11-catalogue`) was **merged** to `main`
+> (`8d07ba4`) after the pause, so the branch is no longer stacked on an open PR — its merge-base with
+> `origin/main` is `0589fac` and it merges cleanly. The 93 unpushed commits were already on origin at
+> resume time.
+
 Resume here. This file is the orchestrator's hand-off after an owner-requested pause (laptop
 shutdown). It is a status snapshot, not a frozen brief or acceptance record.
 

@@ -47,22 +47,29 @@ Combined independent reviews are at:
 
 ## Hosted CI gates — all seven green at final SHA
 
-**Run 43421859618** (push of `c0aec94` → `refs/heads/milestone/m12-workflow`),
-https://github.com/Hazem-Samak/agent-lens/actions/runs/43421859618, runner macos15 arm64
-(macOS 15.8.2, Xcode 26.3, Swift 6.2.4), event `push`:
+**Final SHA `e3e8c0538216ea5c2e17f002808bc1c4333c216b`** — run **43433596183**
+(`push` → `refs/heads/milestone/m12-workflow`, event `push`), all seven gates green, aggregate
+208.088s:
 
 | Gate | Result | Detail |
 |---|---|---|
-| guard | passed | `check-core-ui-imports.py`: 32 Core files clean |
-| guard-fixtures | passed | 21 tests OK, 0 skipped |
-| swift-build | passed | 35.772s |
+| guard | passed | 0.182s |
+| guard-fixtures | passed | 21 cases, 0 skipped |
+| swift-build | passed | 27.244s |
 | isolation-gate | passed | 1 case, 0 skipped |
-| full-test-suite | passed | **586 cases = Core 467 + AppSupport 119**, 0 skipped, no failure events |
-| build-dev-app | passed | 28.275s |
-| packaging | passed | 9 tests OK, 0 skipped |
-| aggregate | passed | 200.983s, no skipped/failed gate |
+| full-test-suite | passed | **586 cases** in 1 combined summary (85.490s), 0 skipped, no failure/issue events, all four anchors PASSED |
+| build-dev-app | passed | 30.059s |
+| packaging | passed | 9 cases, 0 skipped |
 
-Check-receipts artifact (check-receipts) downloaded and verified: every `verification_exit=0`, every
+Previous candidate `c0aec94` — run **43421859618** (also `push`), all seven gates green, aggregate
+200.983s, 586 cases, 0 skipped: guard, guard-fixtures 21, swift-build 35.772s, isolation-gate 1,
+full-test-suite 586, build-dev-app 28.275s, packaging 9. Receipts verified per gate
+(`producer_exit=0`, `verification_exit=0` throughout).
+
+PR #3 CI (`pull_request` event) also ran green for the same content:
+https://github.com/Hazem-Samak/agent-lens/pull/3.
+
+Check-receipts artifacts (check-receipts) downloaded and verified for both runs: every `verification_exit=0`, every
 producer exit `0`, no skip/issue/failure glyph events in the full-suite stream, anchor events
 (`bundledDefaultDetectorsMatchFrozenCatalogue`, `unknownKeysAreRejectedAtRootDefinitionFixturePackageAndQueryLevels`,
 `makeDetectorUsesRegistryArgumentsInTheProductionPath`, `productionWiringUsesOnlyTheCoreLoginShellSeams`)
