@@ -1,10 +1,11 @@
 # M12 — combined acceptance record: native diagnostic and operation workflow
 
 **Date:** 2026-11-13. Orchestrator: Qoder (Herdr `t7x`). Milestone branch: `milestone/m12-workflow`.
-**Accepted candidate at final SHA:** `c0aec94dd73042b8b6e2e95e1ef11255a8afebf1` ("docs: add M12 hand-off
-snapshot and resume prompt"), product tip `a411661` ("feat(workflow): M12-F measurement + R2 hint fix")
-— the only product change since the M12-E accepted base `775d5bc` is
-`Sources/AgentLensApp/PathActions.swift` (the two-line hint fix).
+**Accepted product candidate:** `a411661` ("feat(workflow): M12-F measurement + R2 hint fix") — the
+only product change since the M12-E accepted base `775d5bc` is
+`Sources/AgentLensApp/PathActions.swift` (the two-line hint fix). **Last code-bearing SHA:**
+`e3e8c0538216ea5c2e17f002808bc1c4333c216b`, all seven hosted gates green (run 43433596183).
+Subsequent commits on this branch are documentation-only.
 
 **Decision: M12 is ACCEPTED.** The complete native diagnostic and operation workflow is finished.
 Both mandatory independent reviews (MiniMax M3.1-Flash/xhigh; Grok 4.7/high) returned PASS with
