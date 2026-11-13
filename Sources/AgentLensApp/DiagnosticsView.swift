@@ -25,7 +25,7 @@ public struct DiagnosticsView: View {
                 ContentUnavailableView(
                     "No Tool Selected",
                     systemImage: "stethoscope",
-                    description: Text("Select a tool from the inventory to view its PATH diagnostics.")
+                    description: Text("Select a tool to view its PATH diagnostics.")
                 )
             }
         }

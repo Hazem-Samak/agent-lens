@@ -5,21 +5,27 @@ import AgentLensCore
 public struct ToolListView: View {
     @Bindable var model: InventoryViewModel
     private let onRescan: (@MainActor () -> Void)?
+    /// True only for the Updates destination: the status filter is not part of any other list,
+    /// including the Diagnostics content column when it preserves the Updates scope.
+    private let showsUpdateFilter: Bool
 
-    public init(model: InventoryViewModel, onRescan: (@MainActor () -> Void)? = nil) {
+    public init(
+        model: InventoryViewModel,
+        onRescan: (@MainActor () -> Void)? = nil,
+        showsUpdateFilter: Bool = false
+    ) {
         self.model = model
         self.onRescan = onRescan
+        self.showsUpdateFilter = showsUpdateFilter
     }
 
     public var body: some View {
-        Group {
-            if model.entries.isEmpty {
-                InventoryEmptyStateView(model: model, onRescan: onRescan)
-            } else if model.filteredEntries.isEmpty {
-                ContentUnavailableView.search(text: model.searchText)
-            } else {
-                toolList
+        VStack(spacing: 0) {
+            if showsUpdateFilter {
+                updatesFilterBar
+                Divider()
             }
+            inventoryContent
         }
         .navigationTitle("Tools")
         .searchable(
@@ -27,6 +33,58 @@ public struct ToolListView: View {
             placement: .toolbar,
             prompt: "Search name, executable, or path"
         )
+    }
+
+    @ViewBuilder
+    private var inventoryContent: some View {
+        if model.entries.isEmpty {
+            InventoryEmptyStateView(model: model, onRescan: onRescan)
+        } else if model.filteredEntries.isEmpty {
+            if showsUpdateFilter, !isSearching {
+                updatesEmptyView
+            } else {
+                ContentUnavailableView.search(text: model.searchText)
+            }
+        } else {
+            toolList
+        }
+    }
+
+    private var isSearching: Bool {
+        !model.searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    /// The Updates destination's filter. The five options map one-to-one onto A's frozen
+    /// `UpdateStatusFilter`; writing it goes through the ViewModel's R1 invalidation hook, so the
+    /// App adds no second trigger.
+    private var updatesFilterBar: some View {
+        HStack(spacing: 8) {
+            Picker("Update status", selection: $model.updateStatusFilter) {
+                Text("All")
+                    .tag(UpdateStatusFilter.all)
+                Text("Update available")
+                    .tag(UpdateStatusFilter.updateAvailable)
+                Text("Up to date")
+                    .tag(UpdateStatusFilter.upToDate)
+                Text("Unknown")
+                    .tag(UpdateStatusFilter.unknown)
+                Text("Not checked")
+                    .tag(UpdateStatusFilter.notChecked)
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            .accessibilityLabel("Update status")
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+    }
+
+    private var updatesEmptyView: some View {
+        ContentUnavailableView {
+            Label("No Verified Updates", systemImage: "checkmark.circle")
+        } description: {
+            Text("No verified updates. Check Updates reads supported latest versions. Unknown stays unknown.")
+        }
     }
 
     private var toolList: some View {

@@ -210,16 +210,24 @@ public struct MainWindow: View {
                 onSelectMatch: { entry in
                     selectedDestination = Self.destination(for: entry.definition.category)
                     model.select(registryID: entry.registryID)
+                },
+                onShowPathEvidence: { registryID in
+                    selectedDestination = .diagnostics
+                    model.showPathEvidence(registryID: registryID)
                 }
             )
         case .settings:
             settingsContentPane
         case .aiAgents, .aiCodingTools, .aiHarnesses, .updates, .diagnostics:
-            ToolListView(model: model, onRescan: {
-                runAction {
-                    await model.rescan()
-                }
-            })
+            ToolListView(
+                model: model,
+                onRescan: {
+                    runAction {
+                        await model.rescan()
+                    }
+                },
+                showsUpdateFilter: selectedDestination == .updates
+            )
         }
     }
 

@@ -19,15 +19,18 @@ public struct OverviewView: View {
     @Bindable var model: InventoryViewModel
     private let onRescan: (@MainActor () -> Void)?
     private let onSelectMatch: (InventoryEntry) -> Void
+    private let onShowPathEvidence: (String) -> Void
 
     public init(
         model: InventoryViewModel,
         onRescan: (@MainActor () -> Void)? = nil,
-        onSelectMatch: @escaping (InventoryEntry) -> Void
+        onSelectMatch: @escaping (InventoryEntry) -> Void,
+        onShowPathEvidence: @escaping (String) -> Void
     ) {
         self.model = model
         self.onRescan = onRescan
         self.onSelectMatch = onSelectMatch
+        self.onShowPathEvidence = onShowPathEvidence
     }
 
     public var body: some View {
@@ -63,8 +66,10 @@ public struct OverviewView: View {
 
                 summaryTiles
 
-                // M12-C places the conflict summary section here, between the tiles and the
-                // (absent) all-tools content. It is intentionally not built in M12-B.
+                ConflictSummaryView(
+                    conflicts: model.entries.compactMap { ToolConflict(entry: $0) },
+                    onShowPathEvidence: onShowPathEvidence
+                )
             }
             .padding(24)
             .frame(maxWidth: .infinity, alignment: .leading)
