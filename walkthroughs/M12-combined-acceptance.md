@@ -1,5 +1,11 @@
 # M12 — combined acceptance record: native diagnostic and operation workflow
 
+> **Delivery update (2026-11-19).** [PR #3](https://github.com/Hazem-Samak/agent-lens/pull/3) merged
+> to `main` on 2026-11-13 at `934a26c`. Hosted CI on that merge passed
+> ([run 43444962792](https://github.com/Hazem-Samak/agent-lens/actions/runs/43444962792)). Statements
+> below that say **NOT MERGED** were true at acceptance and are historical. The milestone branches
+> were deleted on 2026-11-19. Next product milestone is M13, which this record does not authorize.
+
 **Date:** 2026-11-13. Orchestrator: Qoder (Herdr `t7x`). Milestone branch: `milestone/m12-workflow`.
 **Accepted product candidate:** `a411661` ("feat(workflow): M12-F measurement + R2 hint fix") — the
 only product change since the M12-E accepted base `775d5bc` is
@@ -150,6 +156,9 @@ Diff vs M12-E accepted base `775d5bc`:
 toggles during M12-F only, each restored to its prior value before finishing.
 
 ## Next steps (owner-authorized only)
+
+These two steps were open at acceptance time. Both were completed on 2026-11-13: PR #3 was opened
+and merged at `934a26c`. No release was published. The numbered list is the acceptance-time list.
 
 1. Create PR `milestone/m12-workflow → main` (title < 70 chars; it stacks on unmerged M11 PR #2,
    which GitHub auto-retargets when #2 merges, or retarget manually).

@@ -4,6 +4,8 @@ Planning revision: 2026-10-28. Original plan: 2026-10-22.
 
 Execution update: 2026-11-08. M10-C is technically accepted on `fff287d`. M10-D and the combined npm gate are technically accepted on implementation `308b7d2`: controlled/combined/public real-npm checks, an ordinary-app Accessibility click-through with Cancel-unchanged hashes and a reconciled result, and all seven exact-SHA hosted gates (532 Swift tests, 21 guard fixtures, 9 packaging checks) passed. M10 as a whole was accepted on `codex/m10-npm-management`. A final R2 correction pass fixed the review findings (Check/Refresh scratch default, false busy-gate cleanup warning, pre-spawn cancellation, preview registry ID, combined concurrent-confirm/interruption cases, evidence hygiene) and added three regression tests. The owner explicitly waived a further independent review, authorized two documented self-reviews, and authorized merge of PR #1. PR #1 was merged on 2026-11-08 at merge commit `65f7a82`; hosted CI run 42494920522 passed at that exact SHA, and M10 is delivered to `main`. See [M10-D implementation](walkthroughs/M10-D-implementation.md) and [M10-C acceptance](walkthroughs/M10-C-implementation.md).
 
+Execution update: 2026-11-19. M11 is delivered to `main` by [PR #2](https://github.com/Hazem-Samak/agent-lens/pull/2) at `8d07ba4` (2026-11-12); hosted CI [run 43302952564](https://github.com/Hazem-Samak/agent-lens/actions/runs/43302952564) passed at that SHA. M12 is delivered to `main` by [PR #3](https://github.com/Hazem-Samak/agent-lens/pull/3) at `934a26c` (2026-11-13); hosted CI [run 43444962792](https://github.com/Hazem-Samak/agent-lens/actions/runs/43444962792) passed at that SHA. The M8 keyboard-only Copy/Reveal measurement is closed. Merged branches `milestone/m11-catalogue` and `milestone/m12-workflow` were deleted the same day this note was written. Next product milestone is M13 (Homebrew), which is not yet authorized. See section 8.
+
 This revision supersedes the previous **future execution order**, not completed work or acceptance evidence. M0–M9 remain delivered as recorded; M10-A/B/C/D were accepted on `codex/m10-npm-management` and are delivered to `main`. Accepted M10-B implementation is `72ffb1e`; M10-C is `fff287d`; M10-D is `308b7d2`, with R2 corrections on the merged head. PR #1 was merged on 2026-11-08 at merge commit `65f7a82` after the owner-authorized R2 corrections and two self-reviews; hosted CI passed at that exact SHA. The merge is recorded on PR #1 and in the repository history. See [M10-B acceptance](walkthroughs/M10-B-acceptance.md) and [M10-C acceptance](walkthroughs/M10-C-implementation.md).
 
 Authority: [product scope](AGENT_LENS_SCOPE.md), [settled decisions](DECISIONS.md), and [milestone status](briefs/README.md). Historical briefs and walkthroughs are immutable evidence; this file is the living plan.
@@ -40,10 +42,11 @@ The app diagnoses first and manages second. It is not a generic package manager,
 
 | Checkpoint | Meaning | Status |
 |---|---|---|
-| M0–M9 | Discovery, PATH diagnostics, native foundation, path actions, verified details | Delivered as recorded; M8 keyboard check remains open |
+| M0–M9 | Discovery, PATH diagnostics, native foundation, path actions, verified details | Delivered as recorded. The M8 keyboard-only check was closed in M12 |
 | M10-A/B | Clean CI and verified npm latest metadata | Accepted on the M10 feature branch; delivered to `main` at `65f7a82` |
 | M10-C/D | npm Update, Uninstall, and combined safety acceptance | C accepted on `fff287d`; D and combined gate accepted on `308b7d2` — all7 hosted gates, 532 tests, guard21/packaging9, controlled/combined/public npm, native click-through; M10 delivered to `main` at `65f7a82` |
-| M12 | Original catalogue plus complete native diagnostic workflow | Revised early-value checkpoint |
+| M11 | Original catalogue and contributor foundation | Delivered to `main` at `8d07ba4` (PR #2, 2026-11-12) |
+| M12 | Complete native diagnostic and operation workflow | Delivered to `main` at `934a26c` (PR #3, 2026-11-13). M8 keyboard gate closed |
 | M15 | All scoped manager capabilities delivered | Feature capability checkpoint |
 | M17 | Feature-complete unsigned app with retention and companion CLI | Release-engineering entry point |
 | M18 | Clean release candidate | Requires every advertised capability measured |
@@ -70,11 +73,12 @@ Work one milestone and one phase at a time. Do not start a dependent milestone u
 
 ### M11 — original catalogue and contributor foundation
 
-**Status:** Technically accepted on `milestone/m11-catalogue` at combined candidate `b07e321`
-(2026-11-12). All six phases accepted; all seven hosted gates passed at the exact SHA
-([run 43288284409](https://github.com/Hazem-Samak/agent-lens/actions/runs/43288284409));
-[combined acceptance](walkthroughs/M11-combined-acceptance.md). Merge to `main` awaits a separate
-owner authorization; the license is **MIT** (owner choice 2026-11-12, D-023).
+**Status:** Delivered to `main`. Technically accepted on `milestone/m11-catalogue` at combined
+candidate `b07e321` (2026-11-12). All six phases accepted; all seven hosted gates passed at the
+exact SHA ([run 43288284409](https://github.com/Hazem-Samak/agent-lens/actions/runs/43288284409));
+[combined acceptance](walkthroughs/M11-combined-acceptance.md). [PR #2](https://github.com/Hazem-Samak/agent-lens/pull/2)
+merged on 2026-11-12 at `8d07ba4`; hosted CI [run 43302952564](https://github.com/Hazem-Samak/agent-lens/actions/runs/43302952564)
+passed at that SHA. The license is **MIT** (owner choice 2026-11-12, D-023).
 
 **User result:** the app detects the originally named families instead of only Codex, OpenCode, and Grok.
 
@@ -91,6 +95,13 @@ Target catalogue: Codex, Claude Code, Gemini CLI, OpenCode, Hermes, Cline CLI, A
 **Acceptance:** every named entry is resolved and has a validated fixture plus measured version behavior where available. CLI/app facts agree. A new tool using an existing layout can be contributed through registry/fixtures without scanner or UI source changes. Unobserved real layouts are not labeled verified.
 
 ### M12 — complete native diagnostic and operation workflow
+
+**Status:** Delivered to `main` on 2026-11-13, including the M8 keyboard-only Copy/Reveal gate.
+[PR #3](https://github.com/Hazem-Samak/agent-lens/pull/3) merged at `934a26c`; hosted CI
+[run 43444962792](https://github.com/Hazem-Samak/agent-lens/actions/runs/43444962792) passed at
+that SHA. [Combined acceptance](walkthroughs/M12-combined-acceptance.md). VoiceOver captions for
+list rows and Settings stayed partial, and large-text scaling was not proven. Only Codex has
+accepted npm Update and Uninstall.
 
 **User result:** Overview, AI Agents, AI Coding Tools, AI Harnesses, Updates, Diagnostics, and focused Settings make the complete catalogue understandable and manageable.
 
@@ -219,20 +230,17 @@ The user approves product tradeoffs, UI, expenses, credentials, publication, and
 ## 7. Owner gates
 
 - **Before M10-C dispatch:** approve the bounded brief, implementer/route, and isolated acceptance setup.
-- **Before public contribution invitations:** choose MIT or Apache-2.0.
+- **Before public contribution invitations:** the license is MIT (D-023, 2026-11-12). Sending the invitation is still a separate owner decision.
 - **After M12, optional:** decide whether a separately scoped diagnostic beta is worthwhile.
 - **Before M19:** approve Apple Developer expense/credentials, updater dependency, signing/release automation, publication destinations, and cask/updater channel policy.
 
 ## 8. Immediate next action
 
-M11 is technically accepted on `milestone/m11-catalogue` at `b07e321`: the full fourteen-entry
-catalogue, the fail-closed mutation acceptance gate (D-021/D-022), the test-enforced capability
-matrix, and the contributor foundation, with all seven hosted gates passed at the exact SHA
-([combined acceptance](walkthroughs/M11-combined-acceptance.md)). Awaiting owner decisions:
-(1) owner review of [PR #2](https://github.com/Hazem-Samak/agent-lens/pull/2)
-(`milestone/m11-catalogue` → `main`) and merge authorization — the orchestrator created the PR and
-verified CI, and intentionally did NOT merge (owner reviews before merging; the M10 pattern);
-(2) M12 dispatch (complete native diagnostic and operation workflow, including the outstanding M8
-keyboard-only gate). The license is settled: **MIT** (D-023, 2026-11-12); public contribution
-invitations remain a separate owner decision. Per-tool mutation promotions remain separate
-owner-authorized dispatches. No public release is authorized by this status.
+M0–M12 are delivered to `main`.
+
+- M11: [PR #2](https://github.com/Hazem-Samak/agent-lens/pull/2) merged 2026-11-12 at `8d07ba4`. Hosted CI [run 43302952564](https://github.com/Hazem-Samak/agent-lens/actions/runs/43302952564) passed at that SHA. [Combined acceptance](walkthroughs/M11-combined-acceptance.md).
+- M12: [PR #3](https://github.com/Hazem-Samak/agent-lens/pull/3) merged 2026-11-13 at `934a26c`. Hosted CI [run 43444962792](https://github.com/Hazem-Samak/agent-lens/actions/runs/43444962792) passed at that SHA. The M8 keyboard-only Copy/Reveal measurement is closed. [Combined acceptance](walkthroughs/M12-combined-acceptance.md).
+
+Merged branches `milestone/m11-catalogue` and `milestone/m12-workflow` were deleted on 2026-11-19. `origin` keeps `main` only.
+
+**Next product milestone is M13 — complete Homebrew management.** It is not authorized. Starting it needs an owner go-ahead for the plan, the implementer, and disposable formula and cask acceptance. An optional diagnostic beta (section 7) is a separate decision and does not replace M19. Public contribution invitations, and mutation promotions beyond Codex, remain separate owner decisions. The license is MIT (D-023). No public release is authorized.

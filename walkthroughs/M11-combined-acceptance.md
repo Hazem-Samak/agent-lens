@@ -1,5 +1,11 @@
 # M11 — combined acceptance: original catalogue and contributor foundation
 
+> **Delivery update (2026-11-19).** [PR #2](https://github.com/Hazem-Samak/agent-lens/pull/2) merged
+> to `main` on 2026-11-12 at `8d07ba4`. Hosted CI on that merge passed
+> ([run 43302952564](https://github.com/Hazem-Samak/agent-lens/actions/runs/43302952564)). The
+> license was later settled as MIT (D-023). The M8 keyboard gate was closed in M12. The text below
+> is the 2026-11-12 acceptance record, including gates that were still open that day.
+
 Date: 2026-11-12. Orchestrator: Qoder (Herdr `t7x`). Milestone branch: `milestone/m11-catalogue`.
 **Combined candidate: `b07e321d13e1d380a8b371ba0636892c51ada38c`** (pushed to origin; no merge,
 no release).

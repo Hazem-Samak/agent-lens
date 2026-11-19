@@ -283,9 +283,9 @@ Record each milestone result here. Include the T3 Code build string so a regress
 | M6 — Version / update probing | 2026-10-14 (EEST) | **passed / independently accepted** — two distinct fresh builds each passed 180/180 (23.447s and 22.716s, exit 0); all 12 CLI forms passed; live M5 prefix remained byte-identical; accepted source/test snapshot and real app-cache content stayed unchanged | n/a — Hermes orchestration; Swift 6.4; final test runs used invocation-local Swift Testing macro-plugin loading, with no package or toolchain change | `walkthroughs/M6-version-update-probing.md`; two independent read-only review axes and targeted blocker rereview passed. Homebrew-formula-only; latest known metadata, not guaranteed globally latest. No M7 or package operations. |
 | M6 post-acceptance correction — unsupported-version reason priority | 2026-10-15 (EEST) | **passed / parent accepted** — independent fresh full gate 184/184 (23.145s, exit 0); compiled classification proof exit 0; targeted artifact-only rereview passed | n/a — Hermes orchestration; Swift 6.4; explicit Swift Testing macro-plugin fallback | Enforces the existing M6 reason-priority contract; see dated correction section in `walkthroughs/M6-version-update-probing.md`. Accepted on `fix/m6-unsupported-version-reason` from the `13afef5` checkpoint. Parent is authorized to publish the correction with the M7 plan; current Git refs/history are authoritative for integration status. Default-Darwin-TMPDIR fixture portability remained unresolved; M7 was plan-only at this correction checkpoint. M7 delivery is recorded in the following row. |
 | M7 — First UI | 2026-10-16 | **passed** — initial native SwiftUI macOS app accepted; user visual approval 2026-10-16 (Africa/Cairo) for initial UI; DeepSeek R4/final PASS with no blocking findings; parent independent technical acceptance. 222 Swift (184 Core +38 AppSupport) +9 Python packaging, all exit 0; hosted selfchecks 8/8 exit 0. All 29 Core/CLI source and test files unchanged. The historical documentation closeout preserved 65 of 68 pinned files, changed only the 3 approved docs (`DECISIONS.md`, `README.md`, `briefs/README.md`), and added one walkthrough (`walkthroughs/M7-first-ui.md`, 69 total). That closeout phase made no source expansion or Git mutation; subsequent Git delivery is recorded in Notes. No signing, notarization, or app release. | 0.1.1-nightly.20261016.3218 (observed at documentation closeout 2026-10-16; earlier acceptance-gate T3 build not recorded) — macOS 27.0.1 build 26A434; Swift 6.4 (swiftlang-6.4.0.34.1), swift-driver 1.168.6, arm64-apple-macosx27.0.0 | Closeout docs: `walkthroughs/M7-first-ui.md` (measured implementation/acceptance), `briefs/README.md`, `README.md`, `DECISIONS.md`. Delivered to `main` and GitHub as `36a3f1cd4ce3c926deadb2565d8e2a6938161c9f` (`feat(ui): complete M7 native macOS app`). Local `main`, `origin/main`, and remote `main` matched in a read-only check on 2026-10-17; worktree clean before the delivery-note/M8-plan update. M8 path actions are a separate draft; implementation has not started. |
-| M8 — Copy Path and Reveal in Finder | 2026-10-18 | **user-approved for delivery** — parent independently observed 246 Swift tests, fresh app build, 9 packaging tests, and invalid-target probe pass; Gemini High and MiMo final PASS; user visual approval and commit/push/cleanup authorization. Native keyboard-only activation remains unverified, not a passed gate. | n/a — Zeron orchestration (0.2.113 observed at preflight); Swift 6.4; macOS 27.0.1 (26A434) | Sole implementer: DeepSeek V4.1 Flash free / WorkBuddy Pi. Exactly four implementation files; all 69 protected baseline files unchanged before documentation closeout. See `walkthroughs/M8-path-actions.md` for native evidence and limits. No system keyboard preference changed; no signed/notarized app release. |
-| M9 — Verified installation details and per-installation versions | 2026-10-25 | **technically accepted, user-UI-approved and delivered to `main`** — corrected A/B/C plus parent combined gate: 329 Swift (258 Core +71 AppSupport), fresh app build and 9 packaging; actual CLI/native, read-only real npm/Homebrew, isolated identity/budget/lifecycle scenarios; final independent safety/contract reviews clear | n/a — omp orchestration; installed T3 Code Nightly `0.1.3-nightly.20261024.3630` observed from public bundle metadata, not claimed as the orchestration build; Swift 6.4 | Sole implementer: DeepSeek V4.1 Flash Free / OpenCode, maximum effort. User approved M9 UI, then separately authorized branch delivery and main integration. Feature `eb4f586` reached `origin/main` through the fast-forward of milestone tip `1ac22c4`. See `walkthroughs/M9-verified-installations.md` for accepted hashes, corrections, raw evidence and delivery. No tool Update/Uninstall or signed distribution. M8 keyboard-only activation remains unverified. |
-| M10-A — Clean CI and default-TMPDIR portability | 2026-10-26 | **technically accepted on the M10 feature branch** — parent independent local406 Swift, both real bundle layouts/9 packaging each, parser39 on Python3.9/3.15, guard21, workflow controls; hosted exact candidate all7 gates including406 Swift and original9 packaging, zero skips/failures | n/a — Codex desktop orchestration, no T3 build claimed; hosted Xcode26.3/Swift6.2.4 on macOS15.7.9 arm64 | Sole implementer DeepSeekV4.1Flash/WorkBuddy/OMP; final Qwen3.8Flash/Qoder and user-authorized replacement Gemini3.8FlashHigh/agy PASS. Feature `f442aa25f513afd2ae92af7da544b405791fafa7`; [run40389308783](https://github.com/Hazem-Samak/agent-lens/actions/runs/40389308783), attempt1; artifact digest/33 receipts independently verified. See [acceptance](walkthroughs/M10-A-acceptance.md). M10-B unstarted; no PR/main merge/release. M8 keyboard-only gate remains unverified. |
+| M8 — Copy Path and Reveal in Finder | 2026-10-18 | **user-approved for delivery** — parent independently observed 246 Swift tests, fresh app build, 9 packaging tests, and invalid-target probe pass; Gemini High and MiMo final PASS; user visual approval and commit/push/cleanup authorization. Native keyboard-only activation was unverified at M8 delivery, not a passed M8 gate. M12-F closed the measurement on 2026-11-13. | n/a — Zeron orchestration (0.2.113 observed at preflight); Swift 6.4; macOS 27.0.1 (26A434) | Sole implementer: DeepSeek V4.1 Flash free / WorkBuddy Pi. Exactly four implementation files; all 69 protected baseline files unchanged before documentation closeout. See `walkthroughs/M8-path-actions.md` for native evidence and limits. No system keyboard preference changed; no signed/notarized app release. |
+| M9 — Verified installation details and per-installation versions | 2026-10-25 | **technically accepted, user-UI-approved and delivered to `main`** — corrected A/B/C plus parent combined gate: 329 Swift (258 Core +71 AppSupport), fresh app build and 9 packaging; actual CLI/native, read-only real npm/Homebrew, isolated identity/budget/lifecycle scenarios; final independent safety/contract reviews clear | n/a — omp orchestration; installed T3 Code Nightly `0.1.3-nightly.20261024.3630` observed from public bundle metadata, not claimed as the orchestration build; Swift 6.4 | Sole implementer: DeepSeek V4.1 Flash Free / OpenCode, maximum effort. User approved M9 UI, then separately authorized branch delivery and main integration. Feature `eb4f586` reached `origin/main` through the fast-forward of milestone tip `1ac22c4`. See `walkthroughs/M9-verified-installations.md` for accepted hashes, corrections, raw evidence and delivery. No tool Update/Uninstall or signed distribution. M8 keyboard-only activation was unverified at this delivery; M12-F closed it on 2026-11-13. |
+| M10-A — Clean CI and default-TMPDIR portability | 2026-10-26 | **technically accepted on the M10 feature branch** — parent independent local406 Swift, both real bundle layouts/9 packaging each, parser39 on Python3.9/3.15, guard21, workflow controls; hosted exact candidate all7 gates including406 Swift and original9 packaging, zero skips/failures | n/a — Codex desktop orchestration, no T3 build claimed; hosted Xcode26.3/Swift6.2.4 on macOS15.7.9 arm64 | Sole implementer DeepSeekV4.1Flash/WorkBuddy/OMP; final Qwen3.8Flash/Qoder and user-authorized replacement Gemini3.8FlashHigh/agy PASS. Feature `f442aa25f513afd2ae92af7da544b405791fafa7`; [run40389308783](https://github.com/Hazem-Samak/agent-lens/actions/runs/40389308783), attempt1; artifact digest/33 receipts independently verified. See [acceptance](walkthroughs/M10-A-acceptance.md). M10-B unstarted at this row; no PR/main merge/release at this row. M8 keyboard-only gate was unverified at this delivery; M12-F closed it on 2026-11-13. |
 | M10-C R1 — Terminal-context baseline repair | 2026-11-02 | **locally technically accepted, uncommitted** — final coordinator 469/469 test events in both controlling-PTY and detached contexts; guard21, fresh app, packaging9, actual terminal CLI exact non-degraded fixture PATH; final Qoder independent PASS | n/a — OMP orchestration through Herdr; Swift 6.4 on macOS27 arm64; no T3 build claimed | River/Pi `deepseek-ai/DeepSeek-V4.1-Flash-1017`, max, sole writer. Interactive zsh stopped on SIGTTOU in the inherited controlling-terminal session; capture now disables job control with `+m`. Perch hit quota before verdict; owner explicitly waived its verdict for this repair only. [Acceptance](walkthroughs/M10-C-R1-baseline-repair.md); M10-C product implementation separately dispatched, not accepted; original two product reviewers retained; no Git/hosted/release claim. |
 | M10-C — Confirmed npm Update | 2026-11-02 | **technically accepted on the feature branch** — parent510 Swift in each controlling-TTY/detached context, guard21, fresh app, packaging9; native1.0.0→2.0.0 and ordinary packaged public0.165.0→0.166.0, Cancel unchanged, active/prepared-close cleanup; hosted exact-SHA all7 gates/510 combined Swift, zero skips/failures | n/a — OMP orchestration through Herdr; Swift6.4 local; hosted macOS15.8.2 arm64/Xcode26.3/Swift6.2.4; no T3 build claimed | River/Pi `deepseek-ai/DeepSeek-V4.1-Flash-1017`, max, sole product writer. Perch `glm-5.3-flash-starter`/max and Qoder `Qwen3.8-Max`/xhigh both final PASS, no remaining material findings. Owner-authorized implementation `fff287d79884bf2163642dfa6ef3543da5682565`; [hosted run41519177534](https://github.com/Hazem-Samak/agent-lens/actions/runs/41519177534), attempt1, digest-verified33-file artifact retained. [Evidence/limits](walkthroughs/M10-C-implementation.md). No main merge, release, or M10-D authorization. |
 
@@ -352,7 +352,7 @@ decision.
 
 ## M8 — user-approved delivery (2026-10-18)
 
-The user authorized implementation of [M8 path actions](briefs/M8-path-actions.md), then approved the UI and Git delivery with “all good, clean branches comm push all”. Automated gates and independent final reviews passed. The unverified keyboard-only activation check remains a documented limitation; user approval is not evidence that it was measured. [The walkthrough](walkthroughs/M8-path-actions.md) records the result, team, raw-evidence locations, and limits. The frozen M7/M8 briefs and historical acceptance transcripts remain unchanged.
+The user authorized implementation of [M8 path actions](briefs/M8-path-actions.md), then approved the UI and Git delivery with “all good, clean branches comm push all”. Automated gates and independent final reviews passed. At this delivery the keyboard-only activation check was unverified; user approval is not evidence that it was measured then. M12-F closed that measurement on 2026-11-13. [The walkthrough](walkthroughs/M8-path-actions.md) records the result, team, raw-evidence locations, and limits. The frozen M7/M8 briefs and historical acceptance transcripts remain unchanged.
 
 ---
 
@@ -382,7 +382,7 @@ The future execution order is **M10 npm management → M11 original catalogue/co
 
 **Rationale:** the previous order delivered three additional manager tracks before broad detection and the complete diagnostic UI. That delayed the product's primary value and user-testable progress. The revised order proves one safe mutation lifecycle, expands diagnostic coverage, completes the native workflow, and then reuses that workflow for the remaining managers.
 
-**Consequence:** catalogue entries whose manager adapters do not yet exist remain informational or disabled with a truthful reason. The outstanding M8 keyboard-only Copy/Reveal check becomes a required M12 acceptance gate. Planning changes require no council or implementer; independent orchestrator acceptance and risk-based read-only review for high-risk implementation remain mandatory.
+**Consequence:** catalogue entries whose manager adapters do not yet exist remain informational or disabled with a truthful reason. The outstanding M8 keyboard-only Copy/Reveal check becomes a required M12 acceptance gate. That gate was closed by M12-F on 2026-11-13. Planning changes require no council or implementer; independent orchestrator acceptance and risk-based read-only review for high-risk implementation remain mandatory.
 
 ---
 
@@ -465,10 +465,14 @@ restored byte-identically. The original fourteen-entry catalogue ships with the 
 mutation acceptance gate (D-021), the test-enforced capability matrix, and the contributor guide.
 [Combined acceptance](walkthroughs/M11-combined-acceptance.md).
 
-**Open owner gates:** merge to `main` (Git delivery) is NOT authorized by this acceptance; license
-(OD-7, MIT vs Apache-2.0) before public contribution invitations; per-tool mutation promotions;
-M12 dispatch. The M8 keyboard-only Copy/Reveal measurement remains a required M12 gate. No public
-release was published or authorized.
+**Open owner gates at acceptance:** merge to `main` (Git delivery) was not authorized by this
+acceptance; license (OD-7, MIT vs Apache-2.0) before public contribution invitations; per-tool
+mutation promotions; M12 dispatch. The M8 keyboard-only Copy/Reveal measurement remained a required
+M12 gate. No public release was published or authorized.
+
+**Later delivery:** PR #2 merged on 2026-11-12 at `8d07ba4`. The license was settled as MIT the
+same day (D-023). The M8 keyboard gate was closed in M12. See the delivery sections at the end of
+this log.
 
 ---
 
@@ -599,5 +603,39 @@ VoiceOver + combined acceptance). All five implementer phases (A–E) are accept
   list-row/Settings captions PARTIAL (caption panel emitted help/instructions inside scroll text);
   large-text limited (semantic font sizes not triggered in the measurement environment — wrap
   behavior at narrow width proven, scale not). Full record:
-  [M12-combined-acceptance.md](walkthroughs/M12-combined-acceptance.md). No merge to `main`; PR
-  creation and owner merge decision follow.
+  [M12-combined-acceptance.md](walkthroughs/M12-combined-acceptance.md). At acceptance time, merge
+  to `main` had not happened. Delivery is recorded in the next sections.
+
+## M11 — PR #2 merge and delivery to main (2026-11-12)
+
+PR #2 (`milestone/m11-catalogue` → `main`), "M11: original catalogue, mutation safety gate,
+contributor foundation", was merged on 2026-11-12 at 20:42 UTC. Merge commit:
+`8d07ba442f8d8f06b08644e080629b07780c5779` (`8d07ba4`).
+[Hosted run 43302952564](https://github.com/Hazem-Samak/agent-lens/actions/runs/43302952564)
+passed at that exact SHA.
+
+M11-A through M11-F and the combined catalogue gate are delivered to `main`. The license on that
+delivery is MIT (D-023). No public release was published or authorized.
+
+## M12 — PR #3 merge and delivery to main (2026-11-13)
+
+PR #3 (`milestone/m12-workflow` → `main`), "M12: complete native diagnostic and operation
+workflow", was merged on 2026-11-13 at 14:40 UTC. Merge commit:
+`934a26c9a76f196cf956eb30567998dd31df4a25` (`934a26c`).
+[Hosted run 43444962792](https://github.com/Hazem-Samak/agent-lens/actions/runs/43444962792)
+passed at that exact SHA.
+
+M12-A through M12-F and the combined workflow gate are delivered to `main`. The M8 keyboard-only
+Copy/Reveal measurement is closed. VoiceOver captions for list rows and Settings stayed partial,
+and large-text scaling was not proven. No public release was published or authorized.
+
+## Housekeeping — status docs and merged branches (2026-11-19)
+
+Living status docs were brought in line with the two merges above: `README.md`, `ROADMAP.md`,
+`briefs/README.md`, `HANDOFF.md`, and the delivery banners on the M11 and M12 combined acceptance
+records. Frozen briefs, council records, and the acceptance-time bodies stay as evidence of what
+was true when they were written.
+
+`milestone/m11-catalogue` (`0589fac`) and `milestone/m12-workflow` (`44258ec`) were fully contained
+in `origin/main` and were deleted locally and on origin. After that deletion, `origin` had `main`
+only. The old M10 feature branch was already absent. No public release was authorized.
