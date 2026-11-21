@@ -639,3 +639,41 @@ was true when they were written.
 `milestone/m11-catalogue` (`0589fac`) and `milestone/m12-workflow` (`44258ec`) were fully contained
 in `origin/main` and were deleted locally and on origin. After that deletion, `origin` had `main`
 only. The old M10 feature branch was already absent. No public release was authorized.
+
+## M13 — planning freeze and owner decisions (2026-11-21)
+
+Planning Council (MiniMax M3.1-Flash/xhigh via mcode; Grok 4.7/high via grok CLI; Herdr/hc
+orchestration with visible panels) produced independent proposals; the orchestrator judged and
+froze `briefs/M13-plan.md` on base `9b37a33` (`main` tip, M0–M12 delivered), commit `9208df5`, on
+the new branch `milestone/m13-homebrew`. Rulings R1–R16 (`briefs/M13-planning/judgment.md`) bind
+the dispatch briefs. Verified baseline at the base: 467 Core + 119 AppSupport = 586, guard 21,
+packaging 9, all eight local gates exit 0. The judge ran six disposable scratch-prefix feasibility
+probe rounds (real Homebrew at a pinned revision, offline local tap, binary/app cask lifecycles,
+pin/dependent/broken refusals, multi-keg uninstall truth, sudo-stanza hazard, auto_updates
+provenance); personal-prefix sentinels byte-identical throughout. Integrity audit clean: only the
+five new planning files; no product or historical record changed.
+
+**Owner decisions SETTLED (owner message 2026-11-21, "I agree with your 4 recommendations"):**
+
+- OD-M13-1 promotion set = option (b): `hermes`, `aider`, `goose` (homebrewFormulaUpdate +
+  homebrewFormulaUninstall) and `kiro-cli` (homebrewCaskUpdate + homebrewCaskUninstall). Each
+  promoted id still needs its own controlled acceptance scenario at implementation (D-021).
+  gemini/cline never (deprecated/disabled); codex cask, claude casks, opencode, omp, agy deferred.
+- OD-M13-3 brew mutation timeout = 900s (disclosed); npm stays 120s.
+- OD-M13-4 ship the cask latest-check (manager-verdict oracle, separate cache document). At
+  acceptance this supersedes D-019's "cask latest-check not shipped" consequence via a new entry
+  (D-024); D-019 itself is not reopened.
+- OD-M13-8 cask operation support class = no-uninstall-stanza CLI casks only (binary/
+  command_wrapper artifacts); app-artifact and stanza-bearing casks are informational with a typed
+  refusal (R7). Widening is a later owner decision.
+
+Ruled technical decisions carried (owner did not object): OD-M13-2 pinned-newer counts in the
+Updates badge; OD-M13-5 keep the standalone source heuristic and explain; OD-M13-6 bounded
+`brew list --pinned` cross-check; OD-M13-7 no-controlling-TTY (SETSID) mutation spawn contract with
+npm regression and both-reviewer adjudication.
+
+**Authorization scope:** the owner authorized planning, freeze/commit, and pushing the branch to
+origin ("push the branch and sync gh with local"). **Implementation is NOT authorized** ("don't
+start implem. yet"); no implementer is selected. PR creation, merge, the promotion application at
+implementation, publication, and any release remain separate owner decisions. No public release
+was published or authorized.

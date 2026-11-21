@@ -370,6 +370,14 @@ OD-M13-7 SETSID no-TTY spawn contract (YES + npm regression + BOTH adjudication;
 pre-refusal-only if BLOCKed). The agy correction is ruled YES (factual). Diagnostic beta,
 publication, expenses, contribution invitations remain separate post-M13 owner decisions.
 
+**Owner decisions SETTLED 2026-11-21** (owner: "I agree with your 4 recommendations"): OD-M13-1 =
+option (b) hermes/aider/goose formula Update+Uninstall + kiro-cli cask Update+Uninstall;
+OD-M13-3 = 900s brew mutation timeout (npm 120s unchanged); OD-M13-4 = ship the cask latest-check;
+OD-M13-8 = no-uninstall-stanza CLI casks only. Recorded in DECISIONS.md ("M13 — planning freeze and
+owner decisions"). The table above is the frozen recommendation record; this banner records the
+settlement and does not alter rulings R1–R16. Implementation remains NOT authorized; each
+promotion still needs its own controlled scenario at implementation (D-021).
+
 ## 8. Ranked risks
 
 1. **Homebrew side effects beyond the named package** (High, safety) — R6 suppression env +

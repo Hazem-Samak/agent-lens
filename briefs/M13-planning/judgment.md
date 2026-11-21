@@ -430,6 +430,16 @@ if BLOCKed). MiniMax's OD-M13-2 (agy correction) is ruled YES in R10 (a factual 
 product choice). The optional diagnostic beta, publication, expenses, and public contribution
 invitations remain separate post-M13 owner decisions (ROADMAP §7); no release is authorized.
 
+## Owner decisions settled (2026-11-21, post-freeze)
+
+The owner agreed to all four recommendations ("I agree with your 4 recommendations"): OD-M13-1
+option (b) (hermes/aider/goose formula Update+Uninstall + kiro-cli cask Update+Uninstall);
+OD-M13-3 900s brew mutation timeout; OD-M13-4 ship the cask latest-check; OD-M13-8 no-uninstall-
+stanza CLI casks only. The ruled technical decisions (OD-M13-2/5/6/7) stand. Recorded in
+DECISIONS.md. The owner authorized pushing the branch and syncing GitHub with local;
+implementation is NOT authorized ("don't start implem. yet"); no implementer selected. This note
+is appended after the freeze; rulings R1–R16 and the frozen contract text are unchanged.
+
 ## Repo integrity audit (before freeze) — CLEAN
 
 Audited 2026-11-21 before the freeze commit. `git rev-parse HEAD` = `9b37a33`; branch
