@@ -1498,7 +1498,7 @@ private func ownershipInfoJSON(records: [String]) -> Data {
     #expect(uninstalledRunner.calls.count == 2)
 }
 
-@Test func homebrewOtherCellarCaskAndStandaloneNeverQueryForFormulaProof() async throws {
+@Test func homebrewOtherCellarAndCaskOnlyDeclarationNeverUseFormulaProof() async throws {
     let fixture = try makeBrewFixture("ownership-brew-other-cellar")
     try FileManager.default.createDirectory(
         at: fixture.prefix.appendingPathComponent("Cellar", isDirectory: true),
@@ -1538,10 +1538,34 @@ private func ownershipInfoJSON(records: [String]) -> Data {
     #expect(result.unknownReason == .managerRootMismatch)
     #expect(runner.calls == [["--cellar"]])
 
+    // Owner-approved M13-A exception: a source-brew selection with only a cask declaration now
+    // enters the bounded cask proof. The unrelated Cellar target is refused by that proof, and the
+    // formula route is never probed. The competing Cellar/formula setup and assertions above are
+    // unchanged.
     let caskDefinition = try ownershipDefinition(packages: [(.homebrewCask, "codex")])
-    let zeroRunner = ScriptedRunner(handler: { _, arguments in
-        Issue.record("cask ownership must not query brew: \(arguments)")
-        return .failure(.spawnFailure)
+    let caskVersion = "1.0.0"
+    let caskroom = fixture.prefix.appendingPathComponent("Caskroom", isDirectory: true)
+    let stagedCask = caskroom
+        .appendingPathComponent("codex/\(caskVersion)/bin/codex")
+    try writeOwnershipExecutable(stagedCask)
+    let caskInfo = Data(
+        ("{\"formulae\":[],\"casks\":[{\"token\":\"codex\",\"full_token\":\"codex\","
+            + "\"installed\":\"\(caskVersion)\",\"old_tokens\":[]}]}").utf8
+    )
+    let caskRunner = ScriptedRunner(handler: { _, arguments in
+        switch arguments {
+        case ["--prefix"]:
+            return .success(Data((fixture.prefix.path + "\n").utf8))
+        case ["--caskroom"]:
+            return .success(Data((caskroom.path + "\n").utf8))
+        case ["info", "--json=v2", "--cask", "codex"]:
+            return .success(caskInfo)
+        case ["list", "--verbose", "--cask", "codex"]:
+            return .success(Data((stagedCask.path + "\n").utf8))
+        default:
+            Issue.record("the cask route must not probe the formula route: \(arguments)")
+            return .failure(.spawnFailure)
+        }
     })
     let cask = await InstallationOwnershipVerifier.verify(
         definition: caskDefinition,
@@ -1549,12 +1573,17 @@ private func ownershipInfoJSON(records: [String]) -> Data {
             executableName: "codex", entryPath: selectedEntry.path, source: "brew"
         ),
         environment: m6Environment(pathEntries: [fixture.binDirectory]),
-        runner: zeroRunner,
+        runner: caskRunner,
         currentDirectory: fixture.prefix.deletingLastPathComponent().path,
         now: fixedOwnershipClock()
     )
-    #expect(cask.unknownReason == .unsupportedCask)
-    #expect(zeroRunner.calls.isEmpty)
+    #expect(cask.unknownReason == .selectedCaskNotConfirmed)
+    #expect(caskRunner.calls == [
+        ["--prefix"],
+        ["--caskroom"],
+        ["info", "--json=v2", "--cask", "codex"],
+        ["list", "--verbose", "--cask", "codex"],
+    ])
 }
 
 @Test func homebrewManagerChangeDuringInfoSuppressesListAndNeverVerifies() async throws {

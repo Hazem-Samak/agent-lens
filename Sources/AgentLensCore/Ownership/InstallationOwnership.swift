@@ -91,6 +91,12 @@ public enum InstallationOwnershipReason: Equatable, Sendable, CaseIterable {
     case formulaRecordMismatch
     case selectedKegNotInstalled
     case selectedKegNotConfirmed
+    case caskRecordMismatch
+    case caskTokenRenamed
+    case selectedCaskNotInstalled
+    case selectedCaskNotConfirmed
+    case caskArtifactUnlinked
+    case tooManyDeclaredCasks
     case cancelled
 
     public var message: String {
@@ -155,6 +161,18 @@ public enum InstallationOwnershipReason: Equatable, Sendable, CaseIterable {
             "The selected Homebrew keg is not reported as installed"
         case .selectedKegNotConfirmed:
             "The selected Homebrew keg is not confirmed by this manager; another keg's proof was not borrowed"
+        case .caskRecordMismatch:
+            "The Homebrew cask record does not match the declared cask and the selected installation"
+        case .caskTokenRenamed:
+            "The declared Homebrew cask name was renamed; the declaration was not retargeted"
+        case .selectedCaskNotInstalled:
+            "The selected Homebrew cask version is not reported as installed"
+        case .selectedCaskNotConfirmed:
+            "The selected Homebrew cask installation is not confirmed by this manager"
+        case .caskArtifactUnlinked:
+            "Homebrew does not list a staged artifact for the selected cask executable"
+        case .tooManyDeclaredCasks:
+            "More than four declared casks were supplied; ownership was not verified"
         case .cancelled:
             "Verification was cancelled"
         }

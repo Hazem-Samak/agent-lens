@@ -1230,7 +1230,7 @@ private let emptyOutdated = #"{"formulae":[],"casks":[]}"#
     #expect(!result.stdout.contains("9.9.9"))
 }
 
-@Test func verifyInstallationCaskIsNeutralWithZeroManagerQueries() throws {
+@Test func verifyInstallationCaskStartsCaskRouteAndStopsOnManagerFailure() throws {
     let scenario = try makeBrewCLIScenario(
         "brew-cask-verify", info: currentInfo, outdated: emptyOutdated
     )
@@ -1241,10 +1241,12 @@ private let emptyOutdated = #"{"formulae":[],"casks":[]}"#
     #expect(result.status == 0)
     #expect(result.stderr.isEmpty)
     #expect(result.stdout.contains("  result: unknown"))
-    #expect(result.stdout.contains("  reason: Homebrew cask ownership is not supported"))
+    #expect(result.stdout.contains("  reason: The package manager query failed"))
     #expect(result.stdout.contains("  selected entry: \(scenario.binDirectory.appendingPathComponent("codex").path)"))
     #expect(result.stdout.contains("no installation changes were made"))
-    #expect(readLog(scenario.logURL).isEmpty, "cask verification must not query Homebrew")
+    // The cask route starts by asking for the manager's prefix. The fixture refuses that query,
+    // so the proof stops before `--caskroom` or any cask metadata query.
+    #expect(readLog(scenario.logURL) == ["--prefix"])
 }
 
 @Test func verifyInstallationStandaloneIsNeutralWithZeroManagerQueries() throws {
