@@ -643,6 +643,9 @@ public enum NpmUpdateOperation {
         case .noRegistry: .unsupportedManager
         case .networkUnavailable, .rateLimited: .probeFailed
         case .notChecked: .probeFailed
+        case .caskTracksLatest: .unsupportedVersion
+        case .caskAutoUpdates, .caskDisabled: .probeFailed
+        case .caskMetadataInconsistent: .metadataInvalid
         }
     }
 

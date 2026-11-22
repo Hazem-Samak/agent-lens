@@ -6,8 +6,8 @@
 // 1. MATRIX TRUTH. `docs/capability-matrix.md` is parsed deterministically (fixed header, nine
 //    cells, no escaping) and checked against `DetectorRegistry.loadDefault()`. Identity cells must
 //    match exactly; capability cells obey the M11-F rules: Update/Uninstall `yes` only for an
-//    accepted operation plus a declared npm candidate, latest-check `yes` only for npm or formula
-//    candidates, cask latest-check never `yes`, and every row carries limits. A seeded corruption
+//    accepted operation plus a declared npm candidate, latest-check `yes` only for a declared npm,
+//    formula, or (M13-B) cask candidate, and every row carries limits. A seeded corruption
 //    must fail the same agreement function, so a green run cannot be vacuous.
 //
 // 2. DATA-ONLY CONTRIBUTION. The current bundled detectors plus one extra definition are loaded
@@ -211,24 +211,31 @@ private func latestCheckProblems(
     var problems: [String] = []
     let hasNPM = definition.packages.contains { $0.manager == .npm }
     let hasFormula = definition.packages.contains { $0.manager == .homebrewFormula }
+    let hasCask = definition.packages.contains { $0.manager == .homebrewCask }
 
-    if hasNPM || hasFormula {
+    if hasNPM || hasFormula || hasCask {
         var expected: [String] = []
         if hasNPM { expected.append("yes: npm") }
         if hasFormula { expected.append("yes: homebrewFormula") }
+        // M13-B ships the read-only cask latest-check; a declared cask now lists the capability
+        // beside any npm/formula probe. The cell still never implies a cask mutation.
+        if hasCask { expected.append("yes: homebrewCask") }
         let expectedCell = expected.joined(separator: "; ")
         if cell != expectedCell {
             problems.append(
-                "\(definition.id) latest-check must be '\(expectedCell)' for its declared npm/formula candidates, found '\(cell)'"
+                "\(definition.id) latest-check must be '\(expectedCell)' for its declared npm/formula/cask candidates, found '\(cell)'"
             )
         }
     } else if !isReasonCell(cell, prefix: "disabled: ") {
         problems.append(
-            "\(definition.id) latest-check must be 'disabled: <reason>' when no npm or formula candidate is declared, found '\(cell)'"
+            "\(definition.id) latest-check must be 'disabled: <reason>' when no npm, formula, or cask candidate is declared, found '\(cell)'"
         )
     }
-    if cell.contains("yes: homebrewCask") {
-        problems.append("\(definition.id) latest-check must never be 'yes' for a cask")
+    // A false cask capability claim is rejected even though the cask probe now ships.
+    if cell.contains("yes: homebrewCask") && !hasCask {
+        problems.append(
+            "\(definition.id) latest-check claims 'yes: homebrewCask' without a declared cask"
+        )
     }
     return problems
 }
@@ -428,6 +435,21 @@ private func contributionEnvironment(pathEntries: [URL]) -> ShellEnvironment {
     #expect(
         falseYesProblems.contains { $0.contains("opencode") && $0.contains("Update") },
         "the seeded false Update claim must be named: \(falseYesProblems)"
+    )
+
+    // A false cask latest-check claim: grok declares no package at all, so the shipped cask probe
+    // can never serve it. The blanket prohibition is gone, but the new rule still rejects this.
+    let falseCaskYes = try #require(
+        replacingMatrixCell(
+            in: markdown, rowID: "grok", columnIndex: 5, with: "yes: homebrewCask"
+        ),
+        "the seeded cask latest-check mutation must apply to the real matrix"
+    )
+    let falseCaskProblems = matrixProblems(markdown: falseCaskYes, definitions: definitions)
+    #expect(!falseCaskProblems.isEmpty)
+    #expect(
+        falseCaskProblems.contains { $0.contains("grok") && $0.contains("homebrewCask") },
+        "the seeded false cask latest-check claim must be named: \(falseCaskProblems)"
     )
 
     // A dropped row: the id set/order must no longer agree with the registry.

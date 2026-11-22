@@ -656,6 +656,14 @@ public struct ToolDetailView: View {
             "Invalid metadata"
         case .queryTimedOut:
             "Metadata query timed out"
+        case .caskTracksLatest:
+            "Cask version tracks latest; no comparable latest version"
+        case .caskAutoUpdates:
+            "Cask manages its own updates; no comparable latest version"
+        case .caskDisabled:
+            "Cask is disabled; Homebrew does not upgrade it"
+        case .caskMetadataInconsistent:
+            "Cask installation and manager metadata disagree"
         }
     }
 

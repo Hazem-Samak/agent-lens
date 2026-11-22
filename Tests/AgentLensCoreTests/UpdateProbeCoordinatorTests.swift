@@ -2758,3 +2758,1090 @@ private func mixedStageRun(
         #expect(runResults.allSatisfy { $0.status.isVerifiedComparison })
     }
 }
+
+// MARK: - M13-B cask latest-check coordinator cases
+//
+// The cask stage reuses the M6 eligibility order, the one complete-stage admission, the existing
+// Homebrew batch gate, and the one deadline-clipped runner. These fixtures are synthetic scratch
+// trees and scripted manager answers; no real brew or cask is invoked.
+
+private struct CaskStageFixture {
+    let root: URL
+    let brew: BrewFixture
+    let caskroom: URL
+    let cacheURL: URL
+    let clockValue: Date
+    let environment: ShellEnvironment
+
+    init(_ label: String) throws {
+        brew = try makeBrewFixture("cask-\(label)")
+        root = brew.prefix.deletingLastPathComponent()
+        caskroom = brew.prefix.appendingPathComponent("Caskroom", isDirectory: true)
+        try FileManager.default.createDirectory(at: caskroom, withIntermediateDirectories: true)
+        let cacheDirectory = root.appendingPathComponent("cache", isDirectory: true)
+        try FileManager.default.createDirectory(at: cacheDirectory, withIntermediateDirectories: true)
+        cacheURL = cacheDirectory.appendingPathComponent("update-metadata-v1.json")
+        clockValue = Date(timeIntervalSince1970: 1_800_000_000)
+        environment = m6Environment(pathEntries: [brew.binDirectory])
+    }
+
+    var caskCacheURL: URL {
+        cacheURL.deletingLastPathComponent()
+            .appendingPathComponent("cask-update-metadata-v1.json")
+    }
+
+    /// Stages `<caskroom>/<token>/<version>/bin/<token>`, links `<prefix>/bin/<token>` to it, and
+    /// builds a standalone diagnostic plus a validated cask-declaring definition.
+    func subject(
+        token: String,
+        version: String = "1.0.0",
+        localVersion: String? = nil,
+        declaresCask: Bool = true,
+        declaration: String? = nil,
+        declarations: [String]? = nil,
+        id: String? = nil,
+        externalTarget: String? = nil
+    ) throws -> (subject: UpdateProbeSubject, selectedTarget: String) {
+        let target: String
+        let link = brew.prefix.appendingPathComponent("bin/\(token)")
+        if let externalTarget {
+            target = externalTarget
+            try? FileManager.default.removeItem(at: link)
+            try FileManager.default.createSymbolicLink(
+                atPath: link.path, withDestinationPath: externalTarget
+            )
+        } else {
+            let artifact = caskroom
+                .appendingPathComponent(token, isDirectory: true)
+                .appendingPathComponent(version, isDirectory: true)
+                .appendingPathComponent("bin/\(token)")
+            try FileManager.default.createDirectory(
+                at: artifact.deletingLastPathComponent(), withIntermediateDirectories: true
+            )
+            let local = localVersion ?? version
+            let script = "#!/bin/sh\nprintf '%s\\n' '\(local)'\n"
+            try Data(script.utf8).write(to: artifact)
+            try FileManager.default.setAttributes(
+                [.posixPermissions: 0o755], ofItemAtPath: artifact.path
+            )
+            try? FileManager.default.removeItem(at: link)
+            try FileManager.default.createSymbolicLink(
+                atPath: link.path, withDestinationPath: artifact.path
+            )
+            target = artifact.resolvingSymlinksInPath().standardizedFileURL.path
+        }
+        let candidate = PathCandidateObservation(
+            origin: .path(slotIndex: 0, directoryText: brew.binDirectory),
+            entryPath: link.path,
+            kind: .executableSymlink,
+            canonicalTarget: target
+        )
+        let tool = DetectedTool(
+            displayName: token,
+            executableName: token,
+            state: .installedAndOnPath,
+            entryPath: link.path,
+            resolvedPath: target,
+            source: "standalone",
+            version: localVersion ?? version
+        )
+        let diagnostic = ToolPathDiagnostic(
+            detectedTool: tool,
+            pathCandidates: [candidate],
+            firstLiveCandidate: candidate,
+            targetGroups: [PathTargetGroup(
+                canonicalTarget: target, entryPaths: [link.path], firstSlotIndex: 0
+            )],
+            repeatedPathSlotCount: 0,
+            sameTargetAliasCount: 0,
+            selection: .winner(candidate),
+            shadowedInstallationCount: 0,
+            installationVersions: []
+        )
+        let declaredNames = declarations ?? [declaration ?? token]
+        let packages = declaresCask
+            ? try declaredNames.map { try DeclaredPackage(manager: .homebrewCask, name: $0) }
+            : []
+        let definition = try DetectorDefinition(
+            id: id ?? "cask-\(token)",
+            displayName: token,
+            executableName: token,
+            extraSearchRoots: [],
+            fixture: nil,
+            category: .aiHarness,
+            packages: packages,
+            informationURL: nil,
+            uninstallInstructionsURL: nil,
+            versionQuery: .standard
+        )
+        return (UpdateProbeSubject(definition: definition, diagnostic: diagnostic), target)
+    }
+
+    /// A selected Homebrew formula under the same manager, used to prove that a completed formula
+    /// result survives a later cask-stage failure.
+    func formulaSubject(
+        formula: String = "codex",
+        keg: String = "0.162.1_1",
+        version: String = "0.162.1"
+    ) throws -> UpdateProbeSubject {
+        let target = try brew.installKeg(formula: formula, keg: keg)
+        let entry = brew.prefix.appendingPathComponent("bin/\(formula)")
+        let candidate = PathCandidateObservation(
+            origin: .path(slotIndex: 0, directoryText: brew.binDirectory),
+            entryPath: entry.path,
+            kind: .executableSymlink,
+            canonicalTarget: target
+        )
+        let tool = DetectedTool(
+            displayName: formula,
+            executableName: formula,
+            state: .installedAndOnPath,
+            entryPath: entry.path,
+            resolvedPath: target,
+            source: "brew",
+            version: version
+        )
+        let diagnostic = ToolPathDiagnostic(
+            detectedTool: tool,
+            pathCandidates: [candidate],
+            firstLiveCandidate: candidate,
+            targetGroups: [PathTargetGroup(
+                canonicalTarget: target, entryPaths: [entry.path], firstSlotIndex: 0
+            )],
+            repeatedPathSlotCount: 0,
+            sameTargetAliasCount: 0,
+            selection: .winner(candidate),
+            shadowedInstallationCount: 0,
+            installationVersions: []
+        )
+        return UpdateProbeSubject(
+            definition: probeDefinition(id: formula, displayName: formula, executableName: formula),
+            diagnostic: diagnostic
+        )
+    }
+}
+
+private func m13bInfoRecord(
+    token: String,
+    version: String,
+    installed: String?,
+    autoUpdates: Bool? = nil,
+    pinned: Bool = false,
+    outdated: Bool = false,
+    disabled: Bool = false,
+    fullToken: String? = nil,
+    tap: String = "homebrew/cask"
+) -> String {
+    let full = fullToken ?? token
+    let installedField = installed.map { "\"installed\":\"\($0)\"" } ?? "\"installed\":null"
+    let auto = autoUpdates.map { $0 ? "true" : "false" } ?? "null"
+    return """
+    {"token":"\(token)","full_token":"\(full)","tap":"\(tap)","version":"\(version)",\
+    \(installedField),"auto_updates":\(auto),"pinned":\(pinned),"outdated":\(outdated),\
+    "disabled":\(disabled)}
+    """
+}
+
+private func m13bInfoJSON(_ records: [String]) -> Data {
+    Data("{\"formulae\":[],\"casks\":[\(records.joined(separator: ","))]}".utf8)
+}
+
+private func m13bOutdatedRecord(
+    name: String,
+    current: String,
+    installed: String,
+    pinned: Bool = false
+) -> String {
+    """
+    {"name":"\(name)","current_version":"\(current)","installed_versions":["\(installed)"],\
+    "pinned":\(pinned),"pinned_version":null}
+    """
+}
+
+private func m13bOutdatedJSON(_ records: [String]) -> Data {
+    Data("{\"formulae\":[],\"casks\":[\(records.joined(separator: ","))]}".utf8)
+}
+
+private func m13bListing(_ targets: [String]) -> Data {
+    Data(targets.joined(separator: "\n").utf8 + (targets.isEmpty ? Data() : Data("\n".utf8)))
+}
+
+/// Records the executable and argv of every launch, attributing brew vs npm by executable path.
+private final class CaskStageRunner: UpdateCommandRunner, @unchecked Sendable {
+    private let lock = NSLock()
+    private var entries: [(executable: String, arguments: [String])] = []
+    private let handler: @Sendable (String, [String]) -> CommandOutcome
+
+    init(handler: @escaping @Sendable (String, [String]) -> CommandOutcome) {
+        self.handler = handler
+    }
+
+    var calls: [(executable: String, arguments: [String])] {
+        lock.lock(); defer { lock.unlock() }
+        return entries
+    }
+
+    private func record(_ executable: String, _ arguments: [String]) {
+        lock.lock()
+        defer { lock.unlock() }
+        entries.append((executable, arguments))
+    }
+
+    func run(
+        executablePath: String,
+        arguments: [String],
+        environment: [String: String],
+        timeout: TimeInterval
+    ) async -> CommandOutcome {
+        record(executablePath, arguments)
+        return handler(executablePath, arguments)
+    }
+}
+
+private func caskOnlyHandler(
+    fixture: CaskStageFixture,
+    info: Data,
+    outdated: Data,
+    listing: Data,
+    infoTokens: [String],
+    listTokens: [String]
+) -> @Sendable (String, [String]) -> CommandOutcome {
+    { _, arguments in
+        switch arguments {
+        case ["--prefix"]:
+            return .success(Data((fixture.brew.prefix.path + "\n").utf8))
+        case ["--caskroom"]:
+            return .success(Data((fixture.caskroom.path + "\n").utf8))
+        case ["info", "--json=v2", "--cask"] + infoTokens:
+            return .success(info)
+        case ["outdated", "--json=v2", "--cask"]:
+            return .success(outdated)
+        case ["list", "--verbose", "--cask"] + listTokens:
+            return .success(listing)
+        default:
+            Issue.record("unexpected cask-stage arguments: \(arguments)")
+            return .failure(.spawnFailure)
+        }
+    }
+}
+
+private func runCaskStage(
+    fixture: CaskStageFixture,
+    subjects: [UpdateProbeSubject],
+    runner: UpdateCommandRunner,
+    mode: UpdateProbeMode = .checkUpdates,
+    now: Date? = nil,
+    currentDirectory: String? = nil,
+    uptime: (@Sendable () -> UInt64)? = nil
+) async -> [ToolUpdateResult] {
+    await UpdateProbeCoordinator.run(
+        subjects: subjects,
+        environment: fixture.environment,
+        mode: mode,
+        runner: runner,
+        cacheURL: fixture.cacheURL,
+        currentDirectory: currentDirectory ?? fixture.root.path,
+        now: { now ?? fixture.clockValue },
+        uptime: uptime ?? { DispatchTime.now().uptimeNanoseconds }
+    )
+}
+
+@Test func caskCheckRunsTheFiveCommandBatchAndRendersUpToDate() async throws {
+    let fixture = try CaskStageFixture("five")
+    let staged = try fixture.subject(token: "codex")
+    let info = m13bInfoJSON([
+        m13bInfoRecord(token: "codex", version: "1.0.0", installed: "1.0.0")
+    ])
+    let runner = CaskStageRunner(handler: caskOnlyHandler(
+        fixture: fixture, info: info, outdated: m13bOutdatedJSON([]),
+        listing: m13bListing([staged.selectedTarget]),
+        infoTokens: ["codex"], listTokens: ["codex"]
+    ))
+    let results = await runCaskStage(fixture: fixture, subjects: [staged.subject], runner: runner)
+
+    #expect(runner.calls.map(\.arguments) == [
+        ["--prefix"],
+        ["--caskroom"],
+        ["info", "--json=v2", "--cask", "codex"],
+        ["outdated", "--json=v2", "--cask"],
+        ["list", "--verbose", "--cask", "codex"],
+    ])
+    #expect(results.first?.status == .upToDate(
+        installed: Version("1.0.0"), latest: Version("1.0.0")
+    ))
+    #expect(results.first?.caskToken == "codex")
+    #expect(results.first?.caskFullToken == "codex")
+    #expect(results.first?.caskTap == "homebrew/cask")
+    #expect(results.first?.caskInstalledVersion == "1.0.0")
+    #expect(results.first?.caskPinned == false)
+    #expect(results.first?.formulaStem == nil)
+    #expect(results.first?.npmPackage == nil)
+    #expect(results.first?.provenance == .freshProbe(observedAt: fixture.clockValue))
+    let rendered = UpdateScanRenderer.render(results: results, mode: .checkUpdates)
+    #expect(rendered.contains("codex  installed 1.0.0  latest known 1.0.0  up to date"))
+    #expect(rendered.contains("0 updates available"))
+    #expect(rendered.contains("source: Homebrew cask metadata (cask codex tap homebrew/cask installed 1.0.0; not pinned); checked at 2027-01-15T08:00:00Z"))
+    #expect(FileManager.default.fileExists(atPath: fixture.caskCacheURL.path))
+}
+
+@Test func fullyQualifiedDeclarationQueriesTheFullNameAndListsTheBareToken() async throws {
+    let fixture = try CaskStageFixture("qualified")
+    let staged = try fixture.subject(
+        token: "kiro-cli", declaration: "owner/tap/kiro-cli", id: "kiro-qualified"
+    )
+    let info = m13bInfoJSON([
+        m13bInfoRecord(
+            token: "kiro-cli", version: "1.0.0", installed: "1.0.0",
+            fullToken: "owner/tap/kiro-cli", tap: "owner/tap"
+        )
+    ])
+    let runner = CaskStageRunner(handler: caskOnlyHandler(
+        fixture: fixture, info: info, outdated: m13bOutdatedJSON([]),
+        listing: m13bListing([staged.selectedTarget]),
+        infoTokens: ["owner/tap/kiro-cli"], listTokens: ["owner/tap/kiro-cli"]
+    ))
+    let results = await runCaskStage(fixture: fixture, subjects: [staged.subject], runner: runner)
+    #expect(runner.calls.map(\.arguments) == [
+        ["--prefix"],
+        ["--caskroom"],
+        ["info", "--json=v2", "--cask", "owner/tap/kiro-cli"],
+        ["outdated", "--json=v2", "--cask"],
+        ["list", "--verbose", "--cask", "owner/tap/kiro-cli"],
+    ])
+    #expect(results.first?.status == .upToDate(
+        installed: Version("1.0.0"), latest: Version("1.0.0")
+    ))
+    #expect(results.first?.caskFullToken == "owner/tap/kiro-cli")
+    #expect(results.first?.caskTap == "owner/tap")
+    #expect(FileManager.default.fileExists(atPath: fixture.caskCacheURL.path))
+}
+
+@Test func standaloneWithoutCaskDeclarationStaysNoRegistry() async throws {
+    let fixture = try CaskStageFixture("no-cask")
+    let staged = try fixture.subject(token: "codex", declaresCask: false)
+    let runner = CaskStageRunner { _, arguments in
+        Issue.record("unexpected manager launch for an undeclared cask: \(arguments)")
+        return .failure(.spawnFailure)
+    }
+    let results = await runCaskStage(fixture: fixture, subjects: [staged.subject], runner: runner)
+    #expect(runner.calls.isEmpty)
+    #expect(results.first?.status == .unknown(
+        installed: Version("1.0.0"), reason: .noRegistry
+    ))
+    #expect(!FileManager.default.fileExists(atPath: fixture.caskCacheURL.path))
+}
+
+@Test func pinnedCaskUpdateIsCountedAndThePinStaysVisible() async throws {
+    let fixture = try CaskStageFixture("pinned")
+    let staged = try fixture.subject(token: "codex")
+    let info = m13bInfoJSON([
+        m13bInfoRecord(
+            token: "codex", version: "1.2.4", installed: "1.0.0",
+            pinned: true, outdated: true
+        )
+    ])
+    let runner = CaskStageRunner(handler: caskOnlyHandler(
+        fixture: fixture, info: info,
+        outdated: m13bOutdatedJSON([
+            m13bOutdatedRecord(
+                name: "codex", current: "1.2.4", installed: "1.0.0", pinned: true
+            )
+        ]),
+        listing: m13bListing([staged.selectedTarget]),
+        infoTokens: ["codex"], listTokens: ["codex"]
+    ))
+    let results = await runCaskStage(fixture: fixture, subjects: [staged.subject], runner: runner)
+    #expect(results.first?.status == .updateAvailable(
+        installed: Version("1.0.0"), latest: Version("1.2.4")
+    ))
+    #expect(results.first?.caskPinned == true)
+    let rendered = UpdateScanRenderer.render(results: results, mode: .checkUpdates)
+    #expect(rendered.contains("1 update available"))
+    #expect(rendered.contains("pinned); checked at"))
+}
+
+@Test func typedCaskUnknownIsNeverCachedAndNeverCounts() async throws {
+    let fixture = try CaskStageFixture("unknown")
+    let staged = try fixture.subject(token: "codex")
+    let info = m13bInfoJSON([
+        m13bInfoRecord(
+            token: "codex", version: "1.2.4", installed: "1.0.0",
+            autoUpdates: true, outdated: true
+        )
+    ])
+    let runner = CaskStageRunner(handler: caskOnlyHandler(
+        fixture: fixture, info: info,
+        outdated: m13bOutdatedJSON([
+            m13bOutdatedRecord(name: "codex", current: "1.2.4", installed: "1.0.0")
+        ]),
+        listing: m13bListing([staged.selectedTarget]),
+        infoTokens: ["codex"], listTokens: ["codex"]
+    ))
+    let first = await runCaskStage(fixture: fixture, subjects: [staged.subject], runner: runner)
+    #expect(first.first?.status == .unknown(
+        installed: Version("1.0.0"), reason: .caskAutoUpdates
+    ))
+    #expect(runner.calls.count == 5)
+    #expect(!FileManager.default.fileExists(atPath: fixture.caskCacheURL.path))
+    let rendered = UpdateScanRenderer.render(results: first, mode: .checkUpdates)
+    #expect(rendered.contains("0 updates available"))
+    #expect(rendered.contains("cask manages its own updates"))
+
+    let second = await runCaskStage(fixture: fixture, subjects: [staged.subject], runner: runner)
+    #expect(second.first?.status == .unknown(
+        installed: Version("1.0.0"), reason: .caskAutoUpdates
+    ))
+    #expect(runner.calls.count == 10, "a negative result must be re-probed, never cached")
+}
+
+@Test func caskCheckServesACacheHitWithoutAnyManagerQuery() async throws {
+    let fixture = try CaskStageFixture("cache-hit")
+    let staged = try fixture.subject(token: "codex")
+    let info = m13bInfoJSON([
+        m13bInfoRecord(
+            token: "codex", version: "1.2.4", installed: "1.0.0",
+            pinned: true, outdated: true
+        )
+    ])
+    let warm = CaskStageRunner(handler: caskOnlyHandler(
+        fixture: fixture, info: info,
+        outdated: m13bOutdatedJSON([
+            m13bOutdatedRecord(
+                name: "codex", current: "1.2.4", installed: "1.0.0", pinned: true
+            )
+        ]),
+        listing: m13bListing([staged.selectedTarget]),
+        infoTokens: ["codex"], listTokens: ["codex"]
+    ))
+    let fresh = await runCaskStage(fixture: fixture, subjects: [staged.subject], runner: warm)
+    #expect(fresh.first?.provenance == .freshProbe(observedAt: fixture.clockValue))
+    #expect(warm.calls.count == 5)
+
+    let cold = CaskStageRunner { _, arguments in
+        Issue.record("a valid cask cache hit must launch no manager: \(arguments)")
+        return .failure(.spawnFailure)
+    }
+    let cached = await runCaskStage(fixture: fixture, subjects: [staged.subject], runner: cold)
+    #expect(cold.calls.isEmpty)
+    #expect(cached.first?.status == .updateAvailable(
+        installed: Version("1.0.0"), latest: Version("1.2.4")
+    ))
+    #expect(cached.first?.caskPinned == true)
+    #expect(cached.first?.provenance == .cache(observedAt: fixture.clockValue))
+    let rendered = UpdateScanRenderer.render(results: cached, mode: .checkUpdates)
+    #expect(rendered.contains("1 update available"))
+    #expect(rendered.contains("source: Homebrew cask metadata cache"))
+}
+
+@Test func caskRefreshBypassesTheCacheAndReplacesIt() async throws {
+    let fixture = try CaskStageFixture("refresh")
+    let staged = try fixture.subject(token: "codex")
+    func info(version: String) -> Data {
+        m13bInfoJSON([
+            m13bInfoRecord(token: "codex", version: version, installed: "1.0.0", outdated: true)
+        ])
+    }
+    func outdated(version: String) -> Data {
+        m13bOutdatedJSON([
+            m13bOutdatedRecord(name: "codex", current: version, installed: "1.0.0")
+        ])
+    }
+    let first = CaskStageRunner(handler: caskOnlyHandler(
+        fixture: fixture, info: info(version: "1.2.4"),
+        outdated: outdated(version: "1.2.4"),
+        listing: m13bListing([staged.selectedTarget]),
+        infoTokens: ["codex"], listTokens: ["codex"]
+    ))
+    _ = await runCaskStage(fixture: fixture, subjects: [staged.subject], runner: first)
+
+    let refreshed = CaskStageRunner(handler: caskOnlyHandler(
+        fixture: fixture, info: info(version: "1.3.0"),
+        outdated: outdated(version: "1.3.0"),
+        listing: m13bListing([staged.selectedTarget]),
+        infoTokens: ["codex"], listTokens: ["codex"]
+    ))
+    let value = await runCaskStage(
+        fixture: fixture, subjects: [staged.subject], runner: refreshed, mode: .refresh
+    )
+    #expect(refreshed.calls.count == 5, "Refresh must not serve the cached 1.2.4")
+    #expect(value.first?.status == .updateAvailable(
+        installed: Version("1.0.0"), latest: Version("1.3.0")
+    ))
+    #expect(value.first?.provenance == .freshProbe(observedAt: fixture.clockValue))
+
+    let after = CaskStageRunner { _, arguments in
+        Issue.record("the refreshed cache should be a hit: \(arguments)")
+        return .failure(.spawnFailure)
+    }
+    let cached = await runCaskStage(fixture: fixture, subjects: [staged.subject], runner: after)
+    #expect(after.calls.isEmpty)
+    #expect(cached.first?.status == .updateAvailable(
+        installed: Version("1.0.0"), latest: Version("1.3.0")
+    ))
+}
+
+@Test func caskComparisonCompletedAtTheDeadlineIsPublishedButNotStored() async throws {
+    let fixture = try CaskStageFixture("deadline-store")
+    let staged = try fixture.subject(token: "codex")
+    let clock = StageClock()
+    let info = m13bInfoJSON([
+        m13bInfoRecord(token: "codex", version: "1.0.0", installed: "1.0.0")
+    ])
+    let runner = CaskStageRunner { _, arguments in
+        let response = caskOnlyHandler(
+            fixture: fixture, info: info, outdated: m13bOutdatedJSON([]),
+            listing: m13bListing([staged.selectedTarget]),
+            infoTokens: ["codex"], listTokens: ["codex"]
+        )(fixture.brew.brewPath, arguments)
+        if arguments == ["list", "--verbose", "--cask", "codex"] {
+            // The final answer arrives, then the aggregate budget is observed as gone.
+            clock.set(200_000_000_000)
+        }
+        return response
+    }
+    let results = await runCaskStage(
+        fixture: fixture, subjects: [staged.subject], runner: runner,
+        uptime: { clock.get() }
+    )
+    #expect(results.first?.status == .upToDate(
+        installed: Version("1.0.0"), latest: Version("1.0.0")
+    ))
+    #expect(!FileManager.default.fileExists(atPath: fixture.caskCacheURL.path))
+}
+
+@Test func caskLocalOnlyAndOfflineAdmitNothingAndWriteNoDocument() async throws {
+    let fixture = try CaskStageFixture("plain")
+    let staged = try fixture.subject(token: "codex")
+    let runner = CaskStageRunner { _, arguments in
+        Issue.record("plain/offline cask work launched a manager: \(arguments)")
+        return .failure(.spawnFailure)
+    }
+    let local = await runCaskStage(
+        fixture: fixture, subjects: [staged.subject], runner: runner, mode: .localOnly
+    )
+    #expect(local.first?.status == .unknown(
+        installed: Version("1.0.0"), reason: .notChecked
+    ))
+    let offline = await runCaskStage(
+        fixture: fixture, subjects: [staged.subject], runner: runner, mode: .offline
+    )
+    #expect(offline.first?.status == .unknown(
+        installed: Version("1.0.0"), reason: .networkUnavailable
+    ))
+    #expect(runner.calls.isEmpty)
+    #expect(!FileManager.default.fileExists(atPath: fixture.caskCacheURL.path))
+}
+
+@Test func caskBatchRunsAfterFormulaAndBeforeNpmInTheSameAdmittedStage() async throws {
+    let mixed = try MixedStageFixture("cask-order")
+    // Put the cask staged artifact under the SAME brew prefix the formula uses, so one manager
+    // answers the formula batch and then the cask batch.
+    let caskroom = mixed.brew.fixture.prefix.appendingPathComponent("Caskroom", isDirectory: true)
+    try FileManager.default.createDirectory(at: caskroom, withIntermediateDirectories: true)
+    let artifact = caskroom.appendingPathComponent("kiro-cli/3.2.1/bin/kiro-cli")
+    try FileManager.default.createDirectory(
+        at: artifact.deletingLastPathComponent(), withIntermediateDirectories: true
+    )
+    try Data("#!/bin/sh\nprintf '%s\\n' '3.2.1'\n".utf8).write(to: artifact)
+    try FileManager.default.setAttributes(
+        [.posixPermissions: 0o755], ofItemAtPath: artifact.path
+    )
+    let link = mixed.brew.fixture.prefix.appendingPathComponent("bin/kiro-cli")
+    try? FileManager.default.removeItem(at: link)
+    try FileManager.default.createSymbolicLink(
+        atPath: link.path, withDestinationPath: artifact.path
+    )
+    let target = artifact.resolvingSymlinksInPath().standardizedFileURL.path
+    let candidate = PathCandidateObservation(
+        origin: .path(slotIndex: 0, directoryText: mixed.brew.fixture.binDirectory),
+        entryPath: link.path, kind: .executableSymlink, canonicalTarget: target
+    )
+    let caskDiagnostic = ToolPathDiagnostic(
+        detectedTool: DetectedTool(
+            displayName: "Kiro CLI", executableName: "kiro-cli", state: .installedAndOnPath,
+            entryPath: link.path, resolvedPath: target, source: "standalone", version: "3.2.1"
+        ),
+        pathCandidates: [candidate], firstLiveCandidate: candidate,
+        targetGroups: [PathTargetGroup(
+            canonicalTarget: target, entryPaths: [link.path], firstSlotIndex: 0
+        )],
+        repeatedPathSlotCount: 0, sameTargetAliasCount: 0, selection: .winner(candidate),
+        shadowedInstallationCount: 0, installationVersions: []
+    )
+    let caskSubject = UpdateProbeSubject(
+        definition: try DetectorDefinition(
+            id: "kiro-cli-cask", displayName: "Kiro CLI", executableName: "kiro-cli",
+            extraSearchRoots: [], fixture: nil, category: .aiCodingTool,
+            packages: [try DeclaredPackage(manager: .homebrewCask, name: "kiro-cli")],
+            informationURL: nil, uninstallInstructionsURL: nil, versionQuery: .standard
+        ),
+        diagnostic: caskDiagnostic
+    )
+    let subjects = [
+        probeSubject(toolDetection(mixed.brew, version: "0.162.1"), id: "codex"),
+        caskSubject,
+        mixed.npm.npmSubject(id: "codex-npm"),
+    ]
+    let caskInfo = m13bInfoJSON([
+        m13bInfoRecord(token: "kiro-cli", version: "3.2.1", installed: "3.2.1")
+    ])
+    let runner = CaskStageRunner { executable, arguments in
+        if executable == mixed.brew.fixture.brewPath {
+            if arguments == ["--cellar"] {
+                return .success(Data((mixed.brew.fixture.cellar + "\n").utf8))
+            }
+            if arguments.first == "info", arguments.contains("--formula") {
+                return .success(infoJSON([
+                    (name: "codex", stable: "0.162.1", revision: 1, installed: ["0.162.1_1"])
+                ]))
+            }
+            if arguments == ["outdated", "--json=v2", "--formula"] {
+                return .success(outdatedJSON([]))
+            }
+            if arguments == ["--prefix"] {
+                return .success(Data((mixed.brew.fixture.prefix.path + "\n").utf8))
+            }
+            if arguments == ["--caskroom"] {
+                return .success(Data((caskroom.path + "\n").utf8))
+            }
+            if arguments == ["info", "--json=v2", "--cask", "kiro-cli"] {
+                return .success(caskInfo)
+            }
+            if arguments == ["outdated", "--json=v2", "--cask"] {
+                return .success(m13bOutdatedJSON([]))
+            }
+            if arguments == ["list", "--verbose", "--cask", "kiro-cli"] {
+                return .success(m13bListing([target]))
+            }
+            Issue.record("unexpected brew arguments: \(arguments)")
+            return .failure(.spawnFailure)
+        }
+        return mixedStageOutcome(
+            arguments, isHomebrew: false,
+            brewCellar: mixed.brew.fixture.cellar,
+            npmPrefix: mixed.npm.prefixText, npmRoot: mixed.npm.rootText,
+            viewJSON: mixed.viewJSON
+        )
+    }
+    let results = await UpdateProbeCoordinator.run(
+        subjects: subjects,
+        environment: mixed.environment,
+        mode: .checkUpdates,
+        runner: runner,
+        cacheURL: mixed.cacheURL,
+        currentDirectory: mixed.workingDirectory,
+        now: { mixed.clockValue },
+        npmScratchBaseURL: mixed.scratchBase
+    )
+    let brewCalls = runner.calls.filter { $0.executable == mixed.brew.fixture.brewPath }
+        .map(\.arguments)
+    let npmCalls = runner.calls.filter { $0.executable == mixed.npm.managerPath }
+    #expect(brewCalls.prefix(3) == [
+        ["--cellar"],
+        ["info", "--json=v2", "--formula", "codex"],
+        ["outdated", "--json=v2", "--formula"],
+    ])
+    #expect(brewCalls.dropFirst(3).prefix(5) == [
+        ["--prefix"],
+        ["--caskroom"],
+        ["info", "--json=v2", "--cask", "kiro-cli"],
+        ["outdated", "--json=v2", "--cask"],
+        ["list", "--verbose", "--cask", "kiro-cli"],
+    ])
+    #expect(!npmCalls.isEmpty)
+    let lastBrewIndex = runner.calls.lastIndex { $0.executable == mixed.brew.fixture.brewPath } ?? -1
+    let firstNpmIndex = runner.calls.firstIndex { $0.executable == mixed.npm.managerPath } ?? .max
+    #expect(lastBrewIndex < firstNpmIndex, "the cask batch must complete before npm work")
+    #expect(results.count == 3)
+    #expect(results[0].status.isVerifiedComparison)
+    #expect(results[1].status == .upToDate(
+        installed: Version("3.2.1"), latest: Version("3.2.1")
+    ))
+    #expect(results[2].status.isVerifiedComparison)
+}
+
+@Test func combinedCaskListFailureMarksEveryCaskSubjectProbeFailed() async throws {
+    let fixture = try CaskStageFixture("list-failure")
+    let first = try fixture.subject(token: "codex", id: "codex-cask")
+    let second = try fixture.subject(token: "kiro-cli", id: "kiro-cask")
+    let info = m13bInfoJSON([
+        m13bInfoRecord(token: "codex", version: "1.0.0", installed: "1.0.0"),
+        m13bInfoRecord(token: "kiro-cli", version: "1.0.0", installed: "1.0.0"),
+    ])
+    let runner = CaskStageRunner { _, arguments in
+        switch arguments {
+        case ["--prefix"]:
+            return .success(Data((fixture.brew.prefix.path + "\n").utf8))
+        case ["--caskroom"]:
+            return .success(Data((fixture.caskroom.path + "\n").utf8))
+        case ["info", "--json=v2", "--cask", "codex", "kiro-cli"]:
+            return .success(info)
+        case ["outdated", "--json=v2", "--cask"]:
+            return .success(m13bOutdatedJSON([]))
+        case ["list", "--verbose", "--cask", "codex", "kiro-cli"]:
+            return .failure(.nonzeroExit)
+        default:
+            Issue.record("unexpected arguments: \(arguments)")
+            return .failure(.spawnFailure)
+        }
+    }
+    let results = await runCaskStage(
+        fixture: fixture, subjects: [first.subject, second.subject], runner: runner
+    )
+    #expect(results.map(\.status) == [
+        .unknown(installed: Version("1.0.0"), reason: .probeFailed),
+        .unknown(installed: Version("1.0.0"), reason: .probeFailed),
+    ])
+    #expect(!FileManager.default.fileExists(atPath: fixture.caskCacheURL.path))
+}
+
+@Test func caskTokenCapSixteenLeavesTheSeventeenthSubjectBudgetExhausted() async throws {
+    let fixture = try CaskStageFixture("cap")
+    var subjects: [UpdateProbeSubject] = []
+    var targets: [String] = []
+    for index in 0..<17 {
+        let token = "tool\(index)"
+        let staged = try fixture.subject(token: token, id: "cask-\(token)")
+        subjects.append(staged.subject)
+        targets.append(staged.selectedTarget)
+    }
+    let tokens = (0..<16).map { "tool\($0)" }
+    let capTargets = Array(targets.prefix(16))
+    let info = m13bInfoJSON(
+        tokens.map { m13bInfoRecord(token: $0, version: "1.0.0", installed: "1.0.0") }
+    )
+    let runner = CaskStageRunner { _, arguments in
+        switch arguments {
+        case ["--prefix"]:
+            return .success(Data((fixture.brew.prefix.path + "\n").utf8))
+        case ["--caskroom"]:
+            return .success(Data((fixture.caskroom.path + "\n").utf8))
+        case ["info", "--json=v2", "--cask"] + tokens:
+            return .success(info)
+        case ["outdated", "--json=v2", "--cask"]:
+            return .success(m13bOutdatedJSON([]))
+        case ["list", "--verbose", "--cask"] + tokens:
+            return .success(m13bListing(capTargets))
+        default:
+            Issue.record("unexpected capped arguments: \(arguments)")
+            return .failure(.spawnFailure)
+        }
+    }
+    let results = await runCaskStage(fixture: fixture, subjects: subjects, runner: runner)
+    #expect(runner.calls.count == 5)
+    #expect(runner.calls[2].arguments == ["info", "--json=v2", "--cask"] + tokens)
+    #expect(results.prefix(16).allSatisfy { $0.status.isVerifiedComparison })
+    #expect(results[16].status == .unknown(
+        installed: Version("1.0.0"), reason: .budgetExhausted
+    ))
+}
+
+@Test func caskQueryTimeoutIsReportedAsTheQueryBound() async throws {
+    let fixture = try CaskStageFixture("timeout")
+    let staged = try fixture.subject(token: "codex")
+    let runner = CaskStageRunner { _, arguments in
+        #expect(arguments == ["--prefix"])
+        return .failure(.timedOut)
+    }
+    let results = await runCaskStage(fixture: fixture, subjects: [staged.subject], runner: runner)
+    #expect(runner.calls.count == 1)
+    #expect(results.first?.status == .unknown(
+        installed: Version("1.0.0"), reason: .queryTimedOut
+    ))
+    #expect(!FileManager.default.fileExists(atPath: fixture.caskCacheURL.path))
+}
+
+@Test func caskStageBudgetExhaustionRetainsACompletedFormulaResult() async throws {
+    let fixture = try CaskStageFixture("budget")
+    let formula = try fixture.formulaSubject()
+    let cask = try fixture.subject(token: "kiro-cli")
+    let clock = StageClock()
+    let runner = CaskStageRunner { _, arguments in
+        switch arguments {
+        case ["--cellar"]:
+            return .success(Data((fixture.brew.cellar + "\n").utf8))
+        case ["info", "--json=v2", "--formula", "codex"]:
+            return .success(infoJSON([
+                (name: "codex", stable: "0.162.1", revision: 1, installed: ["0.162.1_1"])
+            ]))
+        case ["outdated", "--json=v2", "--formula"]:
+            // The aggregate stage budget is gone once this final formula query completes.
+            clock.set(200_000_000_000)
+            return .success(outdatedJSON([]))
+        default:
+            Issue.record("the cask stage must launch nothing after the budget is gone: \(arguments)")
+            return .failure(.spawnFailure)
+        }
+    }
+    let results = await runCaskStage(
+        fixture: fixture, subjects: [formula, cask.subject], runner: runner,
+        uptime: { clock.get() }
+    )
+    #expect(runner.calls.count == 3)
+    #expect(results[0].status == .upToDate(
+        installed: Version("0.162.1"), latest: Version("0.162.1_1")
+    ))
+    #expect(results[1].status == .unknown(
+        installed: Version("1.0.0"), reason: .budgetExhausted
+    ))
+    #expect(!FileManager.default.fileExists(atPath: fixture.caskCacheURL.path))
+}
+
+@Test func cancellationDuringTheCaskBatchPublishesNothing() async throws {
+    let fixture = try CaskStageFixture("cancel")
+    let staged = try fixture.subject(token: "codex")
+    let entered = OneShotSignal()
+    let release = OneShotSignal()
+    let runner = ControlledRunner(
+        heldInvocation: 1,
+        entered: entered,
+        release: release,
+        handler: { arguments in
+            if arguments == ["--prefix"] {
+                return .success(Data((fixture.brew.prefix.path + "\n").utf8))
+            }
+            Issue.record("only the held prefix query may launch: \(arguments)")
+            return .failure(.spawnFailure)
+        }
+    )
+    let task = Task {
+        await runCaskStage(fixture: fixture, subjects: [staged.subject], runner: runner)
+    }
+    await entered.wait()
+    task.cancel()
+    await release.signal()
+    let results = await task.value
+    #expect(runner.invocationCount == 1)
+    #expect(results.first?.status == .unknown(
+        installed: Version("1.0.0"), reason: .probeFailed
+    ))
+    #expect(!FileManager.default.fileExists(atPath: fixture.caskCacheURL.path))
+}
+
+@Test func caskCacheHitIsBoundToItsWorkingDirectoryContext() async throws {
+    let fixture = try CaskStageFixture("context")
+    let staged = try fixture.subject(token: "codex")
+    let info = m13bInfoJSON([
+        m13bInfoRecord(token: "codex", version: "1.0.0", installed: "1.0.0")
+    ])
+    let warm = CaskStageRunner(handler: caskOnlyHandler(
+        fixture: fixture, info: info, outdated: m13bOutdatedJSON([]),
+        listing: m13bListing([staged.selectedTarget]),
+        infoTokens: ["codex"], listTokens: ["codex"]
+    ))
+    _ = await runCaskStage(fixture: fixture, subjects: [staged.subject], runner: warm)
+    #expect(warm.calls.count == 5)
+
+    let otherDirectory = fixture.root.appendingPathComponent("other", isDirectory: true)
+    try FileManager.default.createDirectory(at: otherDirectory, withIntermediateDirectories: true)
+    let other = CaskStageRunner { _, arguments in
+        #expect(arguments == ["--prefix"])
+        return .failure(.spawnFailure)
+    }
+    let results = await runCaskStage(
+        fixture: fixture, subjects: [staged.subject], runner: other,
+        currentDirectory: otherDirectory.path
+    )
+    #expect(other.calls.count == 1, "a changed working directory is a different cask context")
+    #expect(results.first?.status == .unknown(
+        installed: Version("1.0.0"), reason: .probeFailed
+    ))
+}
+
+@Test func freshlyVerifiedMovedAppIsPublishedButNeverCached() async throws {
+    let fixture = try CaskStageFixture("moved-cask")
+    let bundle = fixture.root.appendingPathComponent("Applications/Kiro.app", isDirectory: true)
+    let binary = bundle.appendingPathComponent("Contents/MacOS/kiro-cli")
+    try FileManager.default.createDirectory(
+        at: binary.deletingLastPathComponent(), withIntermediateDirectories: true
+    )
+    try Data("#!/bin/sh\nprintf '1.0.0\\n'\n".utf8).write(to: binary)
+    try FileManager.default.setAttributes(
+        [.posixPermissions: 0o755], ofItemAtPath: binary.path
+    )
+    let stagedVersion = fixture.caskroom.appendingPathComponent(
+        "kiro-cli/1.0.0", isDirectory: true
+    )
+    try FileManager.default.createDirectory(at: stagedVersion, withIntermediateDirectories: true)
+    let appLink = stagedVersion.appendingPathComponent("Staged.app")
+    try FileManager.default.createSymbolicLink(
+        atPath: appLink.path, withDestinationPath: bundle.path
+    )
+    let moved = try fixture.subject(
+        token: "kiro-cli",
+        externalTarget: binary.resolvingSymlinksInPath().standardizedFileURL.path
+    )
+    let info = m13bInfoJSON([
+        m13bInfoRecord(token: "kiro-cli", version: "1.1.0", installed: "1.0.0", outdated: true)
+    ])
+    let runner = CaskStageRunner(handler: caskOnlyHandler(
+        fixture: fixture, info: info,
+        outdated: m13bOutdatedJSON([
+            m13bOutdatedRecord(name: "kiro-cli", current: "1.1.0", installed: "1.0.0")
+        ]),
+        listing: m13bListing([appLink.path]),
+        infoTokens: ["kiro-cli"], listTokens: ["kiro-cli"]
+    ))
+    let results = await runCaskStage(
+        fixture: fixture, subjects: [moved.subject], runner: runner
+    )
+    #expect(results.first?.status == .updateAvailable(
+        installed: Version("1.0.0"), latest: Version("1.1.0")
+    ))
+    #expect(results.first?.caskInstalledVersion == "1.0.0")
+    #expect(runner.calls.count == 5)
+    // R3 only permits exact staged-target decomposition: a freshly verified moved app is never
+    // written, so there is no document to restore.
+    #expect(!FileManager.default.fileExists(atPath: fixture.caskCacheURL.path))
+}
+
+@Test func samePathReplacementBetweenCallsStopsTheBatchAndCachesNothing() async throws {
+    let fixture = try CaskStageFixture("replace-selection")
+    let staged = try fixture.subject(token: "codex")
+    let info = m13bInfoJSON([
+        m13bInfoRecord(token: "codex", version: "1.0.0", installed: "1.0.0")
+    ])
+    let runner = CaskStageRunner { _, arguments in
+        let response = caskOnlyHandler(
+            fixture: fixture, info: info, outdated: m13bOutdatedJSON([]),
+            listing: m13bListing([staged.selectedTarget]),
+            infoTokens: ["codex"], listTokens: ["codex"]
+        )(fixture.brew.brewPath, arguments)
+        if arguments == ["--caskroom"] {
+            // Replace the executable at the SAME canonical path.
+            try? Data("#!/bin/sh\nprintf '9.9.9\\n'\n".utf8).write(
+                to: URL(fileURLWithPath: staged.selectedTarget)
+            )
+            try? FileManager.default.setAttributes(
+                [.posixPermissions: 0o755], ofItemAtPath: staged.selectedTarget
+            )
+        }
+        return response
+    }
+    let results = await runCaskStage(
+        fixture: fixture, subjects: [staged.subject], runner: runner
+    )
+    #expect(runner.calls.map(\.arguments) == [["--prefix"], ["--caskroom"]])
+    #expect(results.first?.status == .unknown(
+        installed: Version("1.0.0"), reason: .identityUnverified
+    ))
+    #expect(!FileManager.default.fileExists(atPath: fixture.caskCacheURL.path))
+}
+
+@Test func replacedManagerBetweenCallsStopsBeforeTheNextQuery() async throws {
+    let fixture = try CaskStageFixture("replace-manager")
+    let staged = try fixture.subject(token: "codex")
+    let runner = CaskStageRunner { _, arguments in
+        #expect(arguments == ["--prefix"])
+        try? FileManager.default.removeItem(atPath: fixture.brew.brewPath)
+        try? Data("#!/bin/sh\nexit 0\n".utf8).write(
+            to: URL(fileURLWithPath: fixture.brew.brewPath)
+        )
+        try? FileManager.default.setAttributes(
+            [.posixPermissions: 0o755], ofItemAtPath: fixture.brew.brewPath
+        )
+        return .success(Data((fixture.brew.prefix.path + "\n").utf8))
+    }
+    let results = await runCaskStage(
+        fixture: fixture, subjects: [staged.subject], runner: runner
+    )
+    #expect(runner.calls.count == 1)
+    #expect(results.first?.status == .unknown(
+        installed: Version("1.0.0"), reason: .identityUnverified
+    ))
+    #expect(!FileManager.default.fileExists(atPath: fixture.caskCacheURL.path))
+}
+
+@Test func staleCaskDeclarationCannotRestoreTheCacheEntry() async throws {
+    let fixture = try CaskStageFixture("declaration-cache")
+    let first = try fixture.subject(token: "kiro-cli", id: "cask-kiro")
+    let firstInfo = m13bInfoJSON([
+        m13bInfoRecord(token: "kiro-cli", version: "1.0.0", installed: "1.0.0")
+    ])
+    let warm = CaskStageRunner(handler: caskOnlyHandler(
+        fixture: fixture, info: firstInfo, outdated: m13bOutdatedJSON([]),
+        listing: m13bListing([first.selectedTarget]),
+        infoTokens: ["kiro-cli"], listTokens: ["kiro-cli"]
+    ))
+    let warmed = await runCaskStage(
+        fixture: fixture, subjects: [first.subject], runner: warm
+    )
+    #expect(warmed.first?.status == .upToDate(
+        installed: Version("1.0.0"), latest: Version("1.0.0")
+    ))
+    #expect(FileManager.default.fileExists(atPath: fixture.caskCacheURL.path))
+
+    // Same registry identity, same selection, different current cask declaration: a miss.
+    let second = try fixture.subject(
+        token: "kiro-cli", declarations: ["kiro-cli@latest"], id: "cask-kiro"
+    )
+    let cold = CaskStageRunner { _, arguments in
+        switch arguments {
+        case ["--prefix"]:
+            return .success(Data((fixture.brew.prefix.path + "\n").utf8))
+        case ["--caskroom"]:
+            return .success(Data((fixture.caskroom.path + "\n").utf8))
+        case ["info", "--json=v2", "--cask", "kiro-cli@latest"]:
+            return .success(m13bInfoJSON([]))
+        case ["outdated", "--json=v2", "--cask"]:
+            return .success(m13bOutdatedJSON([]))
+        default:
+            Issue.record("a changed declaration must be freshly probed: \(arguments)")
+            return .failure(.spawnFailure)
+        }
+    }
+    let results = await runCaskStage(
+        fixture: fixture, subjects: [second.subject], runner: cold
+    )
+    #expect(cold.calls.first?.arguments == ["--prefix"], "no cache hit for a new declaration")
+    #expect(results.first?.status == .unknown(
+        installed: Version("1.0.0"), reason: .identityUnverified
+    ))
+}
+
+@Test func capAdmitsAWholeDeclarationSetOrExcludesTheSubjectEntirely() async throws {
+    let fixture = try CaskStageFixture("cap-orphan")
+    var subjects: [UpdateProbeSubject] = []
+    var targets: [String] = []
+    for index in 0..<15 {
+        let token = "tool\(index)"
+        let staged = try fixture.subject(token: token, id: "cask-\(token)")
+        subjects.append(staged.subject)
+        targets.append(staged.selectedTarget)
+    }
+    let starved = try fixture.subject(
+        token: "extra", declarations: ["owner/tap/extra-one", "owner/tap/extra-two"],
+        id: "cask-extra"
+    )
+    subjects.append(starved.subject)
+    let targets15 = targets
+    let tokens = (0..<15).map { "tool\($0)" }
+    let info = m13bInfoJSON(
+        tokens.map { m13bInfoRecord(token: $0, version: "1.0.0", installed: "1.0.0") }
+    )
+    let runner = CaskStageRunner { _, arguments in
+        switch arguments {
+        case ["--prefix"]:
+            return .success(Data((fixture.brew.prefix.path + "\n").utf8))
+        case ["--caskroom"]:
+            return .success(Data((fixture.caskroom.path + "\n").utf8))
+        case ["info", "--json=v2", "--cask"] + tokens:
+            return .success(info)
+        case ["outdated", "--json=v2", "--cask"]:
+            return .success(m13bOutdatedJSON([]))
+        case ["list", "--verbose", "--cask"] + tokens:
+            return .success(m13bListing(targets15))
+        default:
+            Issue.record("a rejected subject must leave no orphan token: \(arguments)")
+            return .failure(.spawnFailure)
+        }
+    }
+    let results = await runCaskStage(fixture: fixture, subjects: subjects, runner: runner)
+    #expect(runner.calls[2].arguments == ["info", "--json=v2", "--cask"] + tokens)
+    #expect(!runner.calls.contains { $0.arguments.contains("owner/tap/extra-one") })
+    #expect(!runner.calls.contains { $0.arguments.contains("owner/tap/extra-two") })
+    #expect(results.prefix(15).allSatisfy { $0.status.isVerifiedComparison })
+    #expect(results[15].status == .unknown(
+        installed: Version("1.0.0"), reason: .budgetExhausted
+    ))
+}

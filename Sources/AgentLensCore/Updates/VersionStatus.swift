@@ -44,6 +44,11 @@ public enum UnknownReason: Equatable, Sendable {
     case budgetExhausted
     case metadataInvalid
     case queryTimedOut
+    /// M13-B cask latest-check reasons. Additive: every existing arm keeps its text.
+    case caskTracksLatest
+    case caskAutoUpdates
+    case caskDisabled
+    case caskMetadataInconsistent
 }
 
 public enum VersionStatus: Equatable, Sendable {
