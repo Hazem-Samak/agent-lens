@@ -122,9 +122,9 @@ with these cells:
 - `tested fixture`: `synthetic <layout>` using the registry fixture layout.
 - `declared packages`: every candidate as `<manager>:<name>`, semicolon-separated, registry order;
   `none` when empty.
-- `latest-check`: `yes: npm` only with an npm candidate; `yes: homebrewFormula` only with a formula
-  candidate (both may appear, semicolon-separated); otherwise `disabled: <reason>`. A cask
-  latest-check is never `yes`.
+- `latest-check` describes read-only update checks. Include `yes: npm`, `yes: homebrewFormula`, and
+  `yes: homebrewCask` for the respective declared package types. When more than one applies, list
+  them in that order, separated by `; `. Use `disabled: <reason>` when none applies.
 - `Update` / `Uninstall`: `yes: npm (verified npm-global copies only)` only for an entry whose
   `acceptedOperations` contains the operation and which declares an npm candidate; otherwise
   `informational: <reason>` or `disabled: <reason>`.
