@@ -78,6 +78,12 @@ public enum PackageManager: String, Codable, Sendable, Equatable, CaseIterable {
 public enum AcceptedOperation: String, Codable, Sendable, Equatable {
     case npmUpdate
     case npmUninstall
+    // One case per package kind × operation (M13-D R4). A combined `homebrewUpdate` case would
+    // silently widen a formula grant to a cask, so the vocabulary never merges them.
+    case homebrewFormulaUpdate
+    case homebrewFormulaUninstall
+    case homebrewCaskUpdate
+    case homebrewCaskUninstall
 }
 
 /// One declared package candidate, e.g. npm `@openai/codex` or Homebrew cask `codex`.
@@ -279,7 +285,7 @@ enum DetectorMetadataValidation {
                 throw DetectorRegistryError.invalidField(
                     field: "acceptedOperations[\(index)]",
                     id: id,
-                    reason: "must be one of npmUpdate, npmUninstall"
+                    reason: "must be one of npmUpdate, npmUninstall, homebrewFormulaUpdate, homebrewFormulaUninstall, homebrewCaskUpdate, homebrewCaskUninstall"
                 )
             }
             guard seen.insert(operation).inserted else {

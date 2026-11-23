@@ -389,17 +389,22 @@ private func collisionIdentityViolations(in definitions: [DetectorDefinition]) -
     )
     #expect(empty[0].acceptedOperations.isEmpty)
 
-    // The complete closed vocabulary is accepted in declared order.
-    let both = try DetectorRegistry.validate(data: Data(registryJSON([
-        detectorJSON(extraFields: #""acceptedOperations":["npmUpdate","npmUninstall"]"#)
+    // The complete closed vocabulary is accepted in declared order: one case per package kind and
+    // operation (M13-D R4).
+    let vocabulary = try DetectorRegistry.validate(data: Data(registryJSON([
+        detectorJSON(extraFields: #""acceptedOperations":["npmUpdate","npmUninstall","homebrewFormulaUpdate","homebrewFormulaUninstall","homebrewCaskUpdate","homebrewCaskUninstall"]"#)
     ]).utf8))
-    #expect(both[0].acceptedOperations == [.npmUpdate, .npmUninstall])
+    #expect(vocabulary[0].acceptedOperations == [
+        .npmUpdate, .npmUninstall,
+        .homebrewFormulaUpdate, .homebrewFormulaUninstall,
+        .homebrewCaskUpdate, .homebrewCaskUninstall,
+    ])
 
     try expectError(
         .invalidField(
             field: "acceptedOperations[0]",
             id: "x",
-            reason: "must be one of npmUpdate, npmUninstall"
+            reason: "must be one of npmUpdate, npmUninstall, homebrewFormulaUpdate, homebrewFormulaUninstall, homebrewCaskUpdate, homebrewCaskUninstall"
         ),
         when: #""acceptedOperations":["npmUpgrade"]"#
     )
