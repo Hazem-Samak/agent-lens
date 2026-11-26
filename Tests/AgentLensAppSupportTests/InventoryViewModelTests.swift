@@ -16,6 +16,20 @@ import Testing
 
 // MARK: Fixtures for the view-model tests
 
+/// The identity of the Update presentation currently on screen. A test Confirm, Cancel or dismissal
+/// carries it exactly like the sheet that reviewed that presentation; a superseded document must
+/// pass the token it captured earlier instead.
+@MainActor
+private func presentedUpdateToken(_ viewModel: InventoryViewModel) throws -> OperationPresentationToken {
+    try #require(viewModel.updatePresentationToken)
+}
+
+/// The identity of the Uninstall presentation currently on screen.
+@MainActor
+private func presentedUninstallToken(_ viewModel: InventoryViewModel) throws -> OperationPresentationToken {
+    try #require(viewModel.uninstallPresentationToken)
+}
+
 /// A registry loader that answers with a scripted sequence and then fails, so one produced service
 /// can prove "first action succeeds, later action fails" without a second service shape.
 final class ScriptedRegistryLoader: @unchecked Sendable {
@@ -1075,10 +1089,10 @@ private final class VMRemovingOperationRunner: OperationCommandRunner, @unchecke
     #expect(viewModel.selectedEntry?.ownership?.verifiedInstallation != nil)
     await viewModel.prepareSelectedUninstall()
     #expect(viewModel.uninstallPreparation != nil)
-    await viewModel.confirmSelectedUninstall()
+    await viewModel.confirmSelectedUninstall(presenting: try presentedUninstallToken(viewModel))
     #expect(viewModel.uninstallOutcome?.processStarted == true)
     #expect(viewModel.snapshot?.entries.first { $0.registryID == "codex-id" }?.ownership == nil)
-    viewModel.dismissUninstall()
+    viewModel.dismissUninstall(presenting: try presentedUninstallToken(viewModel))
     await viewModel.prepareSelectedUninstall()
     #expect(viewModel.uninstallPreparation == nil)
     #expect(!viewModel.isUninstallSheetPresented)
@@ -1154,7 +1168,7 @@ private final class VMRemovingOperationRunner: OperationCommandRunner, @unchecke
     #expect(viewModel.updateAvailableCount == 1)
 
     await viewModel.prepareSelectedUpdate()
-    #expect(viewModel.updateUnavailableReason == .operationNotAccepted)
+    #expect(viewModel.updateUnavailableReason == .npm(.operationNotAccepted))
     #expect(viewModel.updatePreparation == nil)
     #expect(viewModel.updatePreview == nil)
     #expect(!viewModel.isPreparingUpdate)
@@ -1164,7 +1178,7 @@ private final class VMRemovingOperationRunner: OperationCommandRunner, @unchecke
     await viewModel.verifySelectedInstallation()
     #expect(viewModel.selectedEntry?.ownership?.verifiedInstallation?.manager == .npm)
     await viewModel.prepareSelectedUninstall()
-    #expect(viewModel.uninstallUnavailableReason == .operationNotAccepted)
+    #expect(viewModel.uninstallUnavailableReason == .npm(.operationNotAccepted))
     #expect(viewModel.uninstallPreparation == nil)
     #expect(viewModel.uninstallPreview == nil)
     #expect(!viewModel.isPreparingUninstall)
@@ -1289,7 +1303,8 @@ private final class VMGatedOperationRunner: OperationCommandRunner, @unchecked S
     #expect(viewModel.updateAvailableCount == 1)
     await viewModel.prepareSelectedUpdate()
     #expect(viewModel.updatePreparation != nil)
-    let confirm = Task { await viewModel.confirmSelectedUpdate() }
+    let token = try presentedUpdateToken(viewModel)
+    let confirm = Task { await viewModel.confirmSelectedUpdate(presenting: token) }
     let deadline = Date().addingTimeInterval(3)
     while !(viewModel.isExecutingUpdate && updateGate.isWaiting) && Date() < deadline {
         try await Task.sleep(nanoseconds: 5_000_000)
@@ -1301,7 +1316,7 @@ private final class VMGatedOperationRunner: OperationCommandRunner, @unchecked S
     await confirm.value
     #expect(!viewModel.isBusy)
     #expect(!viewModel.isExecutingUpdate)
-    #expect(viewModel.updateOutcome?.preview.registryID == "codex-id")
+    #expect(viewModel.updateOutcome?.registryID == "codex-id")
     let published = viewModel.snapshot?.entries.first { $0.registryID == "codex-id" }
     #expect(published?.diagnostic.detectedTool.version == "2.0.0")
     #expect(viewModel.updatePreview != nil)
@@ -1622,7 +1637,8 @@ private struct PresentationFixture {
     await viewModel.prepareSelectedUpdate()
     #expect(viewModel.updatePreparation != nil)
 
-    let confirm = Task { await viewModel.confirmSelectedUpdate() }
+    let token = try presentedUpdateToken(viewModel)
+    let confirm = Task { await viewModel.confirmSelectedUpdate(presenting: token) }
     let deadline = Date().addingTimeInterval(3)
     while !(viewModel.isExecutingUpdate && fixture.gate?.isWaiting == true) && Date() < deadline {
         try await Task.sleep(nanoseconds: 5_000_000)
@@ -1645,7 +1661,7 @@ private struct PresentationFixture {
 
     #expect(!viewModel.isExecutingUpdate)
     #expect(!viewModel.isBusy)
-    #expect(viewModel.updateOutcome?.preview.registryID == "codex-id")
+    #expect(viewModel.updateOutcome?.registryID == "codex-id")
     #expect(viewModel.updatePreview?.registryID == "codex-id")
 }
 
@@ -1753,7 +1769,8 @@ private final class VMGatedRemovingOperationRunner: OperationCommandRunner, @unc
     #expect(viewModel.uninstallPreparation != nil)
     #expect(viewModel.uninstallPreview?.registryID == "codex-id")
 
-    let confirm = Task { await viewModel.confirmSelectedUninstall() }
+    let token = try presentedUninstallToken(viewModel)
+    let confirm = Task { await viewModel.confirmSelectedUninstall(presenting: token) }
     let deadline = Date().addingTimeInterval(3)
     while !(viewModel.isExecutingUninstall && gate.isWaiting) && Date() < deadline {
         try await Task.sleep(nanoseconds: 5_000_000)
@@ -1776,7 +1793,7 @@ private final class VMGatedRemovingOperationRunner: OperationCommandRunner, @unc
 
     #expect(!viewModel.isExecutingUninstall)
     #expect(!viewModel.isBusy)
-    #expect(viewModel.uninstallOutcome?.preview.registryID == "codex-id")
+    #expect(viewModel.uninstallOutcome?.registryID == "codex-id")
     #expect(viewModel.uninstallPreview?.registryID == "codex-id")
 }
 
@@ -1882,4 +1899,788 @@ private final class VMGatedRemovingOperationRunner: OperationCommandRunner, @unc
     #expect(viewModel.updateStatusFilter == .all)
     #expect(viewModel.snapshot?.conflictToolCount == 0)
     #expect(viewModel.snapshot?.offPathToolCount == 0)
+}
+
+// MARK: - M13-G Homebrew operation slots and invalidation
+
+/// A manager runner that parks exactly one chosen read-only query after the test arms it, so the
+/// read-only update probe — which issues the same queries — is never blocked by accident.
+private final class ArmedBrewManagerRunner: UpdateCommandRunner, @unchecked Sendable {
+    private let handler: @Sendable (String, [String]) -> CommandOutcome
+    private let gate: VMGate
+    private let lock = NSLock()
+    private var armed = false
+
+    init(gate: VMGate, handler: @escaping @Sendable (String, [String]) -> CommandOutcome) {
+        self.gate = gate
+        self.handler = handler
+    }
+
+    func arm() {
+        lock.lock()
+        armed = true
+        lock.unlock()
+    }
+
+    private func takeArmed() -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        let value = armed
+        armed = false
+        return value
+    }
+
+    func run(
+        executablePath: String,
+        arguments: [String],
+        environment: [String: String],
+        timeout: TimeInterval
+    ) async -> CommandOutcome {
+        if takeArmed() { await gate.wait() }
+        return handler(executablePath, arguments)
+    }
+}
+
+/// A mutation runner that parks before the destructive command until the test releases it.
+private final class GatedOperationRunner: OperationCommandRunner, @unchecked Sendable {
+    private let gate: VMGate
+    private let inner: any OperationCommandRunner
+
+    init(gate: VMGate, inner: any OperationCommandRunner) {
+        self.gate = gate
+        self.inner = inner
+    }
+
+    func run(
+        executablePath: String,
+        arguments: [String],
+        environment: [String: String],
+        currentDirectory: String,
+        timeout: TimeInterval
+    ) async -> OperationCommandResult {
+        await gate.wait()
+        return await inner.run(
+            executablePath: executablePath,
+            arguments: arguments,
+            environment: environment,
+            currentDirectory: currentDirectory,
+            timeout: timeout
+        )
+    }
+}
+
+/// Runs the destructive command and then parks, so a window close lands after the mutation
+/// launched and while the post-launch reconciliation is still pending.
+private final class PostLaunchGatedOperationRunner: OperationCommandRunner, @unchecked Sendable {
+    private let gate: VMGate
+    private let inner: any OperationCommandRunner
+
+    init(gate: VMGate, inner: any OperationCommandRunner) {
+        self.gate = gate
+        self.inner = inner
+    }
+
+    func run(
+        executablePath: String,
+        arguments: [String],
+        environment: [String: String],
+        currentDirectory: String,
+        timeout: TimeInterval
+    ) async -> OperationCommandResult {
+        let result = await inner.run(
+            executablePath: executablePath,
+            arguments: arguments,
+            environment: environment,
+            currentDirectory: currentDirectory,
+            timeout: timeout
+        )
+        await gate.wait()
+        return result
+    }
+}
+
+@MainActor
+private func waitUntil(
+    _ condition: @MainActor () -> Bool,
+    timeout: TimeInterval = 5
+) async {
+    let deadline = Date().addingTimeInterval(timeout)
+    while !condition() && Date() < deadline {
+        try? await Task.sleep(nanoseconds: 5_000_000)
+    }
+}
+
+@MainActor
+private func assertEveryR1TriggerReleasesPendingBrewUpdatePreparation(
+    viewModel: InventoryViewModel,
+    expectedKind: OperationKind,
+    expectedRegistryID: String,
+    otherRegistryID: String,
+    searchProbe: String,
+    operationInvocations: () -> Int
+) async {
+    func prepareAndCheck() async {
+        await viewModel.prepareSelectedUpdate()
+        #expect(viewModel.updatePreparation?.kind == expectedKind)
+        #expect(viewModel.updatePreview?.kind == expectedKind)
+        #expect(viewModel.updatePreview?.registryID == expectedRegistryID)
+        #expect(viewModel.isHomebrewUpdateSheetPresented)
+        #expect(!viewModel.isNpmUpdateSheetPresented)
+    }
+
+    // Scope.
+    await prepareAndCheck()
+    viewModel.listScope = .updates
+    #expect(viewModel.updatePreparation == nil)
+    #expect(viewModel.updatePreview == nil)
+    #expect(!viewModel.isBusy)
+    viewModel.listScope = .all
+
+    // Update-status filter.
+    await prepareAndCheck()
+    viewModel.updateStatusFilter = .upToDate
+    #expect(viewModel.updatePreparation == nil)
+    #expect(viewModel.updatePreview == nil)
+    viewModel.updateStatusFilter = .all
+
+    // Search text.
+    await prepareAndCheck()
+    viewModel.searchText = searchProbe
+    #expect(viewModel.updatePreparation == nil)
+    #expect(viewModel.updatePreview == nil)
+    viewModel.searchText = ""
+
+    // Selected registry ID.
+    await prepareAndCheck()
+    viewModel.select(registryID: otherRegistryID)
+    #expect(viewModel.selectedRegistryID == otherRegistryID)
+    #expect(viewModel.updatePreparation == nil)
+    #expect(viewModel.updatePreview == nil)
+    viewModel.select(registryID: expectedRegistryID)
+
+    // A pure pane switch is not a trigger.
+    await prepareAndCheck()
+    viewModel.detailPane = .diagnostics
+    viewModel.detailPane = .settings
+    #expect(viewModel.updatePreparation != nil)
+    #expect(viewModel.updatePreview != nil)
+    viewModel.detailPane = .tool
+
+    // Rescan releases the preparation; the next check republishes the badge.
+    await prepareAndCheck()
+    await viewModel.rescan()
+    #expect(viewModel.updatePreparation == nil)
+    #expect(viewModel.updatePreview == nil)
+
+    // Check and refresh release it themselves.
+    await viewModel.checkForUpdates()
+    await prepareAndCheck()
+    await viewModel.checkForUpdates()
+    #expect(viewModel.updatePreparation == nil)
+    #expect(viewModel.updatePreview == nil)
+
+    await prepareAndCheck()
+    await viewModel.refreshUpdates()
+    #expect(viewModel.updatePreparation == nil)
+    #expect(viewModel.updatePreview == nil)
+
+    // Explicit ownership verification releases it too.
+    await viewModel.checkForUpdates()
+    await prepareAndCheck()
+    await viewModel.verifySelectedInstallation()
+    #expect(viewModel.updatePreparation == nil)
+    #expect(viewModel.updatePreview == nil)
+    #expect(!viewModel.isBusy)
+    #expect(operationInvocations() == 0)
+}
+
+@MainActor
+@Test func everyR1TriggerReleasesAPendingBrewUpdatePreparation() async throws {
+    let fixture = try AppFormulaOperationFixture("m13g-vm-brew-triggers")
+    defer { try? FileManager.default.removeItem(at: fixture.root) }
+    let operations = AppFormulaCountingOperationRunner()
+    let viewModel = InventoryViewModel(service: fixture.makeService(operationRunner: operations))
+    await viewModel.launch()
+    await viewModel.checkForUpdates()
+    #expect(viewModel.updateAvailableCount == 1)
+    viewModel.select(registryID: "hermes-id")
+    #expect(viewModel.selectedRegistryID == "hermes-id")
+
+    await assertEveryR1TriggerReleasesPendingBrewUpdatePreparation(
+        viewModel: viewModel,
+        expectedKind: .formula,
+        expectedRegistryID: "hermes-id",
+        otherRegistryID: "beta-id",
+        searchProbe: "hermes",
+        operationInvocations: { operations.invocationCount }
+    )
+}
+
+@MainActor
+@Test func everyR1TriggerReleasesAPendingCaskUpdatePreparation() async throws {
+    let fixture = try AppCaskOperationFixture("m13g-vm-cask-triggers")
+    defer { try? FileManager.default.removeItem(at: fixture.root) }
+    let operations = AppFormulaCountingOperationRunner()
+    let viewModel = InventoryViewModel(service: fixture.makeService(operationRunner: operations))
+    await viewModel.launch()
+    await viewModel.checkForUpdates()
+    #expect(viewModel.updateAvailableCount == 1)
+    viewModel.select(registryID: "m13cask-id")
+    #expect(viewModel.selectedRegistryID == "m13cask-id")
+
+    await assertEveryR1TriggerReleasesPendingBrewUpdatePreparation(
+        viewModel: viewModel,
+        expectedKind: .cask,
+        expectedRegistryID: "m13cask-id",
+        otherRegistryID: "beta-id",
+        searchProbe: "m13",
+        operationInvocations: { operations.invocationCount }
+    )
+}
+
+@MainActor
+@Test func aBrewPreparationInvalidatedInFlightNeverPublishesAndLaunchesNothing() async throws {
+    let fixture = try AppFormulaOperationFixture("m13g-vm-brew-late")
+    defer { try? FileManager.default.removeItem(at: fixture.root) }
+    let gate = VMGate()
+    let operations = AppFormulaCountingOperationRunner()
+    let manager = ArmedBrewManagerRunner(gate: gate, handler: fixture.managerHandler)
+    let viewModel = InventoryViewModel(
+        service: fixture.makeService(operationRunner: operations, updateRunner: manager)
+    )
+    await viewModel.launch()
+    await viewModel.checkForUpdates()
+    viewModel.select(registryID: "hermes-id")
+
+    manager.arm()
+    let prepare = Task { await viewModel.prepareSelectedUpdate() }
+    await waitUntil { viewModel.isPreparingUpdate && gate.isWaiting }
+    #expect(viewModel.isPreparingUpdate)
+
+    // A selection change while the preparation is in flight voids its identity.
+    viewModel.select(registryID: "beta-id")
+    gate.release()
+    await prepare.value
+    await waitUntil { !viewModel.isBusy }
+
+    #expect(viewModel.selectedRegistryID == "beta-id")
+    #expect(viewModel.updatePreparation == nil)
+    #expect(viewModel.updatePreview == nil)
+    #expect(!viewModel.isPreparingUpdate)
+    #expect(operations.invocationCount == 0)
+}
+
+@MainActor
+@Test func aCaskPreparationInvalidatedInFlightNeverPublishesAndLaunchesNothing() async throws {
+    let fixture = try AppCaskOperationFixture("m13g-vm-cask-late")
+    defer { try? FileManager.default.removeItem(at: fixture.root) }
+    let gate = VMGate()
+    let operations = AppFormulaCountingOperationRunner()
+    let manager = ArmedBrewManagerRunner(gate: gate, handler: fixture.managerHandler)
+    let viewModel = InventoryViewModel(
+        service: fixture.makeService(operationRunner: operations, updateRunner: manager)
+    )
+    await viewModel.launch()
+    await viewModel.checkForUpdates()
+    viewModel.select(registryID: "m13cask-id")
+
+    manager.arm()
+    let prepare = Task { await viewModel.prepareSelectedUpdate() }
+    await waitUntil { viewModel.isPreparingUpdate && gate.isWaiting }
+    #expect(viewModel.isPreparingUpdate)
+
+    // A selection change while the preparation is in flight voids its identity.
+    viewModel.select(registryID: "beta-id")
+    gate.release()
+    await prepare.value
+    await waitUntil { !viewModel.isBusy }
+
+    #expect(viewModel.selectedRegistryID == "beta-id")
+    #expect(viewModel.updatePreparation == nil)
+    #expect(viewModel.updatePreview == nil)
+    #expect(!viewModel.isPreparingUpdate)
+    #expect(operations.invocationCount == 0)
+}
+
+@MainActor
+@Test func aLaunchedBrewUpdateSurvivesPresentationChangesAndOwnsTheMutationSlot() async throws {
+    let fixture = try AppFormulaOperationFixture("m13g-vm-brew-executing")
+    defer { try? FileManager.default.removeItem(at: fixture.root) }
+    let gate = VMGate()
+    let upgrade = AppFormulaUpgradeRunner(fixture: fixture)
+    let runner = GatedOperationRunner(gate: gate, inner: upgrade)
+    let viewModel = InventoryViewModel(service: fixture.makeService(operationRunner: runner))
+    await viewModel.launch()
+    await viewModel.checkForUpdates()
+    viewModel.select(registryID: "hermes-id")
+    await viewModel.prepareSelectedUpdate()
+    #expect(viewModel.updatePreparation?.kind == .formula)
+
+    let token = try presentedUpdateToken(viewModel)
+    let confirm = Task { await viewModel.confirmSelectedUpdate(presenting: token) }
+    await waitUntil { viewModel.isExecutingUpdate && gate.isWaiting }
+    #expect(viewModel.isExecutingUpdate)
+
+    // Invalidation never cancels an executing mutation.
+    viewModel.listScope = .updates
+    viewModel.updateStatusFilter = .upToDate
+    viewModel.searchText = "beta"
+    viewModel.select(registryID: "beta-id")
+    #expect(viewModel.isExecutingUpdate)
+    #expect(viewModel.updateOutcome == nil)
+    #expect(viewModel.updatePreview?.registryID == "hermes-id")
+
+    // The one busy slot excludes every other preparation or confirmation. The uninstall confirm
+    // carries the update presentation's token, which no uninstall presentation can match.
+    await viewModel.prepareSelectedUpdate()
+    await viewModel.prepareSelectedUninstall()
+    await viewModel.confirmSelectedUpdate(presenting: token)
+    await viewModel.confirmSelectedUninstall(presenting: token)
+    #expect(viewModel.isExecutingUpdate)
+    #expect(!viewModel.isExecutingUninstall)
+    #expect(upgrade.invocationCount == 0)
+
+    gate.release()
+    await confirm.value
+    #expect(!viewModel.isExecutingUpdate)
+    #expect(!viewModel.isBusy)
+    #expect(viewModel.updateOutcome?.kind == .formula)
+    #expect(viewModel.updateOutcome?.registryID == "hermes-id")
+    #expect(upgrade.invocationCount == 1)
+}
+
+@MainActor
+@Test func formulaUninstallUsesTheSharedUninstallSlotAndItsOwnInvalidationTriggers() async throws {
+    let fixture = try AppFormulaOperationFixture("m13g-vm-brew-uninstall")
+    defer { try? FileManager.default.removeItem(at: fixture.root) }
+    let uninstall = AppFormulaUninstallRunner(fixture: fixture)
+    let viewModel = InventoryViewModel(service: fixture.makeService(operationRunner: uninstall))
+    await viewModel.launch()
+    viewModel.select(registryID: "hermes-id")
+    await viewModel.verifySelectedInstallation()
+    #expect(
+        viewModel.selectedEntry?.ownership?.verifiedInstallation?.manager == .homebrewFormula
+    )
+
+    await viewModel.prepareSelectedUninstall()
+    #expect(viewModel.uninstallPreparation?.kind == .formula)
+    #expect(viewModel.uninstallPreview?.kind == .formula)
+    #expect(viewModel.isHomebrewUninstallSheetPresented)
+    #expect(!viewModel.isNpmUninstallSheetPresented)
+
+    viewModel.searchText = "hermes"
+    #expect(viewModel.uninstallPreparation == nil)
+    #expect(viewModel.uninstallPreview == nil)
+    viewModel.searchText = ""
+
+    await viewModel.prepareSelectedUninstall()
+    #expect(viewModel.uninstallPreparation?.kind == .formula)
+    await viewModel.confirmSelectedUninstall(presenting: try presentedUninstallToken(viewModel))
+    #expect(!viewModel.isBusy)
+    #expect(viewModel.uninstallOutcome?.kind == .formula)
+    #expect(viewModel.uninstallOutcome?.registryID == "hermes-id")
+    #expect(uninstall.invocationCount == 1)
+    #expect(
+        viewModel.snapshot?.entries.first { $0.registryID == "hermes-id" }?.installState
+            == .notInstalled
+    )
+
+    // Update remains unavailable/refused for a removed formula; the uninstall slot is reusable.
+    #expect(viewModel.updateUnavailableReason == nil)
+    #expect(viewModel.updateOutcome == nil)
+}
+
+@MainActor
+@Test func updateAndUninstallPreparationsCannotBothBeLiveAcrossManagers() async throws {
+    let fixture = try AppFormulaOperationFixture("m13g-vm-brew-one-slot")
+    defer { try? FileManager.default.removeItem(at: fixture.root) }
+    let operations = AppFormulaCountingOperationRunner()
+    let viewModel = InventoryViewModel(service: fixture.makeService(operationRunner: operations))
+    await viewModel.launch()
+    await viewModel.checkForUpdates()
+    viewModel.select(registryID: "hermes-id")
+    await viewModel.verifySelectedInstallation()
+
+    await viewModel.prepareSelectedUpdate()
+    #expect(viewModel.updatePreparation?.kind == .formula)
+    #expect(viewModel.uninstallPreparation == nil)
+
+    // The competing preparation releases the pending update preview with zero mutation and owns
+    // the single slot itself; the two sheets are never live together.
+    await viewModel.prepareSelectedUninstall()
+    #expect(viewModel.updatePreparation == nil)
+    #expect(viewModel.uninstallPreparation?.kind == .formula)
+
+    // A later update preparation releases the destructive preview the same way.
+    await viewModel.prepareSelectedUpdate()
+    #expect(viewModel.uninstallPreparation == nil)
+    #expect(viewModel.updatePreparation?.kind == .formula)
+    #expect(operations.invocationCount == 0)
+}
+
+@MainActor
+@Test func aSupersededConfirmOrDismissalLaunchesNothingAndLeavesTheReplacementPending() async throws {
+    let fixture = try AppFormulaOperationFixture("m13g-vm-brew-superseded")
+    defer { try? FileManager.default.removeItem(at: fixture.root) }
+    let upgrade = AppFormulaUpgradeRunner(fixture: fixture)
+    let viewModel = InventoryViewModel(service: fixture.makeService(operationRunner: upgrade))
+    await viewModel.launch()
+    await viewModel.checkForUpdates()
+    viewModel.select(registryID: "hermes-id")
+
+    await viewModel.prepareSelectedUpdate()
+    let superseded = try #require(viewModel.updatePresentationToken)
+    #expect(viewModel.updatePreparation?.kind == .formula)
+    #expect(viewModel.updatePreview?.registryID == "hermes-id")
+
+    // Same registry ID and same manager: only the presentation identity tells them apart.
+    await viewModel.prepareSelectedUpdate()
+    let replacement = try #require(viewModel.updatePresentationToken)
+    #expect(replacement != superseded)
+    #expect(viewModel.updatePreparation?.kind == .formula)
+
+    await viewModel.confirmSelectedUpdate(presenting: superseded)
+    await viewModel.cancelUpdate(presenting: superseded)
+    viewModel.dismissUpdate(presenting: superseded)
+
+    #expect(viewModel.updatePreparation?.kind == .formula)
+    #expect(viewModel.updatePreview?.registryID == "hermes-id")
+    #expect(viewModel.isHomebrewUpdateSheetPresented)
+    #expect(upgrade.invocationCount == 0)
+
+    // The live presentation still confirms normally.
+    await viewModel.confirmSelectedUpdate(presenting: replacement)
+    #expect(!viewModel.isBusy)
+    #expect(viewModel.updateOutcome?.kind == .formula)
+    #expect(viewModel.updateOutcome?.registryID == "hermes-id")
+    #expect(upgrade.invocationCount == 1)
+}
+
+@MainActor
+@Test func aSupersededUninstallConfirmLaunchesNothingAndLeavesTheReplacementPending() async throws {
+    let fixture = try AppFormulaOperationFixture("m13g-vm-brew-uninstall-superseded")
+    defer { try? FileManager.default.removeItem(at: fixture.root) }
+    let uninstall = AppFormulaUninstallRunner(fixture: fixture)
+    let viewModel = InventoryViewModel(service: fixture.makeService(operationRunner: uninstall))
+    await viewModel.launch()
+    viewModel.select(registryID: "hermes-id")
+    await viewModel.verifySelectedInstallation()
+    #expect(viewModel.selectedEntry?.ownership?.verifiedInstallation?.manager == .homebrewFormula)
+
+    await viewModel.prepareSelectedUninstall()
+    let superseded = try #require(viewModel.uninstallPresentationToken)
+    #expect(viewModel.uninstallPreparation?.kind == .formula)
+
+    await viewModel.prepareSelectedUninstall()
+    let replacement = try #require(viewModel.uninstallPresentationToken)
+    #expect(replacement != superseded)
+    #expect(viewModel.uninstallPreparation?.kind == .formula)
+
+    await viewModel.confirmSelectedUninstall(presenting: superseded)
+    viewModel.dismissUninstall(presenting: superseded)
+
+    #expect(viewModel.uninstallPreparation?.kind == .formula)
+    #expect(viewModel.uninstallPreview?.registryID == "hermes-id")
+    #expect(viewModel.isHomebrewUninstallSheetPresented)
+    #expect(uninstall.invocationCount == 0)
+
+    await viewModel.confirmSelectedUninstall(presenting: replacement)
+    #expect(!viewModel.isBusy)
+    #expect(viewModel.uninstallOutcome?.kind == .formula)
+    #expect(uninstall.invocationCount == 1)
+}
+
+// MARK: - M13-G cask presentation, one busy slot and window-close reconciliation
+
+@MainActor
+@Test func aLaunchedCaskUpdateSurvivesPresentationChangesAndOwnsTheMutationSlot() async throws {
+    let fixture = try AppCaskOperationFixture("m13g-vm-cask-executing")
+    defer { try? FileManager.default.removeItem(at: fixture.root) }
+    let gate = VMGate()
+    let upgrade = AppCaskUpgradeRunner(fixture: fixture)
+    let runner = GatedOperationRunner(gate: gate, inner: upgrade)
+    let viewModel = InventoryViewModel(service: fixture.makeService(operationRunner: runner))
+    await viewModel.launch()
+    await viewModel.checkForUpdates()
+    viewModel.select(registryID: "m13cask-id")
+    await viewModel.prepareSelectedUpdate()
+    #expect(viewModel.updatePreparation?.kind == .cask)
+    #expect(viewModel.updatePreview?.kind == .cask)
+
+    let token = try presentedUpdateToken(viewModel)
+    let confirm = Task { await viewModel.confirmSelectedUpdate(presenting: token) }
+    await waitUntil { viewModel.isExecutingUpdate && gate.isWaiting }
+    #expect(viewModel.isExecutingUpdate)
+
+    // Invalidation never cancels an executing mutation.
+    viewModel.listScope = .updates
+    viewModel.updateStatusFilter = .upToDate
+    viewModel.searchText = "beta"
+    viewModel.select(registryID: "beta-id")
+    #expect(viewModel.isExecutingUpdate)
+    #expect(viewModel.updateOutcome == nil)
+    #expect(viewModel.updatePreview?.registryID == "m13cask-id")
+
+    // The one busy slot excludes every other preparation or confirmation, across managers.
+    await viewModel.prepareSelectedUpdate()
+    await viewModel.prepareSelectedUninstall()
+    await viewModel.confirmSelectedUpdate(presenting: token)
+    await viewModel.confirmSelectedUninstall(presenting: token)
+    #expect(viewModel.isExecutingUpdate)
+    #expect(!viewModel.isExecutingUninstall)
+    #expect(upgrade.invocationCount == 0)
+
+    gate.release()
+    await confirm.value
+    #expect(!viewModel.isExecutingUpdate)
+    #expect(!viewModel.isBusy)
+    #expect(viewModel.updateOutcome?.kind == .cask)
+    #expect(viewModel.updateOutcome?.registryID == "m13cask-id")
+    #expect(upgrade.invocationCount == 1)
+    #expect(FileManager.default.fileExists(
+        atPath: fixture.tokenDirectory.appendingPathComponent(fixture.targetVersion).path
+    ))
+}
+
+@MainActor
+@Test func aSupersededCaskConfirmLaunchesNothingAndLeavesTheReplacementPending() async throws {
+    let fixture = try AppCaskOperationFixture("m13g-vm-cask-superseded")
+    defer { try? FileManager.default.removeItem(at: fixture.root) }
+    let upgrade = AppCaskUpgradeRunner(fixture: fixture)
+    let viewModel = InventoryViewModel(service: fixture.makeService(operationRunner: upgrade))
+    await viewModel.launch()
+    await viewModel.checkForUpdates()
+    viewModel.select(registryID: "m13cask-id")
+
+    await viewModel.prepareSelectedUpdate()
+    let superseded = try #require(viewModel.updatePresentationToken)
+    #expect(viewModel.updatePreparation?.kind == .cask)
+
+    // Same registry ID and same manager: only the presentation identity tells them apart.
+    await viewModel.prepareSelectedUpdate()
+    let replacement = try #require(viewModel.updatePresentationToken)
+    #expect(replacement != superseded)
+    #expect(viewModel.updatePreparation?.kind == .cask)
+
+    await viewModel.confirmSelectedUpdate(presenting: superseded)
+    await viewModel.cancelUpdate(presenting: superseded)
+    viewModel.dismissUpdate(presenting: superseded)
+
+    #expect(viewModel.updatePreparation?.kind == .cask)
+    #expect(viewModel.updatePreview?.registryID == "m13cask-id")
+    #expect(viewModel.isHomebrewUpdateSheetPresented)
+    #expect(upgrade.invocationCount == 0)
+
+    await viewModel.confirmSelectedUpdate(presenting: replacement)
+    #expect(!viewModel.isBusy)
+    #expect(viewModel.updateOutcome?.kind == .cask)
+    #expect(viewModel.updateOutcome?.registryID == "m13cask-id")
+    #expect(upgrade.invocationCount == 1)
+}
+
+@MainActor
+@Test func caskUninstallUsesTheSharedUninstallSlotAndItsOwnInvalidationTriggers() async throws {
+    let fixture = try AppCaskOperationFixture("m13g-vm-cask-uninstall")
+    defer { try? FileManager.default.removeItem(at: fixture.root) }
+    let uninstall = AppCaskUninstallRunner(fixture: fixture)
+    let viewModel = InventoryViewModel(service: fixture.makeService(operationRunner: uninstall))
+    await viewModel.launch()
+    viewModel.select(registryID: "m13cask-id")
+    await viewModel.verifySelectedInstallation()
+    #expect(viewModel.selectedEntry?.ownership?.verifiedInstallation?.manager == .homebrewCask)
+
+    await viewModel.prepareSelectedUninstall()
+    #expect(viewModel.uninstallPreparation?.kind == .cask)
+    #expect(viewModel.uninstallPreview?.kind == .cask)
+    #expect(viewModel.isHomebrewUninstallSheetPresented)
+    #expect(!viewModel.isNpmUninstallSheetPresented)
+
+    viewModel.searchText = "m13"
+    #expect(viewModel.uninstallPreparation == nil)
+    #expect(viewModel.uninstallPreview == nil)
+    viewModel.searchText = ""
+
+    await viewModel.prepareSelectedUninstall()
+    #expect(viewModel.uninstallPreparation?.kind == .cask)
+    await viewModel.confirmSelectedUninstall(presenting: try presentedUninstallToken(viewModel))
+    #expect(!viewModel.isBusy)
+    #expect(viewModel.uninstallOutcome?.kind == .cask)
+    #expect(viewModel.uninstallOutcome?.registryID == "m13cask-id")
+    #expect(uninstall.invocationCount == 1)
+    #expect(
+        viewModel.snapshot?.entries.first { $0.registryID == "m13cask-id" }?.installState
+            == .notInstalled
+    )
+
+    // The update slot stays clean; the cask is gone and the uninstall slot is reusable.
+    #expect(viewModel.updateUnavailableReason == nil)
+    #expect(viewModel.updateOutcome == nil)
+}
+
+@MainActor
+@Test func caskUpdateAndUninstallPreparationsCannotBothBeLive() async throws {
+    let fixture = try AppCaskOperationFixture("m13g-vm-cask-one-slot")
+    defer { try? FileManager.default.removeItem(at: fixture.root) }
+    let operations = AppFormulaCountingOperationRunner()
+    let viewModel = InventoryViewModel(service: fixture.makeService(operationRunner: operations))
+    await viewModel.launch()
+    await viewModel.checkForUpdates()
+    viewModel.select(registryID: "m13cask-id")
+    await viewModel.verifySelectedInstallation()
+
+    await viewModel.prepareSelectedUpdate()
+    #expect(viewModel.updatePreparation?.kind == .cask)
+    #expect(viewModel.uninstallPreparation == nil)
+
+    await viewModel.prepareSelectedUninstall()
+    #expect(viewModel.updatePreparation == nil)
+    #expect(viewModel.uninstallPreparation?.kind == .cask)
+
+    await viewModel.prepareSelectedUpdate()
+    #expect(viewModel.uninstallPreparation == nil)
+    #expect(viewModel.updatePreparation?.kind == .cask)
+    #expect(operations.invocationCount == 0)
+}
+
+@MainActor
+@Test func closingTheWindowDuringAnExecutingCaskUpdateCancelsJoinsAndStillReconciles() async throws {
+    let fixture = try AppCaskOperationFixture("m13g-vm-cask-window")
+    defer { try? FileManager.default.removeItem(at: fixture.root) }
+    let gate = VMGate()
+    let upgrade = AppCaskUpgradeRunner(fixture: fixture)
+    let runner = PostLaunchGatedOperationRunner(gate: gate, inner: upgrade)
+    let viewModel = InventoryViewModel(service: fixture.makeService(operationRunner: runner))
+    await viewModel.launch()
+    await viewModel.checkForUpdates()
+    viewModel.select(registryID: "m13cask-id")
+    await viewModel.prepareSelectedUpdate()
+    #expect(viewModel.updatePreparation?.kind == .cask)
+
+    let token = try presentedUpdateToken(viewModel)
+    let confirm = Task { await viewModel.confirmSelectedUpdate(presenting: token) }
+    await waitUntil { viewModel.isExecutingUpdate && gate.isWaiting }
+    // The mutation already committed; only the post-launch reconciliation is still running.
+    #expect(upgrade.invocationCount == 1)
+
+    let close = Task { await viewModel.cancelUpdate(presenting: nil) }
+    await waitUntil { viewModel.isCancelling }
+    gate.release()
+    await close.value
+    await confirm.value
+    await waitUntil { !viewModel.isBusy }
+
+    #expect(!viewModel.isExecutingUpdate)
+    #expect(!viewModel.isCancelling)
+    #expect(upgrade.invocationCount == 1)
+    guard case .cask(let outcome)? = viewModel.updateOutcome else {
+        Issue.record("expected the joined cask update to publish its reconciled outcome")
+        return
+    }
+    #expect(outcome.processStarted)
+    #expect(outcome.reconciliation != nil)
+    #expect(outcome.reconciliation?.afterInstalledVersion == fixture.targetVersion)
+    #expect(outcome.reconciliation?.versionMatchesTarget == true)
+    let refreshed = try #require(viewModel.snapshot?.entries.first { $0.registryID == "m13cask-id" })
+    #expect(refreshed.diagnostic.detectedTool.version?.contains(fixture.targetVersion) == true)
+}
+
+@MainActor
+@Test func failedCaskPostLaunchUninstallRescanDisarmsOwnership() async throws {
+    let fixture = try AppCaskOperationFixture("m13g-vm-cask-disarm")
+    defer { try? FileManager.default.removeItem(at: fixture.root) }
+    // Two payloads: the launch and the preparation's fresh scan resolve the registry; the
+    // post-launch rescan is the third attempt and fails.
+    let loader = ScriptedRegistryLoader(
+        payloads: [fixture.registryData, fixture.registryData]
+    )
+    let uninstall = AppCaskUninstallRunner(fixture: fixture)
+    let viewModel = InventoryViewModel(
+        service: fixture.makeService(
+            operationRunner: uninstall, registryLoader: { try loader.load() }
+        )
+    )
+    await viewModel.launch()
+    viewModel.select(registryID: "m13cask-id")
+    await viewModel.verifySelectedInstallation()
+    #expect(viewModel.selectedEntry?.ownership?.verifiedInstallation?.manager == .homebrewCask)
+
+    await viewModel.prepareSelectedUninstall()
+    #expect(viewModel.uninstallPreparation?.kind == .cask)
+    await viewModel.confirmSelectedUninstall(presenting: try presentedUninstallToken(viewModel))
+
+    // The removal launched, but no fresh snapshot could be published: this entry's observation is
+    // cleared so the destructive action cannot stay armed against stale proof.
+    #expect(uninstall.invocationCount == 1)
+    guard case .cask(let outcome)? = viewModel.uninstallOutcome else {
+        Issue.record("expected the cask removal to publish its outcome")
+        return
+    }
+    #expect(outcome.processStarted)
+    #expect(viewModel.snapshot?.entries.first { $0.registryID == "m13cask-id" }?.ownership == nil)
+
+    viewModel.dismissUninstall(presenting: try presentedUninstallToken(viewModel))
+    await viewModel.prepareSelectedUninstall()
+    #expect(viewModel.uninstallPreparation == nil)
+    #expect(!viewModel.isUninstallSheetPresented)
+}
+
+@MainActor
+@Test func mixedNpmAndCaskPreparationsShareOneSlotAndActuallyChangeManagers() async throws {
+    let fixture = try AppCaskOperationFixture("m13g-vm-mixed", npmCodex: true)
+    defer { try? FileManager.default.removeItem(at: fixture.root) }
+    let globalRoot = try #require(fixture.npmGlobalRoot)
+    let caskHandler = fixture.managerHandler
+    // One runner answers both read-only manager channels: cask queries keep their exact argv, and
+    // everything else is the npm probe's own query shape.
+    let combined = RecordingManagerRunner { _, arguments in
+        switch arguments.first {
+        case "--prefix", "--caskroom", "info", "list", "outdated":
+            return caskHandler("", arguments)
+        default:
+            if arguments.contains("prefix") {
+                return .success(Data((fixture.prefix.path + "\n").utf8))
+            }
+            if arguments.contains("root") {
+                return .success(Data((globalRoot.path + "\n").utf8))
+            }
+            if arguments.contains("view") {
+                return .success(Data(
+                    "{\"name\":\"@openai/codex\",\"version\":\"2.0.0\",\"dist-tags.latest\":\"2.0.0\"}".utf8
+                ))
+            }
+            if arguments.contains("--version") { return .success(Data("10.9.8\n".utf8)) }
+            if arguments.contains(where: { $0.hasSuffix(":registry") }) {
+                return .success(Data("undefined\n".utf8))
+            }
+            if arguments.contains("registry") {
+                return .success(Data("https://registry.npmjs.org/\n".utf8))
+            }
+            return .failure(.spawnFailure)
+        }
+    }
+    let operations = AppFormulaCountingOperationRunner()
+    let viewModel = InventoryViewModel(
+        service: fixture.makeService(operationRunner: operations, updateRunner: combined)
+    )
+    await viewModel.launch()
+    await viewModel.checkForUpdates()
+    #expect(viewModel.updateAvailableCount == 2)
+
+    viewModel.select(registryID: "m13cask-id")
+    await viewModel.prepareSelectedUpdate()
+    #expect(viewModel.updatePreparation?.kind == .cask)
+    #expect(viewModel.updatePreview?.kind == .cask)
+
+    viewModel.select(registryID: "codex-id")
+    await viewModel.prepareSelectedUpdate()
+    #expect(viewModel.updatePreparation?.kind == .npm)
+    #expect(viewModel.updatePreview?.kind == .npm)
+    #expect(viewModel.isNpmUpdateSheetPresented)
+
+    viewModel.select(registryID: "m13cask-id")
+    await viewModel.prepareSelectedUpdate()
+    #expect(viewModel.updatePreparation?.kind == .cask)
+    #expect(viewModel.updatePreview?.kind == .cask)
+    #expect(viewModel.isHomebrewUpdateSheetPresented)
+    #expect(operations.invocationCount == 0)
 }

@@ -25,6 +25,329 @@ import AgentLensCore
 import Foundation
 import Observation
 
+/// Which manager owns the operation in one shared slot. The slot is the same for npm and both
+/// Homebrew kinds, so a pending preview, an executing mutation, and an outcome can never be live
+/// twice.
+public enum OperationKind: String, Equatable, Sendable {
+    case npm
+    case formula
+    case cask
+}
+
+/// The opaque identity of one presented Update/Uninstall sheet. The window captures the token it
+/// built the sheet from, so a Confirm, Cancel or dismissal that arrives after the presentation was
+/// superseded can never act on its replacement — even one with the same registry ID and manager.
+/// Only the view model mints them; callers may only compare and pass them back.
+public struct OperationPresentationToken: Equatable, Sendable {
+    let rawValue: UInt64
+}
+
+/// The reviewed Homebrew preview in the shared Update slot.
+public enum HomebrewUpdatePreviewSlot: Equatable, Sendable {
+    case formula(HomebrewFormulaUpdatePreview)
+    case cask(HomebrewCaskUpdatePreview)
+}
+
+/// The reviewed preview in the shared Update slot. Values are opaque authorization evidence until
+/// the matching confirm consumes them; the sheet binds to these, never to the current selection.
+public enum UpdatePreviewSlot: Equatable, Sendable {
+    case npm(NpmUpdatePreview)
+    case formula(HomebrewFormulaUpdatePreview)
+    case cask(HomebrewCaskUpdatePreview)
+
+    public var kind: OperationKind {
+        switch self {
+        case .npm: .npm
+        case .formula: .formula
+        case .cask: .cask
+        }
+    }
+
+    public var registryID: String {
+        switch self {
+        case .npm(let preview): preview.registryID
+        case .formula(let preview): preview.registryID
+        case .cask(let preview): preview.registryID
+        }
+    }
+
+    public var npm: NpmUpdatePreview? {
+        guard case .npm(let preview) = self else { return nil }
+        return preview
+    }
+
+    public var homebrew: HomebrewUpdatePreviewSlot? {
+        switch self {
+        case .npm: nil
+        case .formula(let preview): .formula(preview)
+        case .cask(let preview): .cask(preview)
+        }
+    }
+}
+
+/// The preparation occupying the shared Update slot.
+public enum UpdatePreparationSlot: Sendable {
+    case npm(NpmUpdatePreparation)
+    case formula(HomebrewFormulaUpdatePreparation)
+    case cask(HomebrewCaskUpdatePreparation)
+
+    public var kind: OperationKind {
+        switch self {
+        case .npm: .npm
+        case .formula: .formula
+        case .cask: .cask
+        }
+    }
+
+    public var preview: UpdatePreviewSlot {
+        switch self {
+        case .npm(let preparation): .npm(preparation.preview)
+        case .formula(let preparation): .formula(preparation.preview)
+        case .cask(let preparation): .cask(preparation.preview)
+        }
+    }
+}
+
+/// The settled Homebrew Update outcome in the shared Update slot.
+public enum HomebrewUpdateOutcomeSlot: Equatable, Sendable {
+    case formula(HomebrewFormulaUpdateOutcome)
+    case cask(HomebrewCaskUpdateOutcome)
+}
+
+/// The settled outcome in the shared Update slot.
+public enum UpdateOutcomeSlot: Equatable, Sendable {
+    case npm(OperationOutcome)
+    case formula(HomebrewFormulaUpdateOutcome)
+    case cask(HomebrewCaskUpdateOutcome)
+
+    public var kind: OperationKind {
+        switch self {
+        case .npm: .npm
+        case .formula: .formula
+        case .cask: .cask
+        }
+    }
+
+    public var registryID: String {
+        switch self {
+        case .npm(let outcome): outcome.preview.registryID
+        case .formula(let outcome): outcome.preview.registryID
+        case .cask(let outcome): outcome.preview.registryID
+        }
+    }
+
+    public var npm: OperationOutcome? {
+        guard case .npm(let outcome) = self else { return nil }
+        return outcome
+    }
+
+    public var homebrew: HomebrewUpdateOutcomeSlot? {
+        switch self {
+        case .npm: nil
+        case .formula(let outcome): .formula(outcome)
+        case .cask(let outcome): .cask(outcome)
+        }
+    }
+}
+
+/// A typed Homebrew Update refusal in the shared Update slot.
+public enum HomebrewUpdateUnavailableSlot: Equatable, Sendable {
+    case formula(HomebrewFormulaUpdateUnavailableReason)
+    case cask(HomebrewCaskUpdateUnavailableReason)
+
+    /// The Core enum's own message, read here and never retyped by a view.
+    public var message: String {
+        switch self {
+        case .formula(let reason): reason.message
+        case .cask(let reason): reason.message
+        }
+    }
+}
+
+/// A typed refusal in the shared Update slot.
+public enum UpdateUnavailableSlot: Equatable, Sendable {
+    case npm(NpmUpdateUnavailableReason)
+    case formula(HomebrewFormulaUpdateUnavailableReason)
+    case cask(HomebrewCaskUpdateUnavailableReason)
+
+    public var kind: OperationKind {
+        switch self {
+        case .npm: .npm
+        case .formula: .formula
+        case .cask: .cask
+        }
+    }
+
+    public var npm: NpmUpdateUnavailableReason? {
+        guard case .npm(let reason) = self else { return nil }
+        return reason
+    }
+
+    public var homebrew: HomebrewUpdateUnavailableSlot? {
+        switch self {
+        case .npm: nil
+        case .formula(let reason): .formula(reason)
+        case .cask(let reason): .cask(reason)
+        }
+    }
+}
+
+/// The reviewed Homebrew preview in the shared Uninstall slot.
+public enum HomebrewUninstallPreviewSlot: Equatable, Sendable {
+    case formula(HomebrewFormulaUninstallPreview)
+    case cask(HomebrewCaskUninstallPreview)
+}
+
+/// The reviewed preview in the shared Uninstall slot.
+public enum UninstallPreviewSlot: Equatable, Sendable {
+    case npm(NpmUninstallPreview)
+    case formula(HomebrewFormulaUninstallPreview)
+    case cask(HomebrewCaskUninstallPreview)
+
+    public var kind: OperationKind {
+        switch self {
+        case .npm: .npm
+        case .formula: .formula
+        case .cask: .cask
+        }
+    }
+
+    public var registryID: String {
+        switch self {
+        case .npm(let preview): preview.registryID
+        case .formula(let preview): preview.registryID
+        case .cask(let preview): preview.registryID
+        }
+    }
+
+    public var npm: NpmUninstallPreview? {
+        guard case .npm(let preview) = self else { return nil }
+        return preview
+    }
+
+    public var homebrew: HomebrewUninstallPreviewSlot? {
+        switch self {
+        case .npm: nil
+        case .formula(let preview): .formula(preview)
+        case .cask(let preview): .cask(preview)
+        }
+    }
+}
+
+/// The preparation occupying the shared Uninstall slot.
+public enum UninstallPreparationSlot: Sendable {
+    case npm(NpmUninstallPreparation)
+    case formula(HomebrewFormulaUninstallPreparation)
+    case cask(HomebrewCaskUninstallPreparation)
+
+    public var kind: OperationKind {
+        switch self {
+        case .npm: .npm
+        case .formula: .formula
+        case .cask: .cask
+        }
+    }
+
+    public var preview: UninstallPreviewSlot {
+        switch self {
+        case .npm(let preparation): .npm(preparation.preview)
+        case .formula(let preparation): .formula(preparation.preview)
+        case .cask(let preparation): .cask(preparation.preview)
+        }
+    }
+}
+
+/// The settled Homebrew Uninstall outcome in the shared Uninstall slot.
+public enum HomebrewUninstallOutcomeSlot: Equatable, Sendable {
+    case formula(HomebrewFormulaUninstallOutcome)
+    case cask(HomebrewCaskUninstallOutcome)
+}
+
+/// The settled outcome in the shared Uninstall slot.
+public enum UninstallOutcomeSlot: Equatable, Sendable {
+    case npm(NpmUninstallOutcome)
+    case formula(HomebrewFormulaUninstallOutcome)
+    case cask(HomebrewCaskUninstallOutcome)
+
+    public var kind: OperationKind {
+        switch self {
+        case .npm: .npm
+        case .formula: .formula
+        case .cask: .cask
+        }
+    }
+
+    public var registryID: String {
+        switch self {
+        case .npm(let outcome): outcome.preview.registryID
+        case .formula(let outcome): outcome.preview.registryID
+        case .cask(let outcome): outcome.preview.registryID
+        }
+    }
+
+    public var processStarted: Bool {
+        switch self {
+        case .npm(let outcome): outcome.processStarted
+        case .formula(let outcome): outcome.processStarted
+        case .cask(let outcome): outcome.processStarted
+        }
+    }
+
+    public var npm: NpmUninstallOutcome? {
+        guard case .npm(let outcome) = self else { return nil }
+        return outcome
+    }
+
+    public var homebrew: HomebrewUninstallOutcomeSlot? {
+        switch self {
+        case .npm: nil
+        case .formula(let outcome): .formula(outcome)
+        case .cask(let outcome): .cask(outcome)
+        }
+    }
+}
+
+/// A typed Homebrew Uninstall refusal in the shared Uninstall slot.
+public enum HomebrewUninstallUnavailableSlot: Equatable, Sendable {
+    case formula(HomebrewFormulaUninstallUnavailableReason)
+    case cask(HomebrewCaskUninstallUnavailableReason)
+
+    public var message: String {
+        switch self {
+        case .formula(let reason): reason.message
+        case .cask(let reason): reason.message
+        }
+    }
+}
+
+/// A typed refusal in the shared Uninstall slot.
+public enum UninstallUnavailableSlot: Equatable, Sendable {
+    case npm(NpmUninstallUnavailableReason)
+    case formula(HomebrewFormulaUninstallUnavailableReason)
+    case cask(HomebrewCaskUninstallUnavailableReason)
+
+    public var kind: OperationKind {
+        switch self {
+        case .npm: .npm
+        case .formula: .formula
+        case .cask: .cask
+        }
+    }
+
+    public var npm: NpmUninstallUnavailableReason? {
+        guard case .npm(let reason) = self else { return nil }
+        return reason
+    }
+
+    public var homebrew: HomebrewUninstallUnavailableSlot? {
+        switch self {
+        case .npm: nil
+        case .formula(let reason): .formula(reason)
+        case .cask(let reason): .cask(reason)
+        }
+    }
+}
+
 @MainActor
 @Observable
 public final class InventoryViewModel {
@@ -131,27 +454,96 @@ public final class InventoryViewModel {
     public private(set) var updateFailure: Failure?
 
     /// The pending preview, if any. The preparation is opaque authorization evidence; the UI only
-    /// reads its preview.
-    public private(set) var updatePreparation: NpmUpdatePreparation?
+    /// reads its preview. npm, formula and cask share this one slot.
+    public private(set) var updatePreparation: UpdatePreparationSlot?
 
     /// The reviewed preview is retained while the opaque preparation is being consumed so the
     /// executing sheet cannot disappear between Confirm and the result.
-    public private(set) var updatePreview: NpmUpdatePreview?
+    public private(set) var updatePreview: UpdatePreviewSlot?
 
     /// The last operation result, retained until the sheet is dismissed or another action starts.
-    public private(set) var updateOutcome: OperationOutcome?
+    public private(set) var updateOutcome: UpdateOutcomeSlot?
 
     /// A typed refusal from preparation, retained for the native presentation.
-    public private(set) var updateUnavailableReason: NpmUpdateUnavailableReason?
+    public private(set) var updateUnavailableReason: UpdateUnavailableSlot?
 
     /// The pending Uninstall preview and opaque authorization evidence.
-    public private(set) var uninstallPreparation: NpmUninstallPreparation?
-    public private(set) var uninstallPreview: NpmUninstallPreview?
-    public private(set) var uninstallOutcome: NpmUninstallOutcome?
-    public private(set) var uninstallUnavailableReason: NpmUninstallUnavailableReason?
+    public private(set) var uninstallPreparation: UninstallPreparationSlot?
+    public private(set) var uninstallPreview: UninstallPreviewSlot?
+    public private(set) var uninstallOutcome: UninstallOutcomeSlot?
+    public private(set) var uninstallUnavailableReason: UninstallUnavailableSlot?
+
+    /// The opaque identity of the Update/Uninstall presentation currently on screen. It is minted
+    /// whenever a new presentation value is installed, so a sheet that captured an older token can
+    /// never confirm, cancel or dismiss the value that replaced it.
+    public private(set) var updatePresentationToken: OperationPresentationToken?
+    public private(set) var uninstallPresentationToken: OperationPresentationToken?
 
     public init(service: InventoryService) {
         self.service = service
+    }
+
+    // MARK: Presentation identity
+
+    private var presentationCounter: UInt64 = 0
+
+    private func mintPresentationToken() -> OperationPresentationToken {
+        presentationCounter &+= 1
+        return OperationPresentationToken(rawValue: presentationCounter)
+    }
+
+    /// Installs one Update presentation. The identity is minted only when no presentation is live,
+    /// so a single sheet keeps one token from its preview through its own outcome. Every path that
+    /// empties the slot clears the token, so a replacement preparation always mints a new one — and
+    /// a delayed callback that carries the retired token can never act on the replacement.
+    private func installUpdatePresentation(
+        preparation: UpdatePreparationSlot? = nil,
+        preview: UpdatePreviewSlot? = nil,
+        outcome: UpdateOutcomeSlot? = nil,
+        unavailable: UpdateUnavailableSlot? = nil
+    ) {
+        updatePreparation = preparation
+        updatePreview = preview
+        updateOutcome = outcome
+        updateUnavailableReason = unavailable
+        if updatePresentationToken == nil {
+            updatePresentationToken = mintPresentationToken()
+        }
+    }
+
+    /// Empties the Update slot and retires its identity: the sheet is gone, so no delayed callback
+    /// can match it again, and the next presentation is a genuinely different one.
+    private func clearUpdatePresentation() {
+        updatePreparation = nil
+        updatePreview = nil
+        updateOutcome = nil
+        updateUnavailableReason = nil
+        updatePresentationToken = nil
+    }
+
+    /// Installs one Uninstall presentation under the same one-token-per-sheet rule as Update.
+    private func installUninstallPresentation(
+        preparation: UninstallPreparationSlot? = nil,
+        preview: UninstallPreviewSlot? = nil,
+        outcome: UninstallOutcomeSlot? = nil,
+        unavailable: UninstallUnavailableSlot? = nil
+    ) {
+        uninstallPreparation = preparation
+        uninstallPreview = preview
+        uninstallOutcome = outcome
+        uninstallUnavailableReason = unavailable
+        if uninstallPresentationToken == nil {
+            uninstallPresentationToken = mintPresentationToken()
+        }
+    }
+
+    /// Empties the Uninstall slot and retires its identity.
+    private func clearUninstallPresentation() {
+        uninstallPreparation = nil
+        uninstallPreview = nil
+        uninstallOutcome = nil
+        uninstallUnavailableReason = nil
+        uninstallPresentationToken = nil
     }
 
     // MARK: Derived reads (snapshot truth only)
@@ -183,10 +575,45 @@ public final class InventoryViewModel {
     }
 
     /// True while the Uninstall sheet has something to present. Update and Uninstall share one
-    /// mutation slot, so at most one of the two sheets can be presented.
+    /// mutation slot, so at most one of the four sheets can be presented.
     public var isUninstallSheetPresented: Bool {
         uninstallPreview != nil || uninstallPreparation != nil || uninstallOutcome != nil
             || uninstallUnavailableReason != nil
+    }
+
+    /// The kind currently occupying the Update slot, in the same precedence the sheet body uses:
+    /// a settled outcome, then the reviewed preview, the pending preparation and finally a typed
+    /// refusal.
+    private var updatePresentationKind: OperationKind? {
+        if let updateOutcome { return updateOutcome.kind }
+        if let updatePreview { return updatePreview.kind }
+        if let updatePreparation { return updatePreparation.kind }
+        return updateUnavailableReason?.kind
+    }
+
+    private var uninstallPresentationKind: OperationKind? {
+        if let uninstallOutcome { return uninstallOutcome.kind }
+        if let uninstallPreview { return uninstallPreview.kind }
+        if let uninstallPreparation { return uninstallPreparation.kind }
+        return uninstallUnavailableReason?.kind
+    }
+
+    public var isNpmUpdateSheetPresented: Bool { updatePresentationKind == .npm }
+
+    public var isHomebrewUpdateSheetPresented: Bool {
+        switch updatePresentationKind {
+        case .formula, .cask: true
+        case .npm, nil: false
+        }
+    }
+
+    public var isNpmUninstallSheetPresented: Bool { uninstallPresentationKind == .npm }
+
+    public var isHomebrewUninstallSheetPresented: Bool {
+        switch uninstallPresentationKind {
+        case .formula, .cask: true
+        case .npm, nil: false
+        }
     }
 
     public private(set) var isPreparingUpdate: Bool = false
@@ -335,51 +762,135 @@ public final class InventoryViewModel {
         isCancelling = false
     }
 
-    /// Freshly prepares the selected npm update. The preparation stays in one pending slot; any
-    /// selection/filter/scan/check/refresh/verify action invalidates it without mutation.
+    /// Freshly prepares the selected update, whichever manager's verified result occupies the
+    /// Update slot. The preparation stays in one pending slot; any selection/filter/scan/check/
+    /// refresh/verify action invalidates it without mutation.
     public func prepareSelectedUpdate() async {
         invalidatePendingUpdate()
         guard activePipeline == nil, updatePipeline == nil, uninstallPipeline == nil else { return }
         guard let entry = selectedEntry,
-              case .updateAvailable = entry.updateStatus,
-              entry.update?.npmPackage != nil
+              case .updateAvailable = entry.updateStatus
         else { return }
-        guard entry.definition.acceptedOperations.contains(.npmUpdate) else {
-            updateUnavailableReason = .operationNotAccepted
+
+        if entry.update?.npmPackage != nil {
+            guard entry.definition.acceptedOperations.contains(.npmUpdate) else {
+                installUpdatePresentation(unavailable: .npm(.operationNotAccepted))
+                return
+            }
+            updateGeneration &+= 1
+            let generation = updateGeneration
+            let registryID = entry.registryID
+            let observed = Self.observedSelection(entry.diagnostic)
+            installUpdatePresentation()
+            isCancelling = false
+            isPreparingUpdate = true
+            let service = self.service
+            let pipeline = Task { @MainActor [weak self] in
+                guard let self else { return }
+                let result = await service.prepareUpdate(for: entry)
+                guard generation == self.updateGeneration,
+                      !Task.isCancelled,
+                      self.selectedRegistryID == registryID,
+                      self.selectedEntry?.registryID == registryID,
+                      let current = self.selectedEntry,
+                      Self.observedSelection(current.diagnostic) == observed
+                else {
+                    if case .ready(let preparation) = result { _ = service.cancelUpdate(preparation) }
+                    return
+                }
+                switch result {
+                case .ready(let preparation):
+                    self.installUpdatePresentation(
+                        preparation: .npm(preparation),
+                        preview: .npm(preparation.preview)
+                    )
+                case .unavailable(let reason):
+                    self.installUpdatePresentation(unavailable: .npm(reason))
+                }
+            }
+            await joinUpdatePipeline(pipeline, generation: generation)
             return
+        }
+
+        guard let kind = ManagementPresentation.verifiedHomebrewUpdateKind(entry) else { return }
+        switch kind {
+        case .formula:
+            guard entry.definition.acceptedOperations.contains(.homebrewFormulaUpdate) else {
+                installUpdatePresentation(unavailable: .formula(.operationNotAccepted))
+                return
+            }
+        case .cask:
+            guard entry.definition.acceptedOperations.contains(.homebrewCaskUpdate) else {
+                installUpdatePresentation(unavailable: .cask(.operationNotAccepted))
+                return
+            }
         }
 
         updateGeneration &+= 1
         let generation = updateGeneration
         let registryID = entry.registryID
         let observed = Self.observedSelection(entry.diagnostic)
-        updateOutcome = nil
-        updateUnavailableReason = nil
-        updatePreview = nil
+        installUpdatePresentation()
         isCancelling = false
         isPreparingUpdate = true
         let service = self.service
         let pipeline = Task { @MainActor [weak self] in
             guard let self else { return }
-            let result = await service.prepareUpdate(for: entry)
-            guard generation == self.updateGeneration,
-                  !Task.isCancelled,
-                  self.selectedRegistryID == registryID,
-                  self.selectedEntry?.registryID == registryID,
-                  let current = self.selectedEntry,
-                  Self.observedSelection(current.diagnostic) == observed
-            else {
-                if case .ready(let preparation) = result { _ = service.cancelUpdate(preparation) }
-                return
-            }
-            switch result {
-            case .ready(let preparation):
-                self.updatePreparation = preparation
-                self.updatePreview = preparation.preview
-            case .unavailable(let reason):
-                self.updateUnavailableReason = reason
+            switch kind {
+            case .formula:
+                let result = await service.prepareFormulaUpdate(for: entry)
+                guard generation == self.updateGeneration,
+                      !Task.isCancelled,
+                      self.selectedRegistryID == registryID,
+                      self.selectedEntry?.registryID == registryID,
+                      let current = self.selectedEntry,
+                      Self.observedSelection(current.diagnostic) == observed
+                else {
+                    if case .ready(let preparation) = result {
+                        _ = service.cancelFormulaUpdate(preparation)
+                    }
+                    return
+                }
+                switch result {
+                case .ready(let preparation):
+                    self.installUpdatePresentation(
+                        preparation: .formula(preparation),
+                        preview: .formula(preparation.preview)
+                    )
+                case .unavailable(let reason):
+                    self.installUpdatePresentation(unavailable: .formula(reason))
+                }
+            case .cask:
+                let result = await service.prepareCaskUpdate(for: entry)
+                guard generation == self.updateGeneration,
+                      !Task.isCancelled,
+                      self.selectedRegistryID == registryID,
+                      self.selectedEntry?.registryID == registryID,
+                      let current = self.selectedEntry,
+                      Self.observedSelection(current.diagnostic) == observed
+                else {
+                    if case .ready(let preparation) = result {
+                        _ = service.cancelCaskUpdate(preparation)
+                    }
+                    return
+                }
+                switch result {
+                case .ready(let preparation):
+                    self.installUpdatePresentation(
+                        preparation: .cask(preparation),
+                        preview: .cask(preparation.preview)
+                    )
+                case .unavailable(let reason):
+                    self.installUpdatePresentation(unavailable: .cask(reason))
+                }
             }
         }
+        await joinUpdatePipeline(pipeline, generation: generation)
+    }
+
+    /// Joins one preparation pipeline and settles the shared slot without ever cancelling an
+    /// already-executing mutation.
+    private func joinUpdatePipeline(_ pipeline: Task<Void, Never>, generation: UInt64) async {
         updatePipeline = pipeline
         await withTaskCancellationHandler {
             await pipeline.value
@@ -391,10 +902,7 @@ public final class InventoryViewModel {
             isPreparingUpdate = false
         }
         if generation == self.updateGeneration, isCancelling {
-            if let preparation = updatePreparation {
-                _ = service.cancelUpdate(preparation)
-                updatePreparation = nil
-            }
+            cancelPendingUpdatePreparation()
             phase = snapshot == nil ? .idle : .localReady
             isCancelling = false
         }
@@ -402,13 +910,19 @@ public final class InventoryViewModel {
 
     /// Consumes the pending preparation and executes the one confirmed mutation. The service
     /// returns a fresh local snapshot after Core's mandatory reconciliation.
-    public func confirmSelectedUpdate() async {
-        guard activePipeline == nil, updatePipeline == nil, uninstallPipeline == nil,
+    ///
+    /// The confirmed preparation must still be the presentation the sheet reviewed: a superseded
+    /// Confirm (`token` no longer current) launches nothing and leaves the replacement pending.
+    public func confirmSelectedUpdate(presenting token: OperationPresentationToken) async {
+        guard token == updatePresentationToken,
+              activePipeline == nil, updatePipeline == nil, uninstallPipeline == nil,
               uninstallPreparation == nil,
               let preparation = updatePreparation
         else { return }
         updateGeneration &+= 1
         let generation = updateGeneration
+        // The reviewed preparation is consumed; the reviewed preview stays on screen so the
+        // executing sheet cannot disappear between Confirm and its result.
         updatePreparation = nil
         updateOutcome = nil
         updateUnavailableReason = nil
@@ -417,9 +931,20 @@ public final class InventoryViewModel {
         let service = self.service
         let pipeline = Task { @MainActor [weak self] in
             guard let self else { return }
-            let result = await service.executeUpdate(preparation)
+            let result: (outcome: UpdateOutcomeSlot, snapshot: InventorySnapshot?)
+            switch preparation {
+            case .npm(let preparation):
+                let value = await service.executeUpdate(preparation)
+                result = (.npm(value.outcome), value.snapshot)
+            case .formula(let preparation):
+                let value = await service.executeFormulaUpdate(preparation)
+                result = (.formula(value.outcome), value.snapshot)
+            case .cask(let preparation):
+                let value = await service.executeCaskUpdate(preparation)
+                result = (.cask(value.outcome), value.snapshot)
+            }
             guard generation == self.updateGeneration else { return }
-            self.updateOutcome = result.outcome
+            self.installUpdatePresentation(preview: self.updatePreview, outcome: result.outcome)
             if let snapshot = result.snapshot {
                 self.publish(snapshot, updateFailure: nil)
             }
@@ -443,72 +968,102 @@ public final class InventoryViewModel {
     }
 
     /// Cancels a pending preview with zero mutation, or interrupts and joins a launched operation.
-    public func cancelUpdate() async {
+    ///
+    /// `token` nil means the window is going away: whatever this view model currently owns is
+    /// cancelled and joined, reconciliation included. A non-nil token acts only while the
+    /// presentation it was minted for is still on screen, so a stale Cancel cannot touch a
+    /// replacement.
+    public func cancelUpdate(presenting token: OperationPresentationToken?) async {
+        if let token, token != updatePresentationToken { return }
         if let pipeline = updatePipeline {
             isCancelling = true
             pipeline.cancel()
             await pipeline.value
             if pipeline.isCancelled || Task.isCancelled {
-                if isPreparingUpdate, let preparation = updatePreparation {
-                    _ = service.cancelUpdate(preparation)
-                    updatePreparation = nil
-                }
+                if isPreparingUpdate { cancelPendingUpdatePreparation() }
                 if isPreparingUpdate { phase = snapshot == nil ? .idle : .localReady }
-                if isPreparingUpdate { updatePreview = nil }
+                if isPreparingUpdate { clearUpdatePresentation() }
                 isPreparingUpdate = false
                 isCancelling = false
             }
             return
         }
-        if let preparation = updatePreparation {
-            _ = service.cancelUpdate(preparation)
-            updatePreparation = nil
-        }
-        updateOutcome = nil
-        updateUnavailableReason = nil
-        updatePreview = nil
+        cancelPendingUpdatePreparation()
+        clearUpdatePresentation()
         if phase == .ready || phase == .localReady { phase = snapshot == nil ? .idle : .ready }
         isCancelling = false
     }
 
     /// Closes the native update sheet. A pending preview is released; an executing operation is
-    /// cancelled and joins through `cancelUpdate`.
-    public func dismissUpdate() {
+    /// cancelled and joins through `cancelUpdate`. Acts only while the presentation the token was
+    /// minted for is still on screen.
+    public func dismissUpdate(presenting token: OperationPresentationToken) {
+        guard token == updatePresentationToken else { return }
         if updatePipeline != nil {
-            Task { @MainActor in await self.cancelUpdate() }
+            Task { @MainActor in await self.cancelUpdate(presenting: token) }
             return
         }
-        if let preparation = updatePreparation {
-            _ = service.cancelUpdate(preparation)
-            updatePreparation = nil
-        }
-        updateOutcome = nil
-        updateUnavailableReason = nil
-        updatePreview = nil
+        cancelPendingUpdatePreparation()
+        clearUpdatePresentation()
     }
 
-    /// Freshly prepares the selected npm Uninstall. Eligibility is gated by a current verified npm
-    /// ownership observation; Core repeats full live verification and never trusts it.
+    /// Releases the pending Update preparation, whichever manager owns it, without launching a
+    /// process. The slot is cleared only after the preparation's own cancellation call.
+    private func cancelPendingUpdatePreparation() {
+        guard let preparation = updatePreparation else { return }
+        switch preparation {
+        case .npm(let preparation):
+            _ = service.cancelUpdate(preparation)
+        case .formula(let preparation):
+            _ = service.cancelFormulaUpdate(preparation)
+        case .cask(let preparation):
+            _ = service.cancelCaskUpdate(preparation)
+        }
+        updatePreparation = nil
+    }
+
+    /// Freshly prepares the selected Uninstall for the manager this entry's own exact verification
+    /// proves and the registry declares. The affordance model offers the control by the same
+    /// predicate (`ManagementPresentation.exactVerifiedManager`), so the offered control and the
+    /// started preparation always name the same manager and selection; Core repeats full live
+    /// verification and never trusts the observation.
     public func prepareSelectedUninstall() async {
         invalidatePendingUpdate()
         guard activePipeline == nil, updatePipeline == nil, uninstallPipeline == nil else { return }
         guard let entry = selectedEntry,
-              let verified = entry.ownership?.verifiedInstallation,
-              verified.manager == .npm,
-              Self.observedSelection(entry.diagnostic) != nil
+              let manager = ManagementPresentation.exactVerifiedManager(entry: entry)
         else { return }
-        guard entry.definition.acceptedOperations.contains(.npmUninstall) else {
-            uninstallUnavailableReason = .operationNotAccepted
-            return
-        }
 
+        // The single actor slot was acquired above; each helper only states its own operation.
+        switch manager {
+        case .npm:
+            guard entry.definition.acceptedOperations.contains(.npmUninstall) else {
+                installUninstallPresentation(unavailable: .npm(.operationNotAccepted))
+                return
+            }
+            await prepareNpmUninstall(for: entry)
+        case .homebrewFormula:
+            guard entry.definition.acceptedOperations.contains(.homebrewFormulaUninstall) else {
+                installUninstallPresentation(unavailable: .formula(.operationNotAccepted))
+                return
+            }
+            await prepareFormulaUninstall(for: entry)
+        case .homebrewCask:
+            guard entry.definition.acceptedOperations.contains(.homebrewCaskUninstall) else {
+                installUninstallPresentation(unavailable: .cask(.operationNotAccepted))
+                return
+            }
+            await prepareCaskUninstall(for: entry)
+        }
+    }
+
+    /// Starts one npm Uninstall preparation pipeline in the slot its caller already acquired.
+    private func prepareNpmUninstall(for entry: InventoryEntry) async {
         uninstallGeneration &+= 1
         let generation = uninstallGeneration
         let registryID = entry.registryID
         let observed = Self.observedSelection(entry.diagnostic)
-        uninstallOutcome = nil
-        uninstallUnavailableReason = nil
-        uninstallPreview = nil
+        installUninstallPresentation()
         isCancelling = false
         isPreparingUninstall = true
         let service = self.service
@@ -527,12 +1082,93 @@ public final class InventoryViewModel {
             }
             switch result {
             case .ready(let preparation):
-                self.uninstallPreparation = preparation
-                self.uninstallPreview = preparation.preview
+                self.installUninstallPresentation(
+                    preparation: .npm(preparation),
+                    preview: .npm(preparation.preview)
+                )
             case .unavailable(let reason):
-                self.uninstallUnavailableReason = reason
+                self.installUninstallPresentation(unavailable: .npm(reason))
             }
         }
+        await joinUninstallPipeline(pipeline, generation: generation)
+    }
+
+    private func prepareFormulaUninstall(for entry: InventoryEntry) async {
+        uninstallGeneration &+= 1
+        let generation = uninstallGeneration
+        let registryID = entry.registryID
+        let observed = Self.observedSelection(entry.diagnostic)
+        installUninstallPresentation()
+        isCancelling = false
+        isPreparingUninstall = true
+        let service = self.service
+        let pipeline = Task { @MainActor [weak self] in
+            guard let self else { return }
+            let result = await service.prepareFormulaUninstall(for: entry)
+            guard generation == self.uninstallGeneration,
+                  !Task.isCancelled,
+                  self.selectedRegistryID == registryID,
+                  self.selectedEntry?.registryID == registryID,
+                  let current = self.selectedEntry,
+                  Self.observedSelection(current.diagnostic) == observed
+            else {
+                if case .ready(let preparation) = result {
+                    _ = service.cancelFormulaUninstall(preparation)
+                }
+                return
+            }
+            switch result {
+            case .ready(let preparation):
+                self.installUninstallPresentation(
+                    preparation: .formula(preparation),
+                    preview: .formula(preparation.preview)
+                )
+            case .unavailable(let reason):
+                self.installUninstallPresentation(unavailable: .formula(reason))
+            }
+        }
+        await joinUninstallPipeline(pipeline, generation: generation)
+    }
+
+    private func prepareCaskUninstall(for entry: InventoryEntry) async {
+        uninstallGeneration &+= 1
+        let generation = uninstallGeneration
+        let registryID = entry.registryID
+        let observed = Self.observedSelection(entry.diagnostic)
+        installUninstallPresentation()
+        isCancelling = false
+        isPreparingUninstall = true
+        let service = self.service
+        let pipeline = Task { @MainActor [weak self] in
+            guard let self else { return }
+            let result = await service.prepareCaskUninstall(for: entry)
+            guard generation == self.uninstallGeneration,
+                  !Task.isCancelled,
+                  self.selectedRegistryID == registryID,
+                  self.selectedEntry?.registryID == registryID,
+                  let current = self.selectedEntry,
+                  Self.observedSelection(current.diagnostic) == observed
+            else {
+                if case .ready(let preparation) = result {
+                    _ = service.cancelCaskUninstall(preparation)
+                }
+                return
+            }
+            switch result {
+            case .ready(let preparation):
+                self.installUninstallPresentation(
+                    preparation: .cask(preparation),
+                    preview: .cask(preparation.preview)
+                )
+            case .unavailable(let reason):
+                self.installUninstallPresentation(unavailable: .cask(reason))
+            }
+        }
+        await joinUninstallPipeline(pipeline, generation: generation)
+    }
+
+    /// Joins one uninstall preparation pipeline and settles the shared slot.
+    private func joinUninstallPipeline(_ pipeline: Task<Void, Never>, generation: UInt64) async {
         uninstallPipeline = pipeline
         await withTaskCancellationHandler {
             await pipeline.value
@@ -544,24 +1180,26 @@ public final class InventoryViewModel {
             isPreparingUninstall = false
         }
         if generation == self.uninstallGeneration, isCancelling {
-            if let preparation = uninstallPreparation {
-                _ = service.cancelUninstall(preparation)
-                uninstallPreparation = nil
-            }
+            cancelPendingUninstallPreparation()
             phase = snapshot == nil ? .idle : .localReady
             isCancelling = false
         }
     }
 
-    /// Consumes the pending Uninstall preparation and executes the one confirmed removal.
-    public func confirmSelectedUninstall() async {
-        guard activePipeline == nil, updatePipeline == nil, uninstallPipeline == nil,
+    /// Consumes the pending Uninstall preparation and executes the one confirmed removal. The
+    /// confirmed preparation must still be the presentation the sheet reviewed: a superseded
+    /// Confirm launches nothing and leaves the replacement pending.
+    public func confirmSelectedUninstall(presenting token: OperationPresentationToken) async {
+        guard token == uninstallPresentationToken,
+              activePipeline == nil, updatePipeline == nil, uninstallPipeline == nil,
               updatePreparation == nil,
               let preparation = uninstallPreparation
         else { return }
         uninstallGeneration &+= 1
         let generation = uninstallGeneration
         let registryID = preparation.preview.registryID
+        // The reviewed preparation is consumed; the reviewed preview stays on screen so the
+        // executing sheet cannot disappear between Confirm and its result.
         uninstallPreparation = nil
         uninstallOutcome = nil
         uninstallUnavailableReason = nil
@@ -570,12 +1208,28 @@ public final class InventoryViewModel {
         let service = self.service
         let pipeline = Task { @MainActor [weak self] in
             guard let self else { return }
-            let result = await service.executeUninstall(preparation)
+            let result: (outcome: UninstallOutcomeSlot, snapshot: InventorySnapshot?, launched: Bool)
+            switch preparation {
+            case .npm(let preparation):
+                let value = await service.executeUninstall(preparation)
+                result = (.npm(value.outcome), value.snapshot, value.outcome.processStarted)
+            case .formula(let preparation):
+                let value = await service.executeFormulaUninstall(preparation)
+                result = (
+                    .formula(value.outcome), value.snapshot, value.outcome.processStarted
+                )
+            case .cask(let preparation):
+                let value = await service.executeCaskUninstall(preparation)
+                result = (.cask(value.outcome), value.snapshot, value.outcome.processStarted)
+            }
             guard generation == self.uninstallGeneration else { return }
-            self.uninstallOutcome = result.outcome
+            self.installUninstallPresentation(
+                preview: self.uninstallPreview,
+                outcome: result.outcome
+            )
             if let snapshot = result.snapshot {
                 self.publish(snapshot, updateFailure: nil)
-            } else if result.outcome.processStarted {
+            } else if result.launched {
                 // A launched removal must not leave the destructive action armed when the
                 // post-launch rescan failed or was cancelled. Clear only this entry's observation.
                 self.clearOwnership(for: registryID)
@@ -600,49 +1254,55 @@ public final class InventoryViewModel {
     }
 
     /// Cancels a pending Uninstall preview with zero mutation, or interrupts and joins a launched
-    /// operation.
-    public func cancelUninstall() async {
+    /// operation. `token` nil means the window is going away; a non-nil token acts only while the
+    /// presentation it was minted for is still on screen.
+    public func cancelUninstall(presenting token: OperationPresentationToken?) async {
+        if let token, token != uninstallPresentationToken { return }
         if let pipeline = uninstallPipeline {
             isCancelling = true
             pipeline.cancel()
             await pipeline.value
             if pipeline.isCancelled || Task.isCancelled {
-                if isPreparingUninstall, let preparation = uninstallPreparation {
-                    _ = service.cancelUninstall(preparation)
-                    uninstallPreparation = nil
-                }
+                if isPreparingUninstall { cancelPendingUninstallPreparation() }
                 if isPreparingUninstall { phase = snapshot == nil ? .idle : .localReady }
-                if isPreparingUninstall { uninstallPreview = nil }
+                if isPreparingUninstall { clearUninstallPresentation() }
                 isPreparingUninstall = false
                 isCancelling = false
             }
             return
         }
-        if let preparation = uninstallPreparation {
-            _ = service.cancelUninstall(preparation)
-            uninstallPreparation = nil
-        }
-        uninstallOutcome = nil
-        uninstallUnavailableReason = nil
-        uninstallPreview = nil
+        cancelPendingUninstallPreparation()
+        clearUninstallPresentation()
         if phase == .ready || phase == .localReady { phase = snapshot == nil ? .idle : .ready }
         isCancelling = false
     }
 
     /// Closes the native Uninstall sheet. A pending preview is released; an executing operation is
-    /// cancelled and joins through `cancelUninstall`.
-    public func dismissUninstall() {
+    /// cancelled and joins through `cancelUninstall`. Acts only while the presentation the token was
+    /// minted for is still on screen.
+    public func dismissUninstall(presenting token: OperationPresentationToken) {
+        guard token == uninstallPresentationToken else { return }
         if uninstallPipeline != nil {
-            Task { @MainActor in await self.cancelUninstall() }
+            Task { @MainActor in await self.cancelUninstall(presenting: token) }
             return
         }
-        if let preparation = uninstallPreparation {
+        cancelPendingUninstallPreparation()
+        clearUninstallPresentation()
+    }
+
+    /// Releases the pending Uninstall preparation, whichever manager owns it, without launching a
+    /// process.
+    private func cancelPendingUninstallPreparation() {
+        guard let preparation = uninstallPreparation else { return }
+        switch preparation {
+        case .npm(let preparation):
             _ = service.cancelUninstall(preparation)
-            uninstallPreparation = nil
+        case .formula(let preparation):
+            _ = service.cancelFormulaUninstall(preparation)
+        case .cask(let preparation):
+            _ = service.cancelCaskUninstall(preparation)
         }
-        uninstallOutcome = nil
-        uninstallUnavailableReason = nil
-        uninstallPreview = nil
+        uninstallPreparation = nil
     }
 
     /// Invalidates a pending preview on any competing selection/filter/scan/check/refresh/verify.
@@ -656,20 +1316,10 @@ public final class InventoryViewModel {
         let update = updatePipeline
         let uninstall = uninstallPipeline
         guard update != nil || uninstall != nil else {
-            if let preparation = updatePreparation {
-                _ = service.cancelUpdate(preparation)
-                updatePreparation = nil
-            }
-            if let preparation = uninstallPreparation {
-                _ = service.cancelUninstall(preparation)
-                uninstallPreparation = nil
-            }
-            updateOutcome = nil
-            updateUnavailableReason = nil
-            updatePreview = nil
-            uninstallOutcome = nil
-            uninstallUnavailableReason = nil
-            uninstallPreview = nil
+            cancelPendingUpdatePreparation()
+            cancelPendingUninstallPreparation()
+            clearUpdatePresentation()
+            clearUninstallPresentation()
             return
         }
         updateGeneration &+= 1
@@ -678,20 +1328,10 @@ public final class InventoryViewModel {
         isCancelling = true
         update?.cancel()
         uninstall?.cancel()
-        if let preparation = updatePreparation {
-            _ = service.cancelUpdate(preparation)
-            updatePreparation = nil
-        }
-        if let preparation = uninstallPreparation {
-            _ = service.cancelUninstall(preparation)
-            uninstallPreparation = nil
-        }
-        updateOutcome = nil
-        updateUnavailableReason = nil
-        updatePreview = nil
-        uninstallOutcome = nil
-        uninstallUnavailableReason = nil
-        uninstallPreview = nil
+        cancelPendingUpdatePreparation()
+        cancelPendingUninstallPreparation()
+        clearUpdatePresentation()
+        clearUninstallPresentation()
         // Keep one joined teardown task in the update slot so no new mutation can install while
         // either old pipeline is still finishing its bounded cleanup.
         uninstallPipeline = nil
@@ -792,14 +1432,15 @@ public final class InventoryViewModel {
 
     /// Cancels the action that currently owns the pipeline and waits for it, so a window going away
     /// leaves no scan running behind it and no snapshot from the cancelled action is published.
-    /// Cancelling an idle view-model does nothing; it never starts a pipeline.
+    /// Cancelling an idle view-model does nothing; it never starts a pipeline. A live presentation
+    /// is cancelled regardless of which sheet minted it — this is the window's own teardown.
     public func cancel() async {
         if updatePipeline != nil {
-            await cancelUpdate()
+            await cancelUpdate(presenting: nil)
             return
         }
         if uninstallPipeline != nil {
-            await cancelUninstall()
+            await cancelUninstall(presenting: nil)
             return
         }
         guard let pipeline = activePipeline else { return }

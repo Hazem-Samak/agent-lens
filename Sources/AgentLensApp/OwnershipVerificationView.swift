@@ -161,9 +161,14 @@ public struct OwnershipVerificationView: View {
         .font(.subheadline)
         .frame(maxWidth: .infinity, alignment: .leading)
 
+        // npm keeps the accepted sentence byte-for-byte. For a verified Homebrew formula or cask
+        // the sentence ends at the read-only claim: management may be available for exactly this
+        // verified installation, so "updates or uninstalls remain unavailable" would be false.
         Text(
-            "Read-only observation from this verification. No installation changes were made, "
-            + "and updates or uninstalls remain unavailable."
+            installation.manager == .npm
+                ? "Read-only observation from this verification. No installation changes were made, "
+                    + "and updates or uninstalls remain unavailable."
+                : "Read-only observation from this verification. No installation changes were made."
         )
         .font(.caption)
         .foregroundColor(.secondary)

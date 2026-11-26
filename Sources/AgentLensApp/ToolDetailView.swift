@@ -94,9 +94,11 @@ public struct ToolDetailView: View {
 
                 ownershipSection(entry)
 
-                // The npm block is offered only for a tool that declares an npm package; the
-                // manager-limit sentences are independent text and appear for any installed tool.
-                if hasDeclaredNpmPackage(entry) || !presentation.otherLimits.isEmpty {
+                // The Manage block renders the frozen presentation: any offered uninstall
+                // affordance (npm or Homebrew) plus the manager-limit sentences. A not-installed
+                // Homebrew entry has neither, so it never gets an empty section.
+                if hasDeclaredNpmPackage(entry) || presentation.uninstall != .hidden
+                    || !presentation.otherLimits.isEmpty {
                     Divider()
                     managementSection(entry, presentation: presentation)
                 }
@@ -282,9 +284,10 @@ public struct ToolDetailView: View {
         entry.definition.packages.contains { $0.manager == .npm }
     }
 
-    /// The Manage section renders the frozen `ManagementPresentation`: the npm uninstall slot only
-    /// for a declared npm package, plus the manager-limit sentences as text. No eligibility
-    /// predicate is re-derived here — the model already decided what is offered and why not.
+    /// The Manage section renders the frozen `ManagementPresentation`: the shared uninstall slot
+    /// for a declared npm or Homebrew manager, plus the manager-limit sentences as text. No
+    /// eligibility predicate is re-derived here — the model already decided what is offered and
+    /// why not.
     private func managementSection(
         _ entry: InventoryEntry,
         presentation: ManagementPresentation
@@ -293,7 +296,7 @@ public struct ToolDetailView: View {
             Text("Manage")
                 .font(.headline)
                 .accessibilityAddTraits(.isHeader)
-            if hasDeclaredNpmPackage(entry) {
+            if hasDeclaredNpmPackage(entry) || presentation.uninstall != .hidden {
                 uninstallAffordance(entry, affordance: presentation.uninstall)
             }
             ForEach(presentation.otherLimits, id: \.self) { limit in
@@ -328,6 +331,8 @@ public struct ToolDetailView: View {
                 .font(.caption)
                 .foregroundColor(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
+        case .prepareFormulaUninstall, .prepareCaskUninstall:
+            brewUninstallAffordance(entry, affordance: affordance)
         case .unavailable(let text), .needsVerification(let text):
             Text(text)
                 .font(.caption)
@@ -336,6 +341,44 @@ public struct ToolDetailView: View {
         case .hidden:
             EmptyView()
         }
+    }
+
+    /// The Homebrew Uninstall control. The preview (not this control) carries the full identity,
+    /// argv and whole-cask disclosure; the cask hint names the companion-app consequence.
+    @ViewBuilder
+    private func brewUninstallAffordance(
+        _ entry: InventoryEntry,
+        affordance: ManagementPresentation.UninstallAffordance
+    ) -> some View {
+        let isCask = affordance == .prepareCaskUninstall
+        if let verified = entry.ownership?.verifiedInstallation {
+            Text("Verified \(isCask ? "Homebrew cask" : "Homebrew formula"): \(verified.packageName)")
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+        }
+        Button(role: .destructive) {
+            onPrepareUninstall()
+        } label: {
+            Label(isPreparingUninstall ? "Preparing Uninstall..." : "Uninstall...",
+                  systemImage: "trash")
+        }
+        .disabled(isBusy)
+        .accessibilityLabel(
+            isCask
+                ? "Uninstall Homebrew cask \(entry.definition.displayName)"
+                : "Uninstall Homebrew formula \(entry.definition.displayName)"
+        )
+        .accessibilityHint(
+            isCask
+                ? "Prepares an exact preview of the Homebrew cask removal. Cask removal may remove a companion app, not only the selected CLI."
+                : "Prepares an exact preview of the Homebrew formula removal before anything is removed."
+        )
+        // Preview first, result afterwards: the confirmation shows the exact command and its
+        // effects, and only a completed removal shows its output and the post-removal PATH delta.
+        Text("Prepares an exact preview of the reviewed command and its effects for confirmation. The removal's output and the post-removal PATH delta appear when it finishes.")
+            .font(.caption)
+            .foregroundColor(.secondary)
+            .fixedSize(horizontal: false, vertical: true)
     }
 
     // MARK: Metadata
@@ -490,9 +533,7 @@ public struct ToolDetailView: View {
                     }
 
                     GridRow {
-                        Text(update.npmPackage != nil
-                             ? "Latest Known npm Metadata"
-                             : "Latest Known Homebrew Metadata")
+                        Text(latestMetadataLabel(update))
                             .foregroundColor(.secondary)
                         Text(latestVersionText(update.status))
                             .fontDesign(.monospaced)
@@ -553,7 +594,7 @@ public struct ToolDetailView: View {
                     .foregroundColor(.secondary)
             }
 
-            updateAffordance(presentation.update)
+            updateAffordance(entry, presentation.update)
         }
     }
 
@@ -561,6 +602,7 @@ public struct ToolDetailView: View {
     /// system image, and disabled rule are the accepted M10 control.
     @ViewBuilder
     private func updateAffordance(
+        _ entry: InventoryEntry,
         _ affordance: ManagementPresentation.UpdateAffordance
     ) -> some View {
         switch affordance {
@@ -572,6 +614,25 @@ public struct ToolDetailView: View {
                       systemImage: "arrow.down.circle")
             }
             .disabled(isBusy)
+        case .prepareFormulaUpdate, .prepareCaskUpdate:
+            let isCask = affordance == .prepareCaskUpdate
+            Button {
+                onPrepareUpdate()
+            } label: {
+                Label(isPreparingUpdate ? "Preparing Update..." : "Prepare Update...",
+                      systemImage: "arrow.down.circle")
+            }
+            .disabled(isBusy)
+            .accessibilityLabel(
+                isCask
+                    ? "Prepare Homebrew cask update for \(entry.definition.displayName)"
+                    : "Prepare Homebrew formula update for \(entry.definition.displayName)"
+            )
+            .accessibilityHint(
+                isCask
+                    ? "Prepares an exact preview of the reviewed Homebrew cask update before anything is changed."
+                    : "Prepares an exact preview of the reviewed Homebrew formula update before anything is changed."
+            )
         case .unavailable(let text):
             Text(text)
                 .font(.caption)
@@ -596,6 +657,16 @@ public struct ToolDetailView: View {
             Text("Unknown")
                 .foregroundColor(.secondary)
         }
+    }
+
+    /// The version cell's label names the manager that produced the published result. A Homebrew
+    /// cask and formula are separate owners, so they get separate labels; an npm result keeps its
+    /// accepted label byte-identical.
+    private func latestMetadataLabel(_ update: ToolUpdateResult) -> String {
+        if update.npmPackage != nil { return "Latest Known npm Metadata" }
+        if update.caskToken != nil { return "Latest Known Homebrew Cask Metadata" }
+        if update.formulaStem != nil { return "Latest Known Homebrew Formula Metadata" }
+        return "Latest Known Homebrew Metadata"
     }
 
     private func installedVersionText(_ status: VersionStatus) -> String {

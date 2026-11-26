@@ -68,15 +68,21 @@ public struct SettingsView: View {
 
     // MARK: Managed operations
 
+    /// Scope language, not a hard-coded per-tool list. Update eligibility and uninstall eligibility
+    /// are different gates: an update needs the accepted update operation plus a newer version the
+    /// matching manager observed (and re-observes before it runs); an uninstall needs the accepted
+    /// uninstall operation plus exact verified ownership of the selected installation. The former
+    /// "verified installation" rule described a gate the update path does not have, and the former
+    /// unqualified npm refusal sentence would have read as an npm-only ban.
     private var managedOperationsSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Managed Operations")
                 .font(.headline)
                 .accessibilityAddTraits(.isHeader)
-            Text("Codex is the only tool with an accepted managed operation: npm Update and npm Uninstall, after ownership verification.")
+            Text("Agent Lens offers an update only for a registry entry that accepts the update operation and only while the matching package manager reports a newer version; that version is re-checked live before the update runs. It offers an uninstall only for a registry entry that accepts the uninstall operation and only after the selected installation's exact ownership is verified. Accepted operations cover npm packages and Homebrew formulas and casks; every other tool stays read-only.")
                 .font(.subheadline)
                 .fixedSize(horizontal: false, vertical: true)
-            Text(NpmUpdateUnavailableReason.operationNotAccepted.message)
+            Text("Agent Lens runs the manager's own command for the operation you confirm; nothing is changed without your confirmation.")
                 .font(.caption)
                 .foregroundColor(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
