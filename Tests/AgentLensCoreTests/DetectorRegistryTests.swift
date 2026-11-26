@@ -108,8 +108,26 @@ private func registryJSON(_ detectors: [String], schemaVersion: Int = 2) -> Stri
         .aiHarness, .aiCodingTool,
     ])
     #expect(definitions.allSatisfy { $0.versionQuery == .standard })
-    #expect(definitions[0].acceptedOperations == [.npmUpdate, .npmUninstall])
-    #expect(definitions.dropFirst().allSatisfy { $0.acceptedOperations.isEmpty })
+    // One exact per-ID grant map: codex keeps npm, and only the four Homebrew-promoted
+    // entries add grants. Every other definition is explicitly empty.
+    let expectedAcceptedOperations: [String: [AcceptedOperation]] = [
+        "codex": [.npmUpdate, .npmUninstall],
+        "opencode": [],
+        "grok": [],
+        "claude": [],
+        "gemini": [],
+        "cline": [],
+        "hermes": [.homebrewFormulaUpdate, .homebrewFormulaUninstall],
+        "aider": [.homebrewFormulaUpdate, .homebrewFormulaUninstall],
+        "goose": [.homebrewFormulaUpdate, .homebrewFormulaUninstall],
+        "kiro-cli": [.homebrewCaskUpdate, .homebrewCaskUninstall],
+        "omp": [],
+        "agy": [],
+        "dsh": [],
+        "qodercli": [],
+    ]
+    #expect(Dictionary(uniqueKeysWithValues: definitions.map { ($0.id, $0.acceptedOperations) })
+            == expectedAcceptedOperations)
     #expect(definitions[0].packages == [
         try DeclaredPackage(manager: .npm, name: "@openai/codex"),
         try DeclaredPackage(manager: .homebrewCask, name: "codex"),
