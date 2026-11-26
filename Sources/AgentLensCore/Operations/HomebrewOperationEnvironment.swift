@@ -7,6 +7,10 @@
 // its own defaults exactly as the user's own brew would, the effect text discloses those manager
 // writes, and Agent Lens never deletes them (D-008).
 //
+// Cask mutations additionally force HOMEBREW_NO_SUDO=1 and remove SUDO_ASKPASS and
+// HOMEBREW_SUDO_THROUGH_SUDO_USER. Pinned Homebrew's cask link helper can fall back to sudo even
+// without a controlling TTY, so the cask promise is fail-closed; formula behavior is unchanged.
+//
 // The removals are deliberate and closed. Greedy-upgrade overrides would silently widen the target
 // set, cask options would redirect app placement, the upgrade-quit override would falsify the
 // "may quit" disclosure, and the autorremove override would disable the cleanup suppression this
@@ -25,6 +29,15 @@ public enum HomebrewOperationEnvironment {
         "HOMEBREW_AUTOREMOVE",
     ]
 
+    /// Elevation-related variables removed from cask mutations only. Pinned Homebrew's symlink
+    /// artifact can fall back to `sudo` even without a controlling TTY; a cask mutation must not
+    /// inherit a cached or askpass-assisted authorization path. Formula mutations keep the
+    /// captured environment here unchanged.
+    public static let caskRemovedKeys: [String] = [
+        "SUDO_ASKPASS",
+        "HOMEBREW_SUDO_THROUGH_SUDO_USER",
+    ]
+
     /// The exact switches this builder adds for one mutation kind. Update additionally suppresses
     /// Homebrew's check for outdated dependent formulae; Uninstall keeps that default so Homebrew's
     /// dependent refusal is surfaced honestly. Uninstall deliberately does not force this variable
@@ -41,6 +54,12 @@ public enum HomebrewOperationEnvironment {
         if kind.isUpdate {
             switches["HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK"] = "1"
         }
+        if kind.packageKind == .cask {
+            // Pinned Homebrew's cask link helper uses `sudo: nil`; the fallback is reachable even
+            // when no controlling TTY is present (for example a cached authorization). Cask
+            // operations are fail-closed against elevation; formula behavior is unchanged.
+            switches["HOMEBREW_NO_SUDO"] = "1"
+        }
         return switches
     }
 
@@ -56,6 +75,11 @@ public enum HomebrewOperationEnvironment {
         }
         for key in removedKeys {
             values.removeValue(forKey: key)
+        }
+        if kind.packageKind == .cask {
+            for key in caskRemovedKeys {
+                values.removeValue(forKey: key)
+            }
         }
         return values
     }
