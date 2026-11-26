@@ -1,6 +1,6 @@
 # Capability matrix
 
-Status: **M11-F deliverable; M13-F extends the mutation grammar and corrects the agy cask limit.**
+Status: **M11-F deliverable, updated for M13 native Homebrew management.**
 One row per bundled detector, in registry order. The source of truth is
 [`Sources/AgentLensCore/Detectors/DefaultDetectors.json`](../Sources/AgentLensCore/Detectors/DefaultDetectors.json);
 every identity claim below is copied from the frozen
@@ -32,9 +32,10 @@ parses this table and fails if a row disagrees with the registry or a cell break
   Homebrew cask copies only)`). No other `yes` spelling is accepted. Every row without an
   accepted and matching manager is `informational: <non-empty reason>` or `disabled: <non-empty
   reason>`; the reason cannot be empty, even though the cell itself is non-empty.
-- Homebrew eligibility shown here is a published claim rule, not yet an app button. M13-G owns the
-  native mutation presentation; a `yes` cell does not mean Update/Uninstall controls are exposed
-  in the app.
+- The native app offers Homebrew Update for an available update bound to the current selection
+  and matching manager, and Uninstall for the exact verified selection. Both require the
+  matching accepted operation. Preparation and confirmation recheck eligibility; casks with
+  app artifacts or uninstall stanzas cannot be modified even when their ownership is verified.
 - Vendor self-updaters (`claude update`, `codex` installer rerun, `opencode uninstall`,
   `cline update`, `hermes update`/`hermes uninstall`, `goose update`, `kiro-cli update`/`kiro-cli
   uninstall`, `qoder update`, `agy update`, cask `auto_updates`) are never Agent Lens operations.

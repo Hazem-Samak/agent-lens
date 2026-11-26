@@ -179,7 +179,6 @@ private let requiredDocumentSubstrings = [
     "verified cask copy is Homebrew-owned",
     "not formula proof",
     "synthetic <layout>",
-    "not yet an app button",
     "fixed order `npm`, `homebrewFormula`, `homebrewCask`",
 ]
 
