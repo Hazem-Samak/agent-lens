@@ -24,6 +24,97 @@ public struct InstallationSelectionIdentity: Equatable, Sendable {
     }
 }
 
+/// The Python environment shape proved by a local ownership diagnostic. These kinds are
+/// diagnostics only; none authorizes a mutation.
+public enum PythonEnvironmentKind: String, Codable, Sendable, Equatable, CaseIterable {
+    case uvTool
+    case virtualEnvironment
+    case pipxEnvironment
+    case externallyManagedSystem
+    case sharedPrefix
+
+    public var label: String {
+        switch self {
+        case .uvTool: "uv tool"
+        case .virtualEnvironment: "Virtual environment (venv)"
+        case .pipxEnvironment: "pipx environment"
+        case .externallyManagedSystem: "Externally managed Python (PEP 668)"
+        case .sharedPrefix: "Shared Python prefix"
+        }
+    }
+
+    /// Read-only guidance for the native and CLI diagnostic surfaces. This is not a mutation
+    /// affordance and does not claim that a shared prefix is PEP 668 managed.
+    public var guidance: String {
+        switch self {
+        case .uvTool:
+            "A uv-managed tool environment. This diagnostic is read-only."
+        case .virtualEnvironment:
+            "A virtual environment. Manage it with its own project tooling."
+        case .pipxEnvironment:
+            "A pipx-managed environment. Manage it with pipx."
+        case .externallyManagedSystem:
+            "An externally managed Python prefix (PEP 668). Packages are not installed there without an explicit override."
+        case .sharedPrefix:
+            "A shared Python prefix. This is not necessarily PEP 668 managed; Agent Lens does not modify it."
+        }
+    }
+}
+
+/// Where the installed distribution's source is known to have come from. `.publicPyPI` requires
+/// affirmative local evidence; an absent index record is `.unknown`, not public PyPI.
+public enum PythonIndexProvenance: String, Codable, Sendable, Equatable, CaseIterable {
+    case publicPyPI
+    case customIndex
+    case nonRegistrySource
+    case unknown
+
+    public var label: String {
+        switch self {
+        case .publicPyPI: "Public PyPI"
+        case .customIndex: "Custom index"
+        case .nonRegistrySource: "Direct or non-registry source"
+        case .unknown: "Unknown"
+        }
+    }
+}
+
+/// Read-only Python environment facts attached to a verified installation. These are display
+/// facts, not the internal proof used for revalidation. No raw credential-bearing URL or receipt
+/// text is exposed here.
+public struct PythonEnvironmentMetadata: Equatable, Sendable {
+    public let installedVersion: String
+    public let interpreterVersion: String?
+    public let requiresPython: String?
+    public let environmentKind: PythonEnvironmentKind
+    public let installer: String
+    public let indexProvenance: PythonIndexProvenance
+    /// Redacted receipt requirement descriptors (for example `aider-chat==0.85.0`), never raw URLs.
+    public let receiptConstraints: [String]
+    /// Redacted additional requirement names from a `--with` receipt; never raw URLs.
+    public let extras: [String]
+
+    public init(
+        installedVersion: String,
+        interpreterVersion: String?,
+        requiresPython: String?,
+        environmentKind: PythonEnvironmentKind,
+        installer: String,
+        indexProvenance: PythonIndexProvenance,
+        receiptConstraints: [String] = [],
+        extras: [String] = []
+    ) {
+        self.installedVersion = installedVersion
+        self.interpreterVersion = interpreterVersion
+        self.requiresPython = requiresPython
+        self.environmentKind = environmentKind
+        self.installer = installer
+        self.indexProvenance = indexProvenance
+        self.receiptConstraints = receiptConstraints
+        self.extras = extras
+    }
+}
+
 /// The package-manager identity proved by this invocation.
 public struct VerifiedInstallation: Equatable, Sendable {
     public let manager: PackageManager
@@ -36,6 +127,8 @@ public struct VerifiedInstallation: Equatable, Sendable {
     /// The npm package root or the selected Homebrew keg.
     public let installationRoot: String
     public let selection: InstallationSelectionIdentity
+    /// Python diagnostics, or nil for non-Python managers.
+    public let pythonEnvironment: PythonEnvironmentMetadata?
 
     init(
         manager: PackageManager,
@@ -45,7 +138,8 @@ public struct VerifiedInstallation: Equatable, Sendable {
         managerFingerprint: ExecutableFingerprint,
         managerRoot: String,
         installationRoot: String,
-        selection: InstallationSelectionIdentity
+        selection: InstallationSelectionIdentity,
+        pythonEnvironment: PythonEnvironmentMetadata? = nil
     ) {
         self.manager = manager
         self.packageName = packageName
@@ -55,12 +149,13 @@ public struct VerifiedInstallation: Equatable, Sendable {
         self.managerRoot = managerRoot
         self.installationRoot = installationRoot
         self.selection = selection
+        self.pythonEnvironment = pythonEnvironment
     }
 }
 
 /// Why explicit ownership verification did not produce a verified identity. Every case is neutral:
 /// none means "not owned", and none authorizes a manager operation.
-public enum InstallationOwnershipReason: Equatable, Sendable, CaseIterable {
+public enum InstallationOwnershipReason: Error, Equatable, Sendable, CaseIterable {
     case notInstalled
     case inconsistentSelection
     case selectionUnavailable

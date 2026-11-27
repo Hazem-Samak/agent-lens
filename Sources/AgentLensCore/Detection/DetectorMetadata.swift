@@ -62,13 +62,43 @@ public enum PackageManager: String, Codable, Sendable, Equatable, CaseIterable {
     case npm
     case homebrewFormula
     case homebrewCask
+    case uvTool
+    case pip
 
     public var label: String {
         switch self {
         case .npm: "npm"
         case .homebrewFormula: "Homebrew formula"
         case .homebrewCask: "Homebrew cask"
+        case .uvTool: "uv tool"
+        case .pip: "pip"
         }
+    }
+}
+
+/// PEP 503 normalization used for Python distribution comparisons. It is deliberately separate
+/// from display spelling: `Aider_Chat` and `aider-chat` identify the same distribution.
+enum PythonPackageIdentity {
+    static func isValidDistributionName(_ name: String) -> Bool {
+        let pattern = #"^[A-Za-z0-9]([A-Za-z0-9._-]*[A-Za-z0-9])?$"#
+        return name.range(of: pattern, options: .regularExpression) != nil
+    }
+
+    static func normalized(_ name: String) -> String {
+        var result = ""
+        var previousSeparator = false
+        for scalar in name.lowercased().unicodeScalars {
+            if scalar == "-" || scalar == "_" || scalar == "." {
+                if !previousSeparator {
+                    result.unicodeScalars.append("-")
+                    previousSeparator = true
+                }
+            } else {
+                result.unicodeScalars.append(scalar)
+                previousSeparator = false
+            }
+        }
+        return result
     }
 }
 
@@ -121,7 +151,7 @@ public struct DeclaredPackage: Codable, Sendable, Equatable {
             throw DetectorRegistryError.invalidField(
                 field: "manager",
                 id: "(declared package)",
-                reason: "must be one of npm, homebrewFormula, homebrewCask"
+                reason: "must be one of npm, homebrewFormula, homebrewCask, uvTool, pip"
             )
         }
         let name = try container.decode(String.self, forKey: .name)
@@ -159,6 +189,13 @@ public struct DeclaredPackage: Codable, Sendable, Equatable {
                 guard String(component).range(of: pattern, options: .regularExpression) != nil else {
                     return "must be a formula/cask name or a fully qualified tap"
                 }
+            }
+        case .uvTool, .pip:
+            // PEP 508/PEP 503 distribution name only: one path component, no version specifier,
+            // extras, whitespace, option marker or slash.
+            let pattern = #"^[A-Za-z0-9]([A-Za-z0-9._-]*[A-Za-z0-9])?$"#
+            guard name.range(of: pattern, options: .regularExpression) != nil else {
+                return "must be a valid Python package name (single path component, no version specifier or extras)"
             }
         }
         return nil

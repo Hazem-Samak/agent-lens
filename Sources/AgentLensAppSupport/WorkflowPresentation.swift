@@ -214,6 +214,7 @@ public struct ManagementPresentation: Equatable, Sendable {
         let declaredNpm = definition.packages.contains { $0.manager == .npm }
         let declaredFormula = definition.packages.contains { $0.manager == .homebrewFormula }
         let declaredCask = definition.packages.contains { $0.manager == .homebrewCask }
+        let declaredPip = definition.packages.contains { $0.manager == .pip }
 
         // Update slot: the accepted npm predicate first (byte-identical), then the Homebrew result
         // only when its own manager-verified identity and observed selection agree with the
@@ -284,8 +285,15 @@ public struct ManagementPresentation: Equatable, Sendable {
             // Homebrew's cask proof is the exact ownership observation, not the source heuristic: a
             // verified cask copy is Homebrew-owned, so it is never described as standalone-deletable.
             if entry.diagnostic.detectedTool.source == "standalone",
-               verifiedManager != .homebrewCask {
+               verifiedManager != .homebrewCask,
+               verifiedManager != .uvTool,
+               verifiedManager != .pip {
                 limits.append(Self.standaloneLimit)
+            }
+            if declaredPip, verifiedManager == nil || verifiedManager == .pip {
+                limits.append(
+                    "pip environments are read-only diagnostics; no update or uninstall is available."
+                )
             }
         }
         self.otherLimits = limits
@@ -381,6 +389,10 @@ public struct ManagementPresentation: Equatable, Sendable {
                 : .unavailable(
                     HomebrewCaskUninstallUnavailableReason.operationNotAccepted.message
                 )
+        case .uvTool, .pip:
+            // M14-B has no Python mutation vocabulary or grant. Pip remains informational by
+            // construction; uv actions arrive only in a later phase with an explicit grant.
+            return .hidden
         }
     }
 

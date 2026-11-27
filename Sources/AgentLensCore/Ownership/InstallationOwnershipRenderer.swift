@@ -25,6 +25,24 @@ public enum InstallationOwnershipRenderer {
             lines.append("  installation root: \(installation.installationRoot)")
             lines.append("  selected entry: \(installation.selection.entryPath)")
             lines.append("  selected target: \(installation.selection.canonicalTarget)")
+            if let python = installation.pythonEnvironment {
+                lines.append("  environment root: \(installation.installationRoot)")
+                lines.append("  environment type: \(python.environmentKind.label)")
+                lines.append("  installed version: \(python.installedVersion)")
+                lines.append("  python interpreter: \(python.interpreterVersion ?? "unknown")")
+                if let requires = python.requiresPython {
+                    lines.append("  requires-python: \(requires)")
+                }
+                lines.append("  installer: \(python.installer)")
+                lines.append("  index provenance: \(python.indexProvenance.label)")
+                if !python.receiptConstraints.isEmpty {
+                    lines.append("  receipt constraints: \(python.receiptConstraints.joined(separator: ", "))")
+                }
+                if !python.extras.isEmpty {
+                    lines.append("  additional requirements: \(python.extras.joined(separator: ", "))")
+                }
+                lines.append("  guidance: \(python.environmentKind.guidance)")
+            }
         case .unknown(let reason):
             lines.append("  result: unknown")
             lines.append("  reason: \(reason.message)")

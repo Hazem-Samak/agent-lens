@@ -152,6 +152,55 @@ public struct OwnershipVerificationView: View {
                 Text("Selected Target").foregroundColor(.secondary)
                 wrappedText(installation.selection.canonicalTarget)
             }
+            if let python = installation.pythonEnvironment {
+                GridRow(alignment: .top) {
+                    Text("Environment Root").foregroundColor(.secondary)
+                    wrappedText(installation.installationRoot)
+                }
+                GridRow {
+                    Text("Environment Type").foregroundColor(.secondary)
+                    Text(python.environmentKind.label)
+                }
+                GridRow {
+                    Text("Installed Version").foregroundColor(.secondary)
+                    Text(python.installedVersion)
+                }
+                GridRow {
+                    Text("Python Interpreter").foregroundColor(.secondary)
+                    Text(python.interpreterVersion.map { "Python \($0)" } ?? "Unknown")
+                }
+                if let requires = python.requiresPython {
+                    GridRow {
+                        Text("Requires-Python").foregroundColor(.secondary)
+                        Text(requires)
+                    }
+                }
+                GridRow {
+                    Text("Installer").foregroundColor(.secondary)
+                    Text(python.installer)
+                }
+                GridRow {
+                    Text("Index Provenance").foregroundColor(.secondary)
+                    Text(python.indexProvenance.label)
+                }
+                if !python.receiptConstraints.isEmpty {
+                    GridRow(alignment: .top) {
+                        Text("Receipt Constraints").foregroundColor(.secondary)
+                        wrappedText(python.receiptConstraints.joined(separator: ", "))
+                    }
+                }
+                if !python.extras.isEmpty {
+                    GridRow(alignment: .top) {
+                        Text("Additional Requirements").foregroundColor(.secondary)
+                        wrappedText(python.extras.joined(separator: ", "))
+                    }
+                }
+                GridRow(alignment: .top) {
+                    Text("Guidance").foregroundColor(.secondary)
+                    Text(python.environmentKind.guidance)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
             GridRow(alignment: .top) {
                 Text("Observed").foregroundColor(.secondary)
                 Text(timestamp(observedAt))
@@ -164,15 +213,25 @@ public struct OwnershipVerificationView: View {
         // npm keeps the accepted sentence byte-for-byte. For a verified Homebrew formula or cask
         // the sentence ends at the read-only claim: management may be available for exactly this
         // verified installation, so "updates or uninstalls remain unavailable" would be false.
-        Text(
-            installation.manager == .npm
-                ? "Read-only observation from this verification. No installation changes were made, "
-                    + "and updates or uninstalls remain unavailable."
-                : "Read-only observation from this verification. No installation changes were made."
-        )
+        Text(verificationNote(for: installation))
         .font(.caption)
         .foregroundColor(.secondary)
         .fixedSize(horizontal: false, vertical: true)
+    }
+
+    private func verificationNote(for installation: VerifiedInstallation) -> String {
+        switch installation.manager {
+        case .npm:
+            return "Read-only observation from this verification. No installation changes were made, "
+                + "and updates or uninstalls remain unavailable."
+        case .pip:
+            return "Read-only pip diagnostic from this verification. No installation changes were made; "
+                + "pip environments are informational and expose no update or uninstall action."
+        case .uvTool:
+            return "Read-only uv tool diagnostic from this verification. No installation changes were made."
+        case .homebrewFormula, .homebrewCask:
+            return "Read-only observation from this verification. No installation changes were made."
+        }
     }
 
     private func unknownDetails(

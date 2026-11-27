@@ -1056,7 +1056,7 @@ public enum DetectorRegistry {
                 throw DetectorRegistryError.invalidField(
                     field: "\(field).manager",
                     id: id,
-                    reason: "must be one of npm, homebrewFormula, homebrewCask"
+                    reason: "must be one of npm, homebrewFormula, homebrewCask, uvTool, pip"
                 )
             }
             let name = try requiredString(packageObject, "name", field: "\(field).name", id: id)

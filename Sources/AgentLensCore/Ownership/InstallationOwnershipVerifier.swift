@@ -62,6 +62,8 @@ public enum InstallationOwnershipVerifier {
         let hasNpm = definition.packages.contains { $0.manager == .npm }
         let hasFormula = definition.packages.contains { $0.manager == .homebrewFormula }
         let hasCask = definition.packages.contains { $0.manager == .homebrewCask }
+        let hasUvTool = definition.packages.contains { $0.manager == .uvTool }
+        let hasPip = definition.packages.contains { $0.manager == .pip }
         let outcome: InstallationOwnershipOutcome
         // Routing order (R1): npm only for an npm source with an npm declaration; the formula
         // proof only for a brew source with a formula declaration; otherwise a declared cask is
@@ -85,13 +87,30 @@ public enum InstallationOwnershipVerifier {
                 currentDirectory: currentDirectory
             )
         } else if hasCask {
-            outcome = await verifyHomebrewCask(
+            let cask = await verifyHomebrewCask(
                 definition: definition,
                 selection: selected,
                 environment: environment,
                 runner: runner,
                 currentDirectory: currentDirectory
             )
+            // Only the two "not this cask layout" refusals may fall through to a declared Python
+            // manager. Every other cask answer remains the cask answer.
+            if case .unknown(let reason) = cask,
+               (reason == .managerRootMismatch || reason == .unsupportedInstallationLayout),
+               hasUvTool || hasPip {
+                outcome = await verifyPython(
+                    definition: definition,
+                    selection: selected,
+                    environment: environment,
+                    runner: runner,
+                    currentDirectory: currentDirectory,
+                    hasUvTool: hasUvTool,
+                    hasPip: hasPip
+                )
+            } else {
+                outcome = cask
+            }
         } else if source == "npm" {
             // Preserves the existing no-declaration refusal for npm sources.
             outcome = await verifyNpm(
@@ -102,13 +121,37 @@ public enum InstallationOwnershipVerifier {
                 currentDirectory: currentDirectory
             )
         } else if source == "brew" {
-            // Preserves the existing no-declaration refusal for brew sources.
-            outcome = await verifyHomebrew(
+            // A brew source without a formula declaration follows the otherwise branch: a
+            // declared Python manager is classified locally; a Homebrew framework symlink layout
+            // is not promoted to pip ownership (R1.3).
+            if hasUvTool || hasPip {
+                outcome = await verifyPython(
+                    definition: definition,
+                    selection: selected,
+                    environment: environment,
+                    runner: runner,
+                    currentDirectory: currentDirectory,
+                    hasUvTool: hasUvTool,
+                    hasPip: hasPip
+                )
+            } else {
+                outcome = await verifyHomebrew(
+                    definition: definition,
+                    selection: selected,
+                    environment: environment,
+                    runner: runner,
+                    currentDirectory: currentDirectory
+                )
+            }
+        } else if hasUvTool || hasPip {
+            outcome = await verifyPython(
                 definition: definition,
                 selection: selected,
                 environment: environment,
                 runner: runner,
-                currentDirectory: currentDirectory
+                currentDirectory: currentDirectory,
+                hasUvTool: hasUvTool,
+                hasPip: hasPip
             )
         } else {
             outcome = .unknown(.unsupportedSource)
@@ -141,6 +184,111 @@ public enum InstallationOwnershipVerifier {
             selection: selected,
             outcome: outcome,
             now: now
+        )
+    }
+
+    /// Route a declared Python candidate only after a local receipt/root classifier. A uv receipt
+    /// of any type reserves the selection for uv; a known uv tool root does the same even when the
+    /// receipt is absent. Pip proof never requires uv to exist.
+    private static func verifyPython(
+        definition: DetectorDefinition,
+        selection: ObservedExecutable,
+        environment: ShellEnvironment,
+        runner: UpdateCommandRunner,
+        currentDirectory: String,
+        hasUvTool: Bool,
+        hasPip: Bool
+    ) async -> InstallationOwnershipOutcome {
+        let target = URL(fileURLWithPath: selection.canonicalTarget)
+            .standardizedFileURL.path
+        let envRoot = URL(fileURLWithPath: target, isDirectory: false)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .standardizedFileURL.path
+        guard envRoot.hasPrefix("/"),
+              FileIdentityObserver.isExactDescendant(
+                target,
+                of: envRoot,
+                components: ["bin", definition.executableName]
+              )
+        else { return .unknown(.unsupportedInstallationLayout) }
+
+        let receiptPath = envRoot + "/uv-receipt.toml"
+        let receiptNode = PythonProofSupport.lexicalNode(receiptPath)
+        if receiptNode == .error { return .unknown(.manifestUnreadable) }
+        let receiptExists = receiptNode == .present
+        if receiptExists {
+            guard hasUvTool else { return .unknown(.noMatchingPackage) }
+            guard let manager = UvToolOwnershipProbe.resolveManager(
+                environment: environment,
+                currentDirectory: currentDirectory
+            ) else { return .unknown(.managerUnavailable) }
+            return await UvToolOwnershipProbe.verify(
+                definition: definition,
+                selection: selection,
+                manager: manager,
+                environment: environment,
+                runner: runner
+            )
+        }
+
+        // A declared Python manager without any local Python layout evidence is an unrelated
+        // standalone executable; do not spawn uv just to ask about its roots.
+        guard let envRootIdentity = PythonProofSupport.observePlainDirectory(envRoot),
+              PythonProofSupport.hasPythonLayoutEvidence(envRootIdentity) else {
+            if hasPip {
+                return PipOwnershipProbe.verify(
+                    definition: definition,
+                    selection: selection,
+                    environment: environment
+                )
+            }
+            return .unknown(.unsupportedInstallationLayout)
+        }
+
+        // A known uv root reserves the selection even when only pip is declared. The root query
+        // is used only after positive local Python layout evidence.
+        if hasPip,
+           let manager = UvToolOwnershipProbe.resolveManager(
+                environment: environment,
+                currentDirectory: currentDirectory
+           ) {
+            switch await UvToolOwnershipProbe.resolveRoots(
+                manager: manager,
+                selection: selection,
+                environment: environment,
+                runner: runner
+            ) {
+            case .failure(.cancelled):
+                return .unknown(.cancelled)
+            case .failure:
+                break // Unavailable root evidence does not recategorize the environment.
+            case .success(let roots):
+                if UvToolOwnershipProbe.selectionIsInsideToolRoot(selection: selection, roots: roots) {
+                    return .unknown(.manifestMissing)
+                }
+            }
+        }
+
+        if hasPip {
+            return PipOwnershipProbe.verify(
+                definition: definition,
+                selection: selection,
+                environment: environment
+            )
+        }
+        guard hasUvTool,
+              let manager = UvToolOwnershipProbe.resolveManager(
+                environment: environment,
+                currentDirectory: currentDirectory
+              )
+        else { return .unknown(.managerUnavailable) }
+        return await UvToolOwnershipProbe.verify(
+            definition: definition,
+            selection: selection,
+            manager: manager,
+            environment: environment,
+            runner: runner
         )
     }
 

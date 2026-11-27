@@ -1054,6 +1054,9 @@ public final class InventoryViewModel {
                 return
             }
             await prepareCaskUninstall(for: entry)
+        case .uvTool, .pip:
+            // Read-only in M14-B. No Python mutation presentation exists until a later phase.
+            return
         }
     }
 

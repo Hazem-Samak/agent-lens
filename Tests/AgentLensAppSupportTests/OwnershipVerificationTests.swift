@@ -7,6 +7,7 @@
 // standalone/not-installed verification.
 
 import AgentLensCore
+import CryptoKit
 import Foundation
 import Testing
 @testable import AgentLensAppSupport
@@ -381,4 +382,91 @@ private func ownershipViewModelService(
     #expect(viewModel.phase == .ready)
     #expect(runner.invocationCount == 0)
     #expect(!viewModel.isBusy)
+}
+
+
+// MARK: M14-B Python read-only presentation seam
+
+private func m14bPipFixture(_ label: String) throws -> (root: URL, script: URL, venv: URL) {
+    let root = try appSupportScratchRoot("m14b-pip-\(label)")
+    let venv = root.appendingPathComponent("venv", isDirectory: true)
+    let python = venv.appendingPathComponent("bin/python")
+    try writeFixtureExecutable(python)
+    let script = venv.appendingPathComponent("bin/aider")
+    let scriptData = Data("#!/\(python.path)\nprint('aider')\n".utf8)
+    try FileManager.default.createDirectory(
+        at: script.deletingLastPathComponent(), withIntermediateDirectories: true
+    )
+    try scriptData.write(to: script)
+    try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: script.path)
+    try Data("""
+    home = /opt/homebrew/opt/python@3.15/bin
+    include-system-site-packages = false
+    version_info = 3.15.2
+
+    """.utf8).write(to: venv.appendingPathComponent("pyvenv.cfg"))
+    let distInfo = venv.appendingPathComponent(
+        "lib/python3.15/site-packages/aider_chat-0.85.0.dist-info", isDirectory: true
+    )
+    try FileManager.default.createDirectory(at: distInfo, withIntermediateDirectories: true)
+    let hash = Data(SHA256.hash(data: scriptData)).base64EncodedString()
+        .replacingOccurrences(of: "+", with: "-")
+        .replacingOccurrences(of: "/", with: "_")
+        .replacingOccurrences(of: "=", with: "")
+    try Data("""
+    ../../../bin/aider,sha256=\(hash),\(scriptData.count)
+    aider_chat-0.85.0.dist-info/RECORD,,
+
+    """.utf8).write(to: distInfo.appendingPathComponent("RECORD"))
+    try Data("pip\n".utf8).write(to: distInfo.appendingPathComponent("INSTALLER"))
+    try Data("""
+    Metadata-Version: 2.1
+    Name: aider-chat
+    Version: 0.85.0
+    Requires-Python: >=3.9
+
+    """.utf8).write(to: distInfo.appendingPathComponent("METADATA"))
+    return (root, script, venv)
+}
+
+@MainActor
+@Test func pipOwnershipPublishesReadOnlyEnvironmentDiagnosticsWithoutMutation() async throws {
+    let fixture = try m14bPipFixture("presentation")
+    defer { try? FileManager.default.removeItem(at: fixture.root) }
+    let registry = ownershipRegistryJSON([
+        (id: "aider-id", name: "Aider", executable: "aider",
+         packages: [(.pip, "aider-chat")])
+    ])
+    let service = makeService(
+        registryData: registry,
+        pathEntries: [fixture.venv.appendingPathComponent("bin").path],
+        cacheURL: fixture.root.appendingPathComponent("cache.json"),
+        currentDirectory: fixture.root.path
+    )
+    let snapshot = try await service.localSnapshot()
+    let entry = try #require(snapshot.entries.first)
+    let result = await service.verifyingOwnership(of: entry)
+    let installation = try #require(result.verifiedInstallation)
+    #expect(installation.manager == .pip)
+    #expect(installation.pythonEnvironment?.environmentKind == .virtualEnvironment)
+    #expect(installation.pythonEnvironment?.interpreterVersion == "3.15.2")
+
+    let withOwnership = InventoryEntry(
+        definition: entry.definition,
+        diagnostic: entry.diagnostic,
+        update: entry.update,
+        ownership: result
+    )
+    let presentation = ManagementPresentation(entry: withOwnership)
+    #expect(presentation.update == .hidden)
+    #expect(presentation.uninstall == .hidden)
+    #expect(presentation.otherLimits.contains {
+        $0.contains("read-only diagnostics")
+    })
+
+    let rendered = InstallationOwnershipRenderer.render(result)
+    #expect(rendered.contains("manager: pip"))
+    #expect(rendered.contains("environment type: Virtual environment (venv)"))
+    #expect(rendered.contains("installer: pip"))
+    #expect(rendered.contains("index provenance: Unknown"))
 }

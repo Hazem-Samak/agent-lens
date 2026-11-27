@@ -156,10 +156,58 @@ private func expectUnknownKey(
 @Test func unknownPackageManagerIsRejectedWithTheManagerField() {
     let data = registryData(detectors: [
         detectorObject(
-            packagesField: #""packages":[{"manager":"pip","name":"codex"}]"#
+            packagesField: #""packages":[{"manager":"cargo","name":"codex"}]"#
         )
     ])
     expectInvalidField(data, field: "packages[0].manager")
+}
+
+@Test func pythonPackageManagersDecodeOnBothPathsAndValidatePEP508Names() throws {
+    #expect(try JSONDecoder().decode(PackageManager.self, from: Data(#""uvTool""#.utf8)) == .uvTool)
+    #expect(try JSONDecoder().decode(PackageManager.self, from: Data(#""pip""#.utf8)) == .pip)
+    #expect(PackageManager.uvTool.label == "uv tool")
+    #expect(PackageManager.pip.label == "pip")
+
+    let uv = try JSONDecoder().decode(
+        DeclaredPackage.self,
+        from: Data(#"{"manager":"uvTool","name":"Aider_Chat"}"#.utf8)
+    )
+    let pip = try JSONDecoder().decode(
+        DeclaredPackage.self,
+        from: Data(#"{"manager":"pip","name":"hermes-agent"}"#.utf8)
+    )
+    #expect(uv.manager == .uvTool)
+    #expect(uv.name == "Aider_Chat")
+    #expect(pip.manager == .pip)
+
+    let data = registryData(detectors: [
+        detectorObject(
+            packagesField: #""packages":[{"manager":"uvTool","name":"aider-chat"},{"manager":"pip","name":"hermes_agent"}]"#
+        )
+    ])
+    let definitions = try DetectorRegistry.validate(data: data)
+    #expect(definitions[0].packages.map(\.manager) == [.uvTool, .pip])
+
+    let invalidNames = [
+        "aider-chat==0.86.2", "aider-chat[extra]", "-aider", "scope/aider",
+        "aider chat", ".aider", "aider.", "aider/other", "aider\tchat"
+    ]
+    for manager in ["uvTool", "pip"] {
+        for name in invalidNames {
+            let encoded = String(decoding: try! JSONEncoder().encode(name), as: UTF8.self)
+            let invalid = registryData(detectors: [
+                detectorObject(
+                    packagesField: #""packages":[{"manager":"\#(manager)","name":\#(encoded)}]"#
+                )
+            ])
+            expectInvalidField(invalid, field: "packages[0].name")
+        }
+    }
+
+    for name in ["aider-chat", "Aider_Chat", "hermes.agent", "x"] {
+        _ = try DeclaredPackage(manager: .uvTool, name: name)
+        _ = try DeclaredPackage(manager: .pip, name: name)
+    }
 }
 
 @Test func duplicateManagerAndNamePairsAreRejectedButDifferentManagersAreDistinct() throws {
