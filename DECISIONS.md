@@ -289,6 +289,7 @@ Record each milestone result here. Include the T3 Code build string so a regress
 | M10-C R1 — Terminal-context baseline repair | 2026-11-02 | **locally technically accepted, uncommitted** — final coordinator 469/469 test events in both controlling-PTY and detached contexts; guard21, fresh app, packaging9, actual terminal CLI exact non-degraded fixture PATH; final Qoder independent PASS | n/a — OMP orchestration through Herdr; Swift 6.4 on macOS27 arm64; no T3 build claimed | River/Pi `deepseek-ai/DeepSeek-V4.1-Flash-1017`, max, sole writer. Interactive zsh stopped on SIGTTOU in the inherited controlling-terminal session; capture now disables job control with `+m`. Perch hit quota before verdict; owner explicitly waived its verdict for this repair only. [Acceptance](walkthroughs/M10-C-R1-baseline-repair.md); M10-C product implementation separately dispatched, not accepted; original two product reviewers retained; no Git/hosted/release claim. |
 | M10-C — Confirmed npm Update | 2026-11-02 | **technically accepted on the feature branch** — parent510 Swift in each controlling-TTY/detached context, guard21, fresh app, packaging9; native1.0.0→2.0.0 and ordinary packaged public0.165.0→0.166.0, Cancel unchanged, active/prepared-close cleanup; hosted exact-SHA all7 gates/510 combined Swift, zero skips/failures | n/a — OMP orchestration through Herdr; Swift6.4 local; hosted macOS15.8.2 arm64/Xcode26.3/Swift6.2.4; no T3 build claimed | River/Pi `deepseek-ai/DeepSeek-V4.1-Flash-1017`, max, sole product writer. Perch `glm-5.3-flash-starter`/max and Qoder `Qwen3.8-Max`/xhigh both final PASS, no remaining material findings. Owner-authorized implementation `fff287d79884bf2163642dfa6ef3543da5682565`; [hosted run41519177534](https://github.com/Hazem-Samak/agent-lens/actions/runs/41519177534), attempt1, digest-verified33-file artifact retained. [Evidence/limits](walkthroughs/M10-C-implementation.md). No main merge, release, or M10-D authorization. |
 | M13-H — Combined Homebrew acceptance | 2026-11-26 | **technically accepted on `milestone/m13-homebrew`** — 888 local Swift tests (726 Core + 162 AppSupport); all seven exact-SHA hosted gates; four contained promotion lifecycles, native Kiro Cancel/Confirm/rescan and CLI parity; personal manifests byte-identical | n/a — OMP through Rex; Swift 6.4.2 (swift-driver 1.168.6) locally | DeepSeek V4.1 Flash free / Token Harbor acceptance support; Grok 4.7 High and Gemini 4 Hydrogen Extra High independent reviews cleared the push. [Acceptance record](walkthroughs/M13-combined-acceptance.md); [hosted run 45873711857](https://github.com/Hazem-Samak/agent-lens/actions/runs/45873711857) at `17ff7fb`. No merge or release. |
+| M13 — PR #4 merge and delivery to main | 2026-11-27 | **delivered to `main`** — merge commit `37bf2f4`; hosted CI on that merge passed, all seven gates green at the exact SHA; 888 Swift tests (726 Core + 162 AppSupport) | n/a — owner-authorized merge; Swift 6.4.2 (swift-driver 1.168.6) locally | The owner cleared the merge after a two-axis review of the merged candidate (Standards and Spec). The review corrections landed in `1312650` and changed documentation, one test assertion and one trailing whitespace only — no product source. [Acceptance record](walkthroughs/M13-combined-acceptance.md); [hosted run 45968760057](https://github.com/Hazem-Samak/agent-lens/actions/runs/45968760057) at `37bf2f4`. The milestone branch was deleted after the merge. No public release. |
 
 ## M10-D — acceptance (2026-11-08)
 
@@ -759,3 +760,38 @@ UI-free import guards (42 Core files, 6 AppSupport files); 21 guard fixtures; th
 build; 9 packaging tests; and a clean `git diff --check` over the whole milestone diff. The
 shipped acceptance evidence is unchanged: see
 [the M13 combined acceptance record](walkthroughs/M13-combined-acceptance.md) and D-024.
+
+## M13 — PR #4 merge and delivery to main (2026-11-27)
+
+PR #4 (`milestone/m13-homebrew` → `main`), "M13: Complete native Homebrew management", was merged
+on 2026-11-27 at 08:50 UTC. Merge commit:
+`37bf2f43438f13e177926d0937b103b49c1e03b7` (`37bf2f4`).
+[Hosted run 45968760057](https://github.com/Hazem-Samak/agent-lens/actions/runs/45968760057)
+passed at that exact SHA.
+
+M13-A through M13-H and the combined Homebrew gate are delivered to `main`. The shipped promotion
+set is exactly OD-M13-1: the `hermes-agent`, `aider` and `block-goose-cli` formulae and the
+`kiro-cli` cask, each with its own controlled scenario (D-021). D-024 records the shipped cask
+latest-check contract, which supersedes only D-019's exclusion of casks from the shipped
+latest-check; D-019 itself is not reopened. The owner cleared the merge after a two-axis review of
+the merged candidate (Standards and Spec against `briefs/M13-plan.md` and rulings R1–R16); the
+review corrections landed in `1312650` before the merge and changed documentation, one test
+assertion and one trailing whitespace only — no product source, so the delivered product is
+bit-identical to the accepted candidate.
+
+The M8 keyboard-only Copy/Reveal measurement remains closed. Native Update was not confirmed
+through Accessibility at acceptance; updates were confirmed in the product-host lifecycles. No
+public release was published or authorized, and signed distribution remains M18–M19.
+
+## Housekeeping — M13 status docs and merged branch (2026-11-27)
+
+Living status docs were brought in line with the M13 merge: `README.md`, `ROADMAP.md`,
+`briefs/README.md`, `HANDOFF.md`, and the delivery banner on
+`walkthroughs/M13-combined-acceptance.md`. The two appended dated notes in `briefs/M13-plan.md`
+(§10) and `briefs/M13-planning/judgment.md` were updated with the merge commit; their frozen
+bodies, the council records, and the acceptance-time bodies stay as evidence of what was true
+when they were written.
+
+`milestone/m13-homebrew` (`1312650`) was fully contained in `origin/main` after the merge and was
+deleted locally and on origin. After that deletion, `origin` keeps `main` only. The M11 and M12
+milestone branches were already deleted on 2026-11-19. No public release is authorized.

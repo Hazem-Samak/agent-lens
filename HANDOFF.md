@@ -5,9 +5,15 @@
 > `8d07ba4` (2026-11-12). PR #3 (`milestone/m12-workflow`) merged at `934a26c` (2026-11-13); hosted
 > CI on that merge passed
 > ([run 43444962792](https://github.com/Hazem-Samak/agent-lens/actions/runs/43444962792)). Both
-> milestone branches were deleted on 2026-11-19. The authoritative record is
-> [walkthroughs/M12-combined-acceptance.md](walkthroughs/M12-combined-acceptance.md) and the M12
-> delivery entry in `DECISIONS.md`. Next product work is M13, which this note does not authorize.
+> milestone branches were deleted on 2026-11-19.
+>
+> **Updated 2026-11-27 — M13 IS ALSO DELIVERED TO `main`.** PR #4 (`milestone/m13-homebrew`)
+> merged at `37bf2f4` (2026-11-27); hosted CI on that merge passed
+> ([run 45968760057](https://github.com/Hazem-Samak/agent-lens/actions/runs/45968760057)), and that
+> milestone branch was deleted after the merge. The authoritative records are
+> [walkthroughs/M12-combined-acceptance.md](walkthroughs/M12-combined-acceptance.md),
+> [walkthroughs/M13-combined-acceptance.md](walkthroughs/M13-combined-acceptance.md) and the M13
+> delivery entry in `DECISIONS.md`. Any release remains a separate owner decision.
 > The body below is the pause snapshot, not the current status.
 
 Resume here. This file is the orchestrator's hand-off after an owner-requested pause (laptop

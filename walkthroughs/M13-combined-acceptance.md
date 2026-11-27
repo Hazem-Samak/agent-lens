@@ -1,5 +1,14 @@
 # M13 — combined Homebrew acceptance
 
+> **Delivery update (2026-11-27).** [PR #4](https://github.com/Hazem-Samak/agent-lens/pull/4) merged
+> to `main` on 2026-11-27 at `37bf2f4`. Hosted CI on that merge passed
+> ([run 45968760057](https://github.com/Hazem-Samak/agent-lens/actions/runs/45968760057)). Statements
+> below that say **NOT MERGED** were true at acceptance and are historical. The milestone branch
+> `milestone/m13-homebrew` was deleted after the merge. The owner review of the merged candidate
+> landed its corrections in `1312650` and is recorded in `DECISIONS.md`; that correction changed
+> documentation, one test assertion and one trailing whitespace only, and no product source. Any
+> release remains a separate owner decision, which this record does not authorize.
+
 **Decision: technically accepted on `milestone/m13-homebrew`.** The frozen product is
 `00ed6ec1dd25e19446b7d8ab5477a4f120b666c9`. The checked acceptance candidate is
 `17ff7fb269ea8ab77e12d0e4c8a6d375f33e64b1`, which adds only the CI floor calibration

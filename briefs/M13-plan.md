@@ -446,8 +446,12 @@ The authorization statements above — "planning + freeze/commit ONLY", "impleme
 authorized; no implementer is selected" — recorded the state of the planning phase on 2026-11-21.
 The implementation authorization that followed is not recorded in this repository, so this note
 states only what is verifiable: the phases were implemented, the combined acceptance passed, and
-the branch was pushed with an open PR. The merge into `main` and any release remain separate owner
-decisions under §9.
+the branch was pushed with an open PR. The owner subsequently cleared the merge;
+[PR #4](https://github.com/Hazem-Samak/agent-lens/pull/4) merged to `main` on 2026-11-27 at merge
+commit `37bf2f4`, hosted CI on that merge passed
+([run 45968760057](https://github.com/Hazem-Samak/agent-lens/actions/runs/45968760057)), and the
+milestone branch was deleted after the merge. Any release remains a separate owner decision
+under §9.
 
 Three deviations from the per-phase allow-lists in §5 were found in the merged-candidate review on
 2026-11-27 and are ratified here rather than silently absorbed:
