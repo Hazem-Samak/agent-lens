@@ -3,7 +3,7 @@
 - **Date:** 2026-11-27
 - **Branch:** `milestone/m14-python` (created from `main` at `882afd3517cda6f10c901dd973dc8f5e4083b2c2`)
 - **Planning Mode:** Solo Owner-Directed Planning + Two-Pass Adversarial Self-Review (`briefs/M14-planning/self-review.md`)
-- **Status:** Frozen after Two-Pass Self-Review — ready for owner approval before M14-A implementation dispatch
+- **Status:** M14-B ownership contract frozen from the M14-A live probe and independent replay. Dispatch B only after the Phase A evidence supplement is committed and both owner-designated reviewers clear that gate. This freeze does not authorize C or later phases.
 
 ---
 
@@ -27,7 +27,7 @@ M14 extends the three-layer architecture (D-001) across **eight sequential phase
    - **Binding Do-Not-Declare PyPI Identities:** M14 MUST NEVER declare PyPI `goose` (`steder/goose` 1.0.0 unrelated SQL migration tool), PyPI `deepseek-harness` or `deepseek-harness-cli` (third-party `HenryZ838978` packages), or PyPI `google-antigravity` (Python SDK `antigravity-sdk-python`, not the `agy` CLI). The remaining 12 catalogue tools retain their existing declarations unchanged.
 2. **Strict `uv` vs `pip` Capability Boundary:**
    - **`uvTool` (`uv tool`)** supports verified ownership, PyPI latest-version probing, **Update (`uv tool upgrade`)**, and **Uninstall (`uv tool uninstall`)** gated by D-021 `acceptedOperations: ["uvToolUpdate", "uvToolUninstall"]`.
-   - **`pip` (`pip`)** supports verified read-only diagnostic ownership (environment root, site-packages root, installed package version, Python interpreter version, installer provenance, and PEP 668 `EXTERNALLY-MANAGED` / `pipx` / `venv` / shared-prefix classification) and PyPI latest-version probing, but is **strictly informational (`Read-only` in V1)** with **zero** D-021 mutation operations (`AcceptedOperation` defines no `pip*` cases).
+   - **`pip` (`pip`)** supports verified read-only diagnostics (environment root, site-packages root, installed package version, interpreter version where established, installer provenance, and environment kind). PyPI latest checks require eligible index evidence (R3). No `pip` mutation vocabulary or affordance exists. The shipping CLI remains read-only (D-022).
 
 ---
 
@@ -45,64 +45,47 @@ M14 extends the three-layer architecture (D-001) across **eight sequential phase
    - **Package-name validation (`DeclaredPackage.validationFailure`):** Both `.uvTool` and `.pip` enforce PEP 508 / PEP 503 package-name grammar: single path component (no `/`), non-empty ASCII matching `^[A-Za-z0-9]([A-Za-z0-9._-]*[A-Za-z0-9])?$` (no version specifiers, no extras `[...]`, no whitespace, no leading `-`). Canonical comparison uses PEP 503 normalization (`lowercased()`, replacing runs of `[-_.]` with a single `-`).
 2. **Heuristic `ToolDetector.classifySource(resolvedPath:)` Remains Unchanged:**
    - `ToolDetector.classifySource(resolvedPath:)` in `Sources/AgentLensCore/Detection/ToolDetector.swift` continues to return `"npm"` (contains `/lib/node_modules/`), `"brew"` (contains `/Cellar/`), or `"standalone"` (everything else).
-   - **Why:** In Python virtual environments (`uv tool` and `pip` venvs), the entry-point script `<venv>/bin/<executableName>` is a **regular file** with a `#!<venv>/bin/python3` shebang, and `<bin-dir>/<executableName>` (e.g., `~/.local/bin/aider`) is a symlink to `<venv>/bin/<executableName>`. Therefore, `resolvingSymlinksInPath()` resolves `selection.canonicalTarget` to `<venv>/bin/<executableName>` (NOT to `/opt/homebrew/Cellar/python@3.x/...`), which naturally classifies as `"standalone"`. Keeping `classifySource` untouched preserves all 14 existing synthetic fixture tests (`DetectorRegistryTests`) and `DetectorRegistry.knownSources` (`["npm", "brew", "standalone"]`).
-   - **Edge case — `pip install --break-system-packages` directly into Homebrew Python's Cellar framework prefix (`/opt/homebrew/Cellar/python@3.x/<ver>/.../bin/<executableName>`):** Here `selection.canonicalTarget` contains `/Cellar/python@3.x/`, so `classifySource` returns `"brew"`. Routing in `InstallationOwnershipVerifier` (below) handles this explicitly so a tool installed into Homebrew's `python@3.x` Cellar prefix does not get stranded on a spurious `.formulaRecordMismatch` when the detector declares both `homebrewFormula` and `pip`.
+   - A typical venv console script is a regular file beneath its venv's `bin` directory. A symlink into that directory resolves to the script, not the script's shebang interpreter. The heuristic still describes the *canonical script path*, not the manager. A canonical path in a Python runtime keg can still be `"brew"`; resolve that case through the verified layout in R1.3, not a source-label change.
 3. **Deterministic Multi-Manager Routing in `Sources/AgentLensCore/Ownership/InstallationOwnershipVerifier.swift`:**
    - For a detected tool with `definition.packages`:
      1. **`source == "npm"` and declares `.npm`:** route to `verifyNpm`.
      2. **`source == "brew"` and declares `.homebrewFormula`:**
-        - If the detector also declares `.pip`, inspect whether `selection.canonicalTarget` sits inside a Homebrew Python runtime keg (`/Cellar/python/` or `/Cellar/python@*/`) whose formula rack name does NOT match any declared `.homebrewFormula` package name and whose `<env-root>/lib/python*/site-packages` (or framework `lib/python*/site-packages`) exists. If so, route directly to `verifyPip`.
+        - Switch to pip only for an anchored, supported system layout (R1.6) whose runtime rack is distinct from every declared formula. The Homebrew framework-to-site-packages symlink observed in A is not a supported pip ownership route; leave it on the existing Homebrew path or report unsupported, as applicable. A failed formula proof is not pip proof.
         - Otherwise, route to `verifyHomebrew`.
      3. **Otherwise (including `source == "standalone"` or `source == "brew"` without `.homebrewFormula`):**
         - If the detector declares `.homebrewCask`, run `verifyHomebrewCask`. If `.verified` (or if the detector declares neither `.uvTool` nor `.pip`), return that outcome. If `verifyHomebrewCask` returns `.unknown(.managerRootMismatch)` or `.unknown(.unsupportedInstallationLayout)` because the selected binary is outside Caskroom **and** the detector also declares `.uvTool` or `.pip`, continue to Python ownership verification.
         - If the detector declares `.uvTool` or `.pip`, run the **Anchored Python Environment Classifier** using pure local filesystem `lstat` (before requiring `uv` to exist on `PATH`, so a machine without `uv` installed can still verify `.pip` virtualenvs):
           - Derive candidate `<env-root>` as the parent directory of `<bin-dir>` where `selection.canonicalTarget` resides (`<env-root>/bin/<executableName>`).
-          - **Case A (`uv` tool environment):** If `<env-root>/uv-receipt.toml` exists (`lstat` regular file or symlink—never downgraded to `.pip` even if tampered), OR if `uv` is resolvable on `PATH` and `selection.canonicalTarget` / `selection.entryPath` resides under `uv tool dir` / `uv tool dir --bin`, route exclusively to **`verifyUvTool`**.
-          - **Case B (`pip` environment):** Otherwise, if the detector declares `.pip` and `<env-root>/pyvenv.cfg` exists or `<env-root>/lib/python*/site-packages` exists (a non-`uv` virtual environment, `pipx` venv, user site, or framework prefix), route to **`verifyPip`**.
-          - **Case C (outside all Python roots — e.g., standalone shell/git wrapper like `~/.hermes/hermes-agent/.hermes/bin/hermes`):** If `.uvTool` is declared, route to `verifyUvTool` (which returns `.unknown(.managerRootMismatch)` when `uv` is present or `.unknown(.managerUnavailable)` / `.unknown(.managerRootMismatch)` when outside any Python environment).
+          - **Case A (`uv` evidence):** A receipt of any filesystem type, or the canonical target being contained in an observed `uv tool dir` environment, reserves the selection for `uv`. Failed or indeterminate receipt inspection is not absence; missing, tampered or unsupported receipts in known uv environments never fall through to pip. Being in `uv tool dir --bin` alone is **not** evidence: uv and pipx can share `~/.local/bin`. Require a declared `.uvTool` candidate to verify. Resolve the roots at most once per invocation and reuse that snapshot; use component containment, not string prefixes.
+          - **Case B (`pip` evidence):** With proven receipt absence and no known uv root match, route to `verifyPip` only for a declared `.pip` candidate in an evidenced layout. Prove ownership independently through installer and executable records; a skipped/unavailable uv query does not itself recategorize an environment. No uv installation is required for positive pip proof.
+          - **Case C (no Python evidence):** Retain the existing no-declaration/unsupported-source result as applicable. Do not run `uv` solely because a standalone executable has a Python package candidate. For tools with no Python declarations, preserve all existing routing and refusal reasons.
 4. **Python Environment Metadata on `VerifiedInstallation` (`Sources/AgentLensCore/Ownership/InstallationOwnership.swift`):**
-   - Add `PythonEnvironmentKind` (`.uvTool`, `.virtualEnvironment`, `.pipxEnvironment`, `.externallyManagedSystem`, `.sharedPrefix`), `PythonIndexProvenance` (`.publicPyPI`, `.customIndex(String)`, `.nonRegistrySource(String)`), and `PythonEnvironmentMetadata` (`installedVersion: String`, `interpreterVersion: String?`, `requiresPython: String?`, `environmentKind: PythonEnvironmentKind`, `indexProvenance: PythonIndexProvenance`, `isVersionPinned: Bool`, `extraRequirements: [String]`).
+   - Add `PythonEnvironmentKind` (`.uvTool`, `.virtualEnvironment`, `.pipxEnvironment`, `.externallyManagedSystem`, `.sharedPrefix`), `PythonIndexProvenance` (`.publicPyPI`, `.customIndex`, `.nonRegistrySource`, `.unknown`), and `PythonEnvironmentMetadata` (installed version, observed interpreter version if available, `Requires-Python`, environment kind, installer, index provenance, and redacted receipt constraint/extra summaries where applicable). Keep internal evidence used to revalidate operations separate from display strings. `.publicPyPI` requires affirmative source evidence; never expose raw credential-bearing URLs, config, or receipts in app/CLI output.
    - Add `public let pythonEnvironment: PythonEnvironmentMetadata?` to `VerifiedInstallation` with a default value of `nil` in `VerifiedInstallation.init(...)` so all existing M9–M13 call sites and tests compile without modification.
 5. **6-Step `uvTool` Ownership Proof (`Sources/AgentLensCore/Ownership/UvToolOwnershipProbe.swift`):**
    1. **Manager Resolution & Pre-Query Snapshot:** Resolve `uv` from `ShellEnvironment.pathEntries` using `FileIdentityObserver.observeExecutable` (capturing `managerEntryPath`, `managerTarget`, `managerFingerprint`). If `uv` is not found on `PATH`, return `.unknown(.managerUnavailable)`.
    2. **Roots Query (`uv tool dir` and `uv tool dir --bin`):**
-      - Run `[manager.canonicalTarget, "tool", "dir"]` and `[manager.canonicalTarget, "tool", "dir", "--bin"]` via `UpdateCommandRunner` with timeout `5.0s` and read-only environment (`UV_NO_CACHE=1`, `UV_NO_PROGRESS=1`, `UV_OFFLINE=1`).
-      - Re-observe `uv` and `selection` around the query; if either changed, return `.unknown(.managerChanged)` or `.unknown(.selectedExecutableChanged)`.
-      - Canonicalize `<uv-tool-dir>` and `<uv-tool-bin-dir>` via `realpath` and bind their directory `FileIdentity`.
+      - Run `[manager.canonicalTarget, "tool", "dir"]` and `[manager.canonicalTarget, "tool", "dir", "--bin"]` once via `UpdateCommandRunner` with timeout `5.0s` each and `UV_NO_CACHE=1`, `UV_NO_PROGRESS=1`, `UV_OFFLINE=1`. Query using the same root-selection inputs as mutation; do not silently default away an explicit custom root.
+      - Reject malformed, truncated, multi-line or nonabsolute paths; canonicalize and bind both directory identities, and re-observe `uv` and the selected entry/target around queries.
    3. **Selected Entry & Canonical Target Containment Proof:**
       - `selection.canonicalTarget` MUST decompose as `<uv-tool-dir>/<tool-dir>/bin/<executableName>` where `<tool-dir>` matches a declared `.uvTool` package name under PEP 503 normalization and `<executableName>` matches `definition.executableName`. (If outside `<uv-tool-dir>`, return `.unknown(.managerRootMismatch)`.)
-      - Verify `<uv-tool-bin-dir>/<executableName>` exists via `lstat`, and resolves to `selection.canonicalTarget` with matching `ExecutableFingerprint` (if missing or pointing elsewhere, return `.unknown(.managerEntryMismatch)`).
+      - Bind the exact manager-owned shim `<uv-tool-bin-dir>/<executableName>` and prove it resolves to the canonical script with the same executable fingerprint. A different selected entry pointing to the same target is not that shim; it cannot authorize mutation.
    4. **Anchored `uv-receipt.toml` Proof (Bounded `O_NOFOLLOW` Regular-File Read, Cap 64 KiB):**
-      - Open `<uv-tool-dir>/<tool-dir>/uv-receipt.toml` with `O_RDONLY | O_NOFOLLOW | O_CLOEXEC`, verify `fstat` is `S_IFREG` and size <= `65,536` bytes, and capture its file fingerprint before and after reading.
-      - Parse the `[tool]` table: verify `requirements` contains the primary package matching the declared `.uvTool` package name (PEP 503 normalized). Extract whether the primary requirement carries an exact version pin (`==` / `===`), any extra requirements (`--with`), `entrypoints` (when present, confirming an entrypoint with `name == definition.executableName` and `from` matching the declared package), and index/source options (`index-url`, `extra-index-url`, `find-links`, git/path/url sources).
+      - Traverse from already verified directories with descriptor-relative, no-symlink opens for directory components. Bound receipt reads to 64 KiB and reject symlinks, non-regular nodes and ambiguous/malformed TOML. R15 applies to every proof file, not just the receipt.
+      - Support the captured uv 0.13.10 receipt shape: `[tool]` with `requirements` (first is primary), `entrypoints` (matching `name`, absolute `install-path` and normalized `from` required), and the observed optional settings. Unobserved/legacy receipts missing `from` remain unsupported. Use a bounded, in-process Swift parser for the observed TOML subset, with strict syntax and duplicate-key rejection: basic quoted strings and escaping, scalars, inline tables, arrays (including multiline arrays of inline tables), and `[tool]` / `[tool.options]`. No regex extraction from malformed TOML, external dependency, Python or shell subprocess. Reject unproved shape or semantics rather than deriving ownership from an unparsed receipt.
    5. **Anchored `.dist-info` & `pyvenv.cfg` Proof (Zero Recursive Crawling):**
-      - Read `<env-root>/pyvenv.cfg` via bounded `O_NOFOLLOW` regular-file read (cap 32 KiB) to extract `version_info` or `version` (e.g., `3.12.8`).
-      - List only the single directory level `<env-root>/lib/python*/site-packages` (max 256 entries, zero recursion) to find the unique `<dist>-<ver>.dist-info` directory whose PEP 503-normalized `<dist>` prefix matches the declared package name.
-      - Read `METADATA` (`O_NOFOLLOW`, cap 256 KiB) to confirm `Name:` matches the declared package and extract `Version:` and `Requires-Python:`.
-      - Read `RECORD` (`O_NOFOLLOW`, cap 1 MiB) or `entry_points.txt` (`O_NOFOLLOW`, cap 64 KiB) to verify `../../../bin/<executableName>` or `[console_scripts]` `<executableName>` is owned by this distribution (if absent, return `.unknown(.executableNotDeclared)`).
-      - Inspect `direct_url.json` (if present, `O_NOFOLLOW`, cap 64 KiB) to classify VCS/local/archive installs vs registry installs.
+      - Read `<env-root>/pyvenv.cfg` via bounded `O_NOFOLLOW` regular-file read (cap 32 KiB), bind `<env-root>/bin/python*` to the selected script, and report `version_info` (e.g., `3.15.2`). The receipt's install-time `python` field may be stale after an upgrade; never use it as current interpreter proof.
+      - Inspect only the evidenced venv's `lib/pythonX.Y/site-packages` and find a unique matching `.dist-info` within the entry cap. Bind its identity, require `INSTALLER=uv`, and read bounded `METADATA` to obtain the normalized `Name:`, `Version:` and optional `Requires-Python:`.
+      - Require a parsed `RECORD` CSV entry that resolves from site-packages to the **exact** canonical selected script with the matching identity. For the observed console-script layouts require the supplied SHA-256 and byte count to match that file. `entry_points.txt` is corroboration, never a substitute for installed-file ownership. Reject conflicting ownership, ambiguous layouts, escapes and evidence-budget overflow.
+      - Read `direct_url.json` (if present, 64 KiB) as direct-source evidence. Absence proves neither the index nor PyPI (R3).
    6. **Post-Read Re-Observation & `VerifiedInstallation` Construction:**
-      - Re-observe `selection`, `manager`, `uv-receipt.toml`, and `METADATA`; if any fingerprint drifted, return `.unknown(.proofChanged)` or `.unknown(.selectedExecutableChanged)`.
+      - Revalidate both roots, selected entry/target, managed shim, manager, interpreter binding and all positive/negative metadata used in the proof (including receipt, RECORD and source evidence). On drift or inability to re-observe, return unknown; do not publish a partially refreshed identity.
       - Return `.verified(VerifiedInstallation(manager: .uvTool, packageName: declared.name, managerEntryPath: manager.entryPath, managerTarget: manager.canonicalTarget, managerFingerprint: manager.fingerprint, managerRoot: uvToolDir, installationRoot: envRoot, selection: ..., pythonEnvironment: ...))`.
 6. **5-Step `pip` Diagnostic Ownership Proof (`Sources/AgentLensCore/Ownership/PipOwnershipProbe.swift` — Read-Only):**
-   1. **Anchored Environment Boundary Check (Zero Recursive Filesystem Scanning):**
-      - Starting strictly from `selection.canonicalTarget` (`<env-root>/bin/<executableName>`), derive `<env-root>` as the parent of `bin`. Never scan `$HOME`, project directories, or arbitrary virtualenv roots.
-      - Verify `<env-root>/uv-receipt.toml` does NOT exist (a `uv` tool environment is never misclassified as `.pip`).
-      - Locate `<site-packages>` via bounded single-level lookup `<env-root>/lib/python*/site-packages`. If absent, return `.unknown(.managerRootMismatch)`.
-   2. **Environment Interpreter Binding:**
-      - Observe `<env-root>/bin/python3` (or `<env-root>/bin/python`) via `FileIdentityObserver.observeExecutable` to populate `managerEntryPath`, `managerTarget`, and `managerFingerprint` on `VerifiedInstallation` (no global `pip` on `PATH` required; if the environment has no valid Python binary, return `.unknown(.managerUnavailable)`).
-   3. **Environment Classification (`PythonEnvironmentKind`):**
-      - Inspect `<env-root>/pyvenv.cfg` and `<env-root>/lib/python*/EXTERNALLY-MANAGED` (PEP 668 marker):
-        - `.externallyManagedSystem` (`EXTERNALLY-MANAGED` file exists, e.g., Homebrew system Python)
-        - `.pipxEnvironment` (`<env-root>/pipx_metadata.json` exists or `<env-root>` is inside a `pipx/venvs/` root)
-        - `.virtualEnvironment` (`pyvenv.cfg` exists without `uv-receipt.toml` or `pipx_metadata.json`)
-        - `.sharedPrefix` (no `pyvenv.cfg` and no `EXTERNALLY-MANAGED`, e.g., `--user` or custom prefix)
-   4. **Anchored `.dist-info` Verification & TOCTOU Check:**
-      - Locate the unique `<site-packages>/<dist>-*.dist-info` matching the declared `.pip` package name (PEP 503 normalized).
-      - Read `METADATA` (`O_NOFOLLOW`, cap 256 KiB) to verify `Name:` and extract `Version:` and `Requires-Python:`.
-      - Verify executable ownership via `RECORD` (`../../../bin/<executableName>`) or `entry_points.txt` (`[console_scripts]` `<executableName>`).
-      - Inspect `direct_url.json` (if present, `O_NOFOLLOW`, cap 64 KiB) for index/source provenance.
-      - Re-observe `selection`, interpreter, and `METADATA` fingerprints for TOCTOU consistency.
+   1. **Bounded Supported Layouts:** Derive candidates only from the selected canonical script. Inspect `lib/pythonX.Y/site-packages` within the script's prefix for the observed venv/pipx and `pip --prefix` layouts. For the observed framework user scheme, require the script under the captured home’s `Library/Python/X.Y/bin` and inspect that versioned prefix's `lib/python/site-packages`. Require no uv receipt. Refuse all other splits, unobserved layouts, and symlinked proof ancestors. In particular the Homebrew framework symlink layout was inspected, not accepted as a complete ownership proof.
+   2. **Interpreter Binding:** For venvs, bind the script's absolute interpreter to the environment's `bin/python*` and use the validated `pyvenv.cfg`. For the observed direct-shebang `pip --prefix` and framework `--user` shapes, bind the named live absolute interpreter (which is outside the installation prefix); report interpreter patch version unknown unless local evidence establishes it. Do not execute interpreter, pip, shebang wrapper or arbitrary tool to prove ownership. No PATH-wide interpreter search. Split installs prove who installed the script, not whether it presently imports and runs.
+   3. **Environment Kind:** Classify pipx only from validated `pipx_metadata.json` 0.12 with `backend=pip`, main package identity, exposed app name and exact app path, consistent with the venv proof. Ordinary venvs are `.virtualEnvironment`. Split prefix/user installs are `.sharedPrefix`. Use `.externallyManagedSystem` only for an independently proved non-venv system prefix with the marker in that interpreter's matching stdlib ([PEP 668](https://packaging.python.org/en/latest/specifications/externally-managed-environments/)); a venv or shared/user prefix does not inherit the marker of its base interpreter.
+   4. **Installer and File Proof:** Require `INSTALLER=pip` and exact path, SHA-256 and size verification via `RECORD` as in R1.5. Only for the validated pipx shape allow the measured rewrite: remove exactly terminal ASCII ` -E` from the first shebang line of the selected script and compare the resulting bytes against **both** RECORD SHA-256 and size. No other changed bytes, switches, decorators, or generic hash exceptions. Re-observe all consumed positive/negative paths and identities before returning. Missing/conflicting provenance does not prevent valid local ownership diagnostics.
    5. **Record Construction:**
       - Return `.verified(VerifiedInstallation(manager: .pip, packageName: declared.name, ..., managerRoot: sitePackagesPath, installationRoot: envRoot, selection: ..., pythonEnvironment: ...))`.
 
@@ -112,15 +95,15 @@ M14 extends the three-layer architecture (D-001) across **eight sequential phase
    - Extend `VersionScheme` in `VersionStatus.swift` with `case pep440`.
    - Extend `VersionComparison.ordering(_:_:scheme:)` in `VersionComparison.swift` so `.pep440` delegates to `PEP440Version.compare(_:_:)`.
    - When a tool's verified ownership is `.uvTool` or `.pip`, `PyPIUpdateProbe` and `UpdateProbeCoordinator` evaluate versions using `VersionScheme.pep440` (rather than strict 3-component `.semanticVersion`, which rejects valid 2-segment Python versions like `0.86` and post/dev releases like `0.86.2.post1`).
-2. **Full Deterministic PEP 440 Parser & Total Ordering (`PEP440Version`):**
-   - Implement the normative PEP 440 specification in `Sources/AgentLensCore/Updates/PEP440Version.swift`:
+2. **PEP 440 Parsing and Ordering:**
+   - Implement the [version specifiers standard](https://packaging.python.org/en/latest/specifications/version-specifiers/) separately from Agent Lens's stable-channel policy. Compare numeric magnitudes without fixed-width overflow. Support case-insensitive spellings and the normative ordering below:
      - Optional leading `v`/`V` and ASCII whitespace trimming.
      - **Epoch:** `N!` (non-negative integer, defaults to `0`).
      - **Release segment:** 1 or more dot-separated non-negative integers (`[0-9]+(\.[0-9]+)*`). Trailing `.0` segments are stripped during comparison normalization so `1.2 == 1.2.0 == 1.2.0.0`.
      - **Pre-release segment:** `[._-]?(a|b|c|rc|alpha|beta|pre|preview)[._-]?[0-9]*` normalized to `.alpha(N)`, `.beta(N)`, `.rc(N)` (implicit number defaults to `0`; `c`, `pre`, `preview` normalize to `.rc`).
      - **Post-release segment:** `(?:[._-]?(?:post|rev|r)[._-]?[0-9]*)|(?:-[0-9]+)` normalized to `.post(N)` (implicit number defaults to `0`).
      - **Dev-release segment:** `[._-]?dev[._-]?[0-9]*` normalized to `.dev(N)` (implicit number defaults to `0`).
-     - **Local version label:** `\+[a-zA-Z0-9]+([._-][a-zA-Z0-9]+)*`. Public PyPI releases with `+local` labels are rejected as invalid registry versions; if an installed version carries `+local`, `PEP440Version.compare` returns `nil` so `VersionStatus.evaluate` reports `.unknown(installed: ..., reason: .unsupportedVersion)`.
+     - **Local version label:** Parse and order per PEP 440. Public PyPI candidates with local labels are excluded and installed local labels produce `.unsupportedVersion` at the probe boundary, rather than changing the comparator's rules.
    - **Normative PEP 440 Sort Key Order within an Epoch & Normalized Release Tuple:**
      1. `.dev(M)` without pre/post (`1.0.dev1 < 1.0a1`)
      2. Pre-release with optional `.dev` or `.post`: `1.0a1.dev1 < 1.0a1 < 1.0a1.post1.dev1 < 1.0a1.post1 < 1.0b1 < 1.0rc1`
@@ -131,10 +114,7 @@ M14 extends the three-layer architecture (D-001) across **eight sequential phase
      - Strip optional outer parentheses `( ... )` and whitespace.
      - Operators: `~=`, `==` (including prefix wildcard `== 3.12.*`), `!=` (including `!= 3.11.*`), `<=`, `>=`, `<`, `>`, `===`.
      - Comma-separated clauses combine with logical AND (`>=3.9, <3.14, !=3.11.0`).
-   - **Interpreter Version Extraction:**
-     - Primary: `version_info` or `version` in `<env-root>/pyvenv.cfg` (written by both `uv` and stdlib `venv` / `virtualenv`).
-     - Fallback (when `pyvenv.cfg` lacks a full `X.Y.Z` version key, e.g. system prefix): run a bounded `2.0s` read-only query `[interpreterTarget, "--version"]` (parsing `Python X.Y.Z`) during ownership or update probing.
-     - If the environment's interpreter version cannot be determined or parsed, and a candidate PyPI release declares a non-empty `requires_python` constraint, `PyPIUpdateProbe` refuses to assume compatibility and returns `.unknown(installed: ..., reason: .pythonInterpreterIncompatible)`.
+   - **Interpreter evidence:** Use the bounded, identity-bound local metadata from R1 (`version_info` or `version` for supported virtualenvs; supported system evidence from M14-A). Do not execute an arbitrary interpreter to fill in missing data. Missing interpreter evidence cannot satisfy a nonempty requirement. Distinguish malformed specifiers (`.metadataInvalid` when decisive) from valid constraints that cannot be satisfied or evaluated. Verify the normative boundaries: wildcard release padding, `~=` arity, exclusive `<`/`>` prerelease/postrelease rules, and `===` arbitrary equality.
 
 ### R3 — PyPI Latest-Version Probe, Index Provenance & Separate Cache Document (`Sources/AgentLensCore/Updates/PyPIUpdateProbe.swift` & `PyPIUpdateMetadataCache.swift`)
 
@@ -142,12 +122,10 @@ M14 extends the three-layer architecture (D-001) across **eight sequential phase
    - Reuse existing `UnknownReason` cases wherever semantics match (`.networkUnavailable`, `.queryTimedOut`, `.rateLimited`, `.metadataInvalid`, `.unsupportedChannel`, `.unsupportedVersion`, `.newerThanKnownMetadata`, `.unsupportedRegistry`).
    - Add **one** Python-specific additive case to `UnknownReason`:
      - `case pythonInterpreterIncompatible` — when newer stable releases exist on PyPI, but every release newer than `installedVersion` fails `Requires-Python` for the tool environment's Python interpreter version (or requires an interpreter version that could not be verified).
-   - Map custom `--index-url` / `--find-links` or non-PyPI `direct_url.json` (VCS/local/archive) provenance to the existing **`UnknownReason.unsupportedRegistry`** (rendered with context-specific copy in `UpdateScanRenderer` and `WorkflowPresentation` when `manager` is `.uvTool` or `.pip`).
-2. **Index Provenance Check Before Any Network Call:**
-   - Before querying `https://pypi.org/pypi/<package>/json` (or reading cache), `PyPIUpdateProbe` checks `verifiedInstallation.pythonEnvironment?.indexProvenance`:
-     - If `.customIndex(_)` or `.nonRegistrySource(_)`, return `VersionStatus.unknown(installed: installedVersion, reason: .unsupportedRegistry)` immediately with zero network traffic.
+   - Use `.unsupportedRegistry` for custom, direct, or unknown sources, with distinct read-only explanations; do not describe an unknown source as a known private index.
+2. **Provenance Check Before Cache or Network:** Only affirmative supported PyPI evidence authorizes a PyPI check. For the uv receipt variant observed in A, require a sole supported public default index at `https://pypi.org/simple`, no conflicting index/source options, and no direct-source metadata. Do not interpret the receipt's `explicit = false` as absence of a recorded index. Direct/custom sources are distinct; an implicit index, duplicate/conflicting evidence or absence of `direct_url.json` cannot establish PyPI ([PEP 610](https://packaging.python.org/en/latest/specifications/direct-url/)). Ownership diagnostics still work. Before C dispatch, resolve with the owner whether to keep strict affirmative provenance (ordinary default uv installs remain unknown) or authorize a separately specified public-reference policy; do not expose a package name or start a network/cache check for unknown provenance in B.
 3. **PyPI JSON Metadata Query & Candidate Selection:**
-   - Endpoint: `https://pypi.org/pypi/<normalized-package>/json` fetched via `UpdateCommandRunner` (`["/usr/bin/curl", "-fsSL", "--max-time", "8", "--max-filesize", "1048576", "-H", "Accept: application/json", url]`, matching the injectable `UpdateCommandRunner` architecture used across Core update probes with an 8.0s timeout and 1 MiB response cap).
+   - Initially use the documented [PyPI project JSON API](https://docs.pypi.org/api/json/) with the injectable `UpdateCommandRunner`, 8.0s timeout and 1 MiB bounded output. The `releases` key is deprecated: before C dispatch, document that the promoted projects fit the cap and that the required fields are supplied, or revise C to use the Simple Index API. On a missing/oversized response return typed unknown; never use `info.version` as a compatibility fallback. Restrict the request and redirects to the supported HTTPS endpoint policy; report only errors the process seam actually distinguishes.
    - **Candidate Filtering Rules across `releases` dictionary (`[String: [PyPIReleaseFile]]`):**
      1. If installed version is a PEP 440 pre-release or dev-release, return `.unknown(installed: installedVersion, reason: .unsupportedChannel)`.
      2. For each key in `releases`:
@@ -159,7 +137,7 @@ M14 extends the three-layer architecture (D-001) across **eight sequential phase
         - If `highestCompatibleStable == nil`:
           - Return `.unknown(installed: installedVersion, reason: highestOverallStable != nil ? .pythonInterpreterIncompatible : .metadataInvalid)`.
         - If `highestOverallStable > highestCompatibleStable` AND `highestCompatibleStable <= installedPEP440` AND `highestOverallStable > installedPEP440`:
-          - Newer releases exist on PyPI, but all of them require a newer Python interpreter than the environment has. Return **`.unknown(installed: installedVersion, reason: .pythonInterpreterIncompatible)`**.
+          - Newer stable releases exist, but none is known to satisfy the bound interpreter's `Requires-Python` check. Do not infer that every incompatibility means “needs newer Python.”
         - Otherwise, compare `installedVersion` against `highestCompatibleStable` using `VersionStatus.evaluate(installed: ..., latest: ..., scheme: .pep440)`:
           - `installed < highestCompatibleStable` → `.updateAvailable(installed: ..., latest: ...)`
           - `installed == highestCompatibleStable` → `.upToDate(installed: ..., latest: ...)`
@@ -167,8 +145,7 @@ M14 extends the three-layer architecture (D-001) across **eight sequential phase
 4. **Separate Ecosystem Cache Document (`pypi-update-metadata-v1.json` in `PyPIUpdateMetadataCache.swift`):**
    - Stored in the cache directory alongside `npm-update-metadata-v1.json`, `homebrew-update-metadata-v1.json`, and `homebrew-cask-update-metadata-v1.json`.
    - Schema version `1`, TTL `6 hours` (`21,600s`), max size `1 MiB` (`1,048,576` bytes), `O_NOFOLLOW` regular-file read validation, atomic temp-file + rename persistence.
-   - Cache entry key binds `(normalizedPackageName, interpreterMajorMinorPatch)` so compatibility-filtered results for Python 3.11 never cross-contaminate an environment on Python 3.13.
-   - Deduplicate concurrent in-flight requests within `UpdateProbeCoordinator` by `(normalizedPackageName, interpreterMajorMinorPatch)`.
+   - Key cache and in-flight requests by `(normalizedPackageName, interpreterMajorMinorPatch)` (explicit unknown interpreter key if needed). Store candidate facts, not a final installed-version-dependent status; re-evaluate each selected installation separately. As in existing update modes, local-only/offline never starts a PyPI request. A compatible candidate is release metadata, not a claim that uv's resolver, artifacts, constraints, or dependency graph will install it.
 
 ### R4 — D-021 Vocabulary Extension (`uvToolUpdate`, `uvToolUninstall`)
 
@@ -181,81 +158,48 @@ M14 extends the three-layer architecture (D-001) across **eight sequential phase
      `"must be one of npmUpdate, npmUninstall, homebrewFormulaUpdate, homebrewFormulaUninstall, homebrewCaskUpdate, homebrewCaskUninstall, uvToolUpdate, uvToolUninstall"`.
    - **No `pip` cases exist in `AcceptedOperation`.** Any attempt to declare `"pipUpdate"` or `"pipUninstall"` in `DefaultDetectors.json` fails schema decoding at load time.
 2. **Shared Serial Mutation Gate (`OperationExecutionGate.shared`):**
-   - `UvToolUpdateOperation` and `UvToolUninstallOperation` acquire the process-wide `OperationExecutionGate.shared` (`Sources/AgentLensCore/Operations/OperationModels.swift`) across both `prepare` and `execute`, preventing concurrent mutations across npm, Homebrew formula, Homebrew cask, and `uv tool`.
+   - Use the same process-wide `OperationExecutionGate.shared` for prepare and execute; acquire/release separately for each call. Do not hold it across UI confirmation. Execute revalidates under the gate before launching; another operation may finish during preview.
 
 ### R5 — `uv` Environment Isolation, Pin/Constraint Guardrails & Execution Contract (`Sources/AgentLensCore/Operations/UvToolOperationModels.swift`)
 
-1. **Clean Subprocess Environment (`UvToolOperationEnvironment`):**
-   - Both `uv tool upgrade` and `uv tool uninstall` execute directly via `OperationProcessRunner` (literal argument vectors, no `/bin/sh -c`, process group isolation via `SETSID`) with a sanitized environment:
-     - `UV_NO_PROGRESS=1` (suppresses terminal spinners/progress bars)
-     - `UV_NO_MODIFY_PATH=1` (prevents `uv` from modifying shell RC files)
-     - `NO_COLOR=1`, `TERM=dumb` (deterministic plain-text logs)
-     - `UV_PYTHON_DOWNLOADS=never` (prevents `uv` from silently downloading a standalone Python distribution during a tool upgrade)
-2. **Two-Phase `prepare` → `claim()` → `execute` Pattern (Matching M12/M13 Operations):**
-   - Following `NpmUpdateOperation` / `HomebrewFormulaUpdateOperation` / `HomebrewCaskUpdateOperation`:
-     - `prepare(...)` re-runs `UvToolOwnershipProbe.verify` and `PyPIUpdateProbe` live, binds the single-use `UvToolUpdatePreparation` / `UvToolUninstallPreparation` token (with observed fingerprints for `uv`, `selection`, `uv-receipt.toml`, and `METADATA`), and returns `.ready(preparation)` or `.unavailable(reason)`.
-     - `execute(preparation:...)` claims the single-use preparation token (`preparation.claim()`), re-verifies all bound fingerprints immediately before spawning `uv` (failing closed with `.preconditionChanged` if anything shifted between preview and confirmation), runs the command, and executes post-action reconciliation.
-3. **Pre-Flight Receipt Guardrails (No Silent Constraint Destruction):**
-   - During `UvToolUpdateOperation.prepare`:
-     - **D-021 Policy Check:** Verify `definition.acceptedOperations.contains(.uvToolUpdate)`.
-     - **Custom Index / Non-Registry Source Refusal:** If `pythonEnvironment.indexProvenance` is `.customIndex` or `.nonRegistrySource`, return `.unavailable(.customIndexUnsupported)`.
-     - **Version Pin Refusal:** If `pythonEnvironment.isVersionPinned == true` (primary requirement in `uv-receipt.toml` carries `==` or `===`), return `.unavailable(.versionPinnedInReceipt)`.
-     - **`--with` Extra Packages Preservation:** Because `uv tool upgrade <package>` reads `<uv-tool-dir>/<tool-dir>/uv-receipt.toml` natively and preserves `[tool].requirements` extras automatically, standard PyPI `--with` extras are allowed and disclosed in `UvToolUpdatePreview.extraRequirements`.
+1. **Bound Execution Context:** Use `OperationCommandRunner` / `ProcessOperationCommandRunner`, direct argv, and the existing process-group cancellation. Allowlist the subprocess environment. Set `UV_TOOL_DIR` and `UV_TOOL_BIN_DIR` to the canonical verified roots, bind both directory identities plus the exact package, managed shim, working directory and relevant receipt/settings, and revalidate under the gate just before spawn. Do not inherit registry, Python, root, config or loader overrides that can change the frozen command. Production must not expose fixture-only overrides.
+2. **Configuration and Interpreter:** [uv tool configuration](https://docs.astral.sh/uv/concepts/configuration-files/) can come from user/system files or environment and can change resolution independently of the receipt. Prove the effective configuration for the supported case; refuse custom/ambiguous inputs rather than silently substituting a registry or interpreter. Disable ambient config after establishing parity; explicitly bind the supported index and selected environment's observed base interpreter in the update command. Prove these exact flags and their effect in M14-A with the [uv CLI contract](https://docs.astral.sh/uv/reference/cli/#uv-tool-upgrade); a Python preference is not an interpreter binding. Do not download Python or silently replace the interpreter.
+3. **Prepare, Claim, Execute:** Check the matching D-021 grant before any observation, query, or process. Both operations perform fresh ownership proof and bind a single-use preparation to all relevant facts. Only Update requests fresh registry metadata. Execute claims once, repeats live preconditions, refuses drift (`.preconditionChanged`) and reconciles after any launch. Cancel, timeout, or nonzero exit cannot imply state intact.
+4. **Update Constraints:** Refuse custom, direct or unknown effective sources, unsupported receipt settings/channel, and exact pins (`==` without wildcard, or `===`) on any receipt requirement. Respect non-exact constraints, including upper bounds and `==X.*`; an update preview requires a newer stable candidate satisfying the primary receipt specifier as well as `Requires-Python`. Standard extras can be reported and preserved only after a real-uv case proves preservation (OD-M14-3). An uninstall does not require registry access or an unpinned version; it does require exact ownership and accounting for every receipt-managed shim it may remove.
 
 ### R6 — `uv tool upgrade` Operation & Post-Upgrade Reconciliation (`Sources/AgentLensCore/Operations/UvToolUpdateOperation.swift`)
 
-1. **Exact Command Vector:**
-   - `[manager.canonicalTarget, "tool", "upgrade", "--no-progress", "--python-preference", "system", verified.packageName]`
-   - Timeout: **`180.0s`** (`defaultExecutionTimeoutSeconds: 180.0`).
-2. **4-Step Post-Upgrade Reconciliation (Never Trust Exit Code `0` Alone):**
-   - After subprocess termination, re-run `ToolDetector`, `PathDiagnostics`, and `UvToolOwnershipProbe` for the tool definition:
-     1. Confirm `.uvTool` ownership still verifies for `verified.packageName` inside the same `installationRoot`.
-     2. Read the post-upgrade `.dist-info/METADATA` `Version:` (`observedAfterVersion`).
-     3. Confirm `<uv-tool-bin-dir>/<executableName>` and `<uv-tool-dir>/<tool-dir>/bin/<executableName>` exist and are executable.
-     4. Evaluate outcome:
-        - If exit code == `0` and `VersionComparison.ordering(beforeVersion, afterVersion, scheme: .pep440) == .older`: invalidate `pypi-update-metadata-v1.json` and return **`.updated`** (`previousVersion: beforeVersion`, `currentVersion: afterVersion`).
-        - If exit code == `0` and `afterVersion == beforeVersion`: return **`.failed(.versionUnchanged)`** (an update operation is only prepared when `.updateAvailable` was proved, so remaining on `beforeVersion` after `uv tool upgrade` is truthfully reported as an unchanged-version failure).
-        - If exit code != `0` and post-probe confirms the pre-upgrade version and ownership remain intact: return **`.failed(.commandFailedStateIntact)`**.
-        - If post-probe fails ownership or executable verification: return **`.failed(.verificationLostAfterUpgrade)`**.
+1. **Command contract:** One normalized package, no `--all`/force/reinstall, verified tool/bin roots, no ambient config, no Python download and no channel widening. The exact production argv (including explicit supported index and existing interpreter) is frozen from M14-A evidence, not inferred from flag names. Timeout: `180.0s`. Preview names target, environment, interpreter, receipt constraints, and effects; it does not promise a version.
+2. **Reconciliation:** Re-detect and verify the same manager/roots/package, installed script and managed shims, interpreter, and receipt constraints. Success requires exit zero, intact identity/constraints and a strictly newer supported PEP 440 version. PEP 440 equality (not raw text equality) is unchanged, not success. Downgrade, incomparable version, changed-on-error, verification loss, cancellation and timeout must have truthful, non-success outcomes and re-observed state. Invalidate affected metadata whenever the launched action may have changed installation state; a failed command can mutate before exiting.
 
 ### R7 — `uv tool uninstall` Operation & Post-Uninstall Reconciliation (`Sources/AgentLensCore/Operations/UvToolUninstallOperation.swift`)
 
 1. **Exact Command Vector:**
-   - `[manager.canonicalTarget, "tool", "uninstall", "--no-progress", verified.packageName]`
+   - `[manager.canonicalTarget, "tool", "uninstall", "--no-progress", verified.packageName]`, with R5's verified roots and frozen execution context (confirm exact argv in M14-A).
    - Timeout: **`60.0s`** (`defaultExecutionTimeoutSeconds: 60.0`).
 2. **3-Step Post-Uninstall Reconciliation & Shadowed Binary Disclosure:**
    - After `uv tool uninstall <package>` completes:
      1. Confirm `verified.installationRoot` (`<uv-tool-dir>/<tool-dir>`) no longer exists (`lstat` returns `ENOENT`).
-     2. Confirm `verified.selection.entryPath` (`<uv-tool-bin-dir>/<executableName>`) no longer exists (or no longer resolves into `verified.installationRoot`).
-     3. Re-run `ToolDetector` and `PathDiagnostics` for `definition`:
-        - If both `<uv-tool-dir>/<tool-dir>` and its bin shim are gone and `ToolDetector` finds no remaining executable: invalidate `pypi-update-metadata-v1.json` and return **`.uninstalled`** (`remainedInstalled: false`).
-        - If both `<uv-tool-dir>/<tool-dir>` and its bin shim are gone, **but** `ToolDetector` discovers another copy of `<executableName>` at a lower-precedence path (e.g., `/opt/homebrew/bin/aider` from Homebrew formula or a project venv): invalidate cache and return **`.uninstalledWithRemainingExecutable(remainingPath: ...)`** (matching M12/M13 multi-copy disclosure).
-        - If `<uv-tool-dir>/<tool-dir>` or its shim still exists: return **`.failed(.installationStillPresent)`**.
+     2. Confirm all receipt-managed shims are removed from the verified bin root. An entry replaced by another manager is not proof of clean removal; do not delete it. Preserve the result of the lock/identity checks and distinguish still-present, stale/unknown, and mixed state.
+     3. Re-run `ToolDetector` and `PathDiagnostics`: with a clean exit and the proved target and shims absent, report `.uninstalled` or `.uninstalledWithRemainingExecutable(remainingPath: ...)` as observed. Nonzero/cancelled/timed-out exits with changed state and partial removals are not success or “state intact.” Report observed post-state and invalidate affected metadata as in R6.
 
 ### R8 — Mandatory Refusal & Informational Semantics (`pip` vs `uvTool`)
 
 1. **`pip` Is Informational-Only by Construction:**
    - Tools verified under `.pip` NEVER expose Update or Uninstall action buttons in `ToolDetailView` and NEVER pass `WorkflowPresentation` mutation gating.
-   - Instead, `ToolDetailView`, `OwnershipVerificationView`, `InstallationOwnershipRenderer`, and `agent-lensverify-ownership` / `agent-lensupdates` display rich read-only Python environment diagnostics:
+   - `ToolDetailView`, `OwnershipVerificationView`, and `InstallationOwnershipRenderer` display read-only Python diagnostics. CLI diagnostics are available through `agent-lens verify-installation <tool-id>` and the existing `agent-lens scan` update modes as applicable:
      - **Environment Root:** `<env-root>` (e.g. `~/.local/pipx/venvs/aider-chat` or `/opt/homebrew/Cellar/python@3.15/...`)
      - **Environment Type:** `Virtual environment (venv)`, `pipx environment`, `Externally managed Python (PEP 668)`, or `Shared Python prefix`
      - **Python Interpreter:** `Python X.Y.Z`
-     - **Safe Guidance Copy:** Context-specific read-only guidance (for `pipx`: *"Managed in a pipx virtual environment (read-only in Agent Lens)."* For PEP 668 / shared `pip`: *"Read-only in Agent Lens to protect externally managed or shared Python environments (PEP 668)."*).
-2. **CLI Guardrails on `agent-lensupdate` and `agent-lensuninstall`:**
-   - If the user invokes `agent-lensupdate <tool-id>` or `agent-lensuninstall <tool-id>` on a tool whose active ownership is `.pip`, the CLI exits with non-zero refusal status and clear diagnostic output explaining that `pip` environments are read-only in V1 and only verified `uv tool`, `Homebrew`, and `npm` global installs can be mutated.
+     - **Safe guidance:** Distinguish pipx, venv, externally managed system Python, and shared prefixes. A shared prefix is read-only without necessarily being PEP 668 managed.
+2. **Shipping CLI remains read-only (D-022):** No new verbs, including `update`, `uninstall`, `updates`, or `verify-ownership`. Existing unknown-command refusal still applies, without scanning or invoking a manager.
 
 ### R9 — Capability Matrix Grammar Extension (`docs/capability-matrix.md` & `CapabilityMatrixTests.swift`)
 
 1. **Catalogue Parity Contract (`Tests/AgentLensCoreTests/CapabilityMatrixTests.swift`):**
    - `CapabilityMatrixTests` enforces bidirectional parity between `DefaultDetectors.json` and `docs/capability-matrix.md`.
-   - Extend `CapabilityMatrixTests` package and operation token parsers to recognize M14 tokens:
-     - In the **Allowed Package Managers** column:
-       - `` `uvTool:<pkg>` `` → `DeclaredPackage(manager: .uvTool, name: "<pkg>")`
-       - `` `pip:<pkg>` `` → `DeclaredPackage(manager: .pip, name: "<pkg>")`
-     - In the **Accepted Operations (`D-021`)** column:
-       - `` `uvToolUpdate` `` → `AcceptedOperation.uvToolUpdate`
-       - `` `uvToolUninstall` `` → `AcceptedOperation.uvToolUninstall`
-   - Update `docs/capability-matrix.md` in the same phase (`M14-E`) as `DefaultDetectors.json` so `aider` and `hermes` rows list their `homebrewFormula`, `uvTool`, and `pip` declarations and `acceptedOperations` in lockstep.
+   - Extend package/operation parity for `uvTool:<pkg>`, `pip:<pkg>`, `uvToolUpdate`, and `uvToolUninstall`. Extend `latest-check` and mutation-cell rules, not just token parsing. Append `uvTool` and `pip` after the existing manager order for latest-check, and qualify both on verified supported PyPI provenance. Append `yes: uvTool (verified uv tool copies only)` after the existing mutation managers, only for the matching declared manager and accepted operation. Never emit a `pip` mutation cell. Assert rejection of unsupported or ungranted claims.
+   - Change `docs/capability-matrix.md` in lockstep with `DefaultDetectors.json`: declarations and latest-check grammar in E, accepted per-tool grants and matching mutation cells at the H promotion gate (R10). Do not claim runtime support on paths that proof does not cover.
 
 ### R10 — Promotions in `DefaultDetectors.json` (`aider` and `hermes`)
 
@@ -269,15 +213,7 @@ M14 extends the three-layer architecture (D-001) across **eight sequential phase
        { "manager": "pip", "name": "aider-chat" }
      ]
      ```
-   - `acceptedOperations`:
-     ```json
-     [
-       "homebrewFormulaUpdate",
-       "homebrewFormulaUninstall",
-       "uvToolUpdate",
-       "uvToolUninstall"
-     ]
-     ```
+   - E preserves existing Homebrew operation grants. H may append `uvToolUpdate` and `uvToolUninstall` only with the owner-authorized, accepted per-tool evidence below.
 2. **`hermes` (`Hermes`):**
    - `extraSearchRoots`: remains `["~/.local/bin"]`.
    - `packages`:
@@ -288,51 +224,32 @@ M14 extends the three-layer architecture (D-001) across **eight sequential phase
        { "manager": "pip", "name": "hermes-agent" }
      ]
      ```
-   - `acceptedOperations`:
-     ```json
-     [
-       "homebrewFormulaUpdate",
-       "homebrewFormulaUninstall",
-       "uvToolUpdate",
-       "uvToolUninstall"
-     ]
-     ```
-   - **Workstation Coexistence Note:** On the local workstation, `~/.local/bin/hermes` is a symlink to `~/.hermes/hermes-agent/.hermes/bin/hermes` (a standalone git checkout wrapper with no `uv-receipt.toml` and no `site-packages/*.dist-info` for `hermes-agent` owning the script). Under R1, it classifies as `"standalone"`, fails `uvTool` verification cleanly with `.managerRootMismatch` (or `.managerUnavailable` when `uv` is absent), and remains read-only standalone—proving that adding `uvTool:hermes-agent` and `pip:hermes-agent` never misclassifies a git-checkout install.
+   - E preserves existing Homebrew operation grants. H may append `uvToolUpdate` and `uvToolUninstall` only after a separate `hermes-agent` scenario is accepted; neither a sibling-isolation check nor `aider-chat` acceptance qualifies. The observed standalone Hermes wrapper remains unverified unless the exact selected executable has affirmative manager proof.
 3. **Frozen Catalogue Anchor Updates (`BundledRegistryResourceTests.swift` & `DetectorRegistryTests.swift`):**
-   - Update the expected `packages`, `acceptedOperations`, and `extraSearchRoots` assertions for `aider` and `hermes` in `BundledRegistryResourceTests` and `DetectorRegistryTests` in lockstep during `M14-E`, and add explicit negative assertions confirming `goose`, `dsh`, and `agy` declare zero `.uvTool` or `.pip` packages.
+   - Update the `aider` and `hermes` catalogue assertions with each E/H change. Verify `goose`, `dsh`, and `agy` get no Python candidates. **D-021:** Collect independent evidence of Update and Uninstall for each proposed ID in G using test-only definitions. H can grant only operations the owner authorized and whose per-ID evidence the orchestrator accepted. No approval or incomplete evidence means no corresponding grant.
 
 ### R11 — CLI, AppSupport & SwiftUI Surface Parity
 
-1. **CLI (`Sources/agent-lens/main.swift`):**
-   - `verify-ownership` and `updates` render `.uvTool` (`"uv tool"`) and `.pip` (`"pip"`), including Python interpreter version, environment kind, and `UnknownReason.pythonInterpreterIncompatible`.
-   - `update` and `uninstall` subcommands dispatch `.uvTool` verified tools to `UvToolUpdateOperation` / `UvToolUninstallOperation` (supporting `--dry-run` preview and `--confirm` execution) and refuse `.pip` with actionable diagnostic copy.
+1. **Read-only CLI parity:** `verify-installation` renders verified Python ownership via `InstallationOwnershipRenderer`; `scan --check-updates`, `scan --refresh-updates`, and `scan --offline` use the usual coordinator and renderer. Preserve existing verbs, return codes, login-shell seams, and no-network local/offline behavior. Mutation is native AppSupport/App only.
 2. **AppSupport (`Sources/AgentLensAppSupport/WorkflowPresentation.swift`, `InventoryViewModel.swift`, `InventoryService.swift`):**
    - `WorkflowPresentation` enables Update and Uninstall workflow availability for `.uvTool` when `acceptedOperations` contains `.uvToolUpdate` / `.uvToolUninstall` and ownership is `.verified` with `manager == .uvTool`.
    - For `.pip` verified ownership, `WorkflowPresentation` returns read-only informational state with specific Python environment guidance (`pipx`, `venv`, `PEP 668 externally managed`, or `shared prefix`).
    - `InventoryService` wires `PyPIUpdateMetadataCache` into cache clearing and wires `UvToolUpdateOperation` / `UvToolUninstallOperation` into live operation execution.
 3. **App (`Sources/AgentLensApp/ToolDetailView.swift`, `OwnershipVerificationView.swift`, `UvToolUpdateOperationView.swift`, `UvToolUninstallOperationView.swift`, `SettingsView.swift`, `MainWindow.swift`):**
-   - Add `UvToolUpdateOperationView.swift` and `UvToolUninstallOperationView.swift` in `Sources/AgentLensApp/` following the 3-step preview → running → reconciled outcome sheet pattern from `HomebrewUpdateOperationView` / `HomebrewUninstallOperationView`.
+   - Use the native preview → running → reconciled outcome sheet pattern, preserving M12 preparation invalidation and C-1 confirmation/cancellation. Changing a selection, scan or eligibility must not retarget an open confirmation. Do not invalidate an already-running operation as if it never started.
    - Extend `OwnershipVerificationView.swift` to surface Python interpreter version and environment kind when `pythonEnvironment` is present on `VerifiedInstallation`.
    - Extend `SettingsView.swift` ("Clear Cached Metadata") so clearing update caches also clears `pypi-update-metadata-v1.json`.
 
 ### R12 — Disposable Acceptance Harness & Workstation `uv` Provisioning Strategy (`Tests/Fixtures/M14/`)
 
-1. **Workstation `uv` Observation & Self-Contained Harness Design:**
-   - Inspection during Milestone 1 confirmed that **`uv` is not permanently installed on the workstation's default `PATH`** (`/opt/homebrew/bin/uv` and `~/.local/bin/uv` do not exist; `/opt/homebrew/bin/python3` 3.15.2, `/opt/homebrew/bin/pip3` 26.2.2, and `/opt/homebrew/bin/pipx` 1.18.11 are installed).
-   - Therefore, M14's disposable acceptance harness (`Tests/Fixtures/M14/python_acceptance.py`) MUST NOT depend on a pre-existing personal `uv` installation or mutate `~/.local/share/uv`, `~/.local/bin`, or `~/.cache/uv`.
-2. **Two-Tier Real-Execution Harness (`Tests/Fixtures/M14/python_acceptance.py`):**
-   - **Isolated Sandbox Root (`mkdtemp`):** Every acceptance run creates a temporary sandbox directory `SANDBOX` with isolated `UV_TOOL_DIR=$SANDBOX/uv-tools`, `UV_TOOL_BIN_DIR=$SANDBOX/uv-bin`, `UV_CACHE_DIR=$SANDBOX/uv-cache`, `PIP_CACHE_DIR=$SANDBOX/pip-cache`, and a local wheelhouse `$SANDBOX/wheelhouse`.
-   - **Local Wheelhouse Generation (100% Offline, Deterministic Real Wheels):**
-     - Using `/opt/homebrew/bin/python3` (or `/usr/bin/python3`), the harness builds real `.whl` archives in `$SANDBOX/wheelhouse` (`aider_chat-0.85.0-py3-none-any.whl` and `aider_chat-0.86.2-py3-none-any.whl`, plus an incompatible-Python wheel `aider_chat-0.87.0-py3-none-any.whl` with `Requires-Python: >=3.99` and a sibling `hermes_agent-0.19.0-py3-none-any.whl`) containing valid PEP 427 `.dist-info/{METADATA,WHEEL,RECORD,entry_points.txt}` and working console-script entry points (`aider --version`, `hermes --version`).
-   - **`uv` Binary Resolution / Provisioning in `M14-A` & `M14-G`:**
-     - The harness resolves `uv` in order: (1) `AGENT_LENS_UV_BIN` env override, (2) `which uv` on login shell `PATH`, (3) a hermetic disposable `uv` binary provisioned in `/tmp/agent-lens-m14-uv/bin/uv` (installed in a disposable venv during `M14-A` / `M14-G` without touching personal directories), or (4) on air-gapped CI runners without `uv`, a POSIX-compliant `uv` CLI fixture in `$SANDBOX/shim-bin/uv` backed by `python3 -m venv` + `pip install --no-index --find-links $SANDBOX/wheelhouse` that implements `uv tool dir`, `uv tool dir --bin`, `uv tool install`, `uv tool upgrade`, `uv tool uninstall`, and writes canonical `uv-receipt.toml` files.
-     - **Mandatory Live-`uv` Proof Gate:** During `M14-A` (Feasibility Gate) and `M14-G` (Acceptance Gate) on this workstation, we will provision a real `uv` binary inside `/tmp/agent-lens-m14-uv` (never touching `/opt/homebrew` or `~/.local`) to verify real `uv` CLI flags, `uv-receipt.toml` formatting, exit codes, and full lifecycle upgrade/uninstall against the real `uv` binary, AND verify that the offline CI mode of `python_acceptance.py` passes identically when `uv` is absent on fresh runners.
+1. **Real-manager prerequisite:** Pin a real uv version and verify the binary's official artifact digest. Provision outside personal prefixes, into per-run `mkdtemp` (or pass a verified binary into that run). Provisioning and execution are separate: network access for fetching the verified artifact is not part of the offline fixture run. An unavailable real uv binary blocks the real-manager gate; a shim is never equivalent evidence.
+2. **Isolated real execution:** Use scratch `HOME`, `XDG_*`, tool/bin/cache/temp roots and disposable Python environments. Build real wheels, with old/new `aider-chat` **and** `hermes-agent` versions, a `Requires-Python` rejection case, and independent sentinel installs. Use a local index with only the old wheel initially; install by unpinned name and expose the next release afterward. Do not edit receipts, install with `==old` for the success case, or treat a production-refused `--find-links` source as public PyPI. In A, prove a fixture route for real uv using isolated test configuration/transport; production keeps its public-index refusal policy. In G, any endpoint substitution must exist only at the host's injected test boundary; separately prove the unmodified production policy rejects that custom source. Do not count host-only evidence as a native UI journey.
 3. **7 End-to-End Acceptance Scenarios (`python_acceptance.py` + `PythonAcceptanceHost.swift`):**
-   1. **Disposable `uv tool` Upgrade Lifecycle:** Install `aider-chat` `0.85.0` into `$SANDBOX/uv-tools/aider-chat`, verify `.uvTool` ownership, probe latest `0.86.2`, execute `UvToolUpdateOperation` through `InventoryViewModel`, verify post-upgrade reconciliation advances installed version to `0.86.2` and invalidates `pypi-update-metadata-v1.json`.
-   2. **Disposable `uv tool` Uninstall Lifecycle:** Execute `UvToolUninstallOperation` on `aider-chat` `0.86.2`, verify `<uv-tool-dir>/aider-chat` and `<uv-tool-bin-dir>/aider` are removed and post-uninstall scan reports not installed.
+   1. **Disposable `uv tool` Upgrade Lifecycle:** Run separately for `aider-chat` and `hermes-agent` with test-only D-021 definitions. Prove ownership, preview, Cancel without mutation, re-prepare and Confirm through `InventoryViewModel`, verified version advance and proper cache invalidation. Capture real uv commands/results and environment/receipt checks.
+   2. **Disposable `uv tool` Uninstall Lifecycle:** Run separately for each ID after update. Verify removal of the target and its managed shims, truthful post-rescan state, and shadowed-copy disclosure. Also observe a native-app Cancel/Confirm/rescan journey against a disposable validated install; distinguish the native receipt from the fixture-host receipt.
    3. **Cross-Environment Isolation Proof:** Install both `aider-chat` (`uv tool`) and `hermes-agent` (`uv tool`) plus a separate `pip` venv `<pip-venv>/bin/aider`; prove upgrading/uninstalling `aider-chat` in `uv-tools` leaves `hermes-agent` and `<pip-venv>` completely untouched (byte-identical mtimes/inodes) and refuses cross-targeted symlinks.
-   4. **`uv` vs `pip` Ownership Distinction & Informational Enforcement:** Verify `<pip-venv>/bin/aider` proves `.pip` ownership (`environmentKind: .virtualEnvironment`), displays interpreter version and environment root, and refuses `update`/`uninstall` at both `WorkflowPresentation` and CLI levels.
-   5. **Custom/Unavailable Index & Non-Registry Truthfulness:** Verify a `uv-receipt.toml` with custom `index-url = "https://corp.internal/simple"` or `direct_url.json` VCS source reports `.unknown(installed: ..., reason: .unsupportedRegistry)` without querying `pypi.org` and blocks `uv tool upgrade` with `.customIndexUnsupported`.
+   4. **`uv` vs `pip` Ownership Distinction:** Prove native read-only pip/venv and pipx diagnostics with `uv` absent, no mutation availability or execution through AppSupport, and diagnostic CLI parity. The CLI rejects mutation verbs regardless of manager.
+   5. **Index and Source Truthfulness:** Separately test a custom registry, a direct source, unknown provenance (including a named pip installation missing `direct_url.json`), an unavailable supported registry, and hostile ambient configuration. The first three cause no public request or cache lookup; an unavailable eligible registry stays unknown unless a valid cache fact is applicable. No custom/unknown uv update.
    6. **`requires_python` Interpreter Compatibility Proof:** Against a fixture PyPI payload where `0.86.2` requires `>=3.10` and `0.87.0` requires `>=3.99`, verify an environment running Python `3.12`/`3.15` recommends `0.86.2` when on `0.85.0`, and reports `.unknown(installed: ..., reason: .pythonInterpreterIncompatible)` when already on `0.86.2` and only `0.87.0` is newer.
    7. **100% Offline Local Inventory & Ownership Proof:** With network blocked / unreachable PyPI endpoint, verify `ToolDetector` and `InstallationOwnershipVerifier` discover and verify both `uvTool` and `pip` installations cleanly with zero network dependency.
 
@@ -342,18 +259,18 @@ M14 is divided into eight sequential phases (`M14-A` through `M14-H`) using veri
 
 | Phase | Scope | Allowed Files to Create / Modify |
 | --- | --- | --- |
-| **M14-A** | Live `uv` & `pip` Feasibility Probe Gate (read-only workstation + disposable `/tmp` scratch verification of `uv-receipt.toml`, `.dist-info`, `uv tool dir`, `uv tool upgrade/uninstall` flags) | `briefs/M14-A-feasibility.md` *(new, no product code changes)* |
-| **M14-B** | Core Python Ownership (`PackageManager.uvTool`/`.pip`, `UvToolOwnershipProbe`, `PipOwnershipProbe`, `PythonEnvironmentMetadata`, routing in `InstallationOwnershipVerifier`, renderer & exhaustive switch updates) | `Sources/AgentLensCore/Detection/DetectorMetadata.swift`, `Sources/AgentLensCore/Detection/DetectorRegistry.swift`, `Sources/AgentLensCore/Ownership/InstallationOwnership.swift`, `Sources/AgentLensCore/Ownership/InstallationOwnershipVerifier.swift`, `Sources/AgentLensCore/Ownership/InstallationOwnershipRenderer.swift`, `Sources/AgentLensCore/Ownership/UvToolOwnershipProbe.swift` *(new)*, `Sources/AgentLensCore/Ownership/PipOwnershipProbe.swift` *(new)*, `Sources/AgentLensCore/Updates/UpdateProbeCoordinator.swift`, `Sources/agent-lens/main.swift`, `Sources/AgentLensAppSupport/WorkflowPresentation.swift`, `Sources/AgentLensAppSupport/InventoryViewModel.swift`, `Sources/AgentLensApp/OwnershipVerificationView.swift`, `Tests/AgentLensCoreTests/DetectorMetadataTests.swift`, `Tests/AgentLensCoreTests/InstallationOwnershipTests.swift`, `Tests/AgentLensCoreTests/UvToolOwnershipTests.swift` *(new)*, `Tests/AgentLensCoreTests/PipOwnershipTests.swift` *(new)*, `Tests/AgentLensAppSupportTests/OwnershipVerificationTests.swift` |
-| **M14-C** | Core PEP 440 Engine, `requires_python` Specifier Set & PyPI Latest-Version Probe (`PEP440Version`, `PyPIUpdateProbe`, `PyPIUpdateMetadataCache`, `pypi-update-metadata-v1.json`, `UpdateProbeCoordinator` integration) | `Sources/AgentLensCore/Updates/VersionComparison.swift`, `Sources/AgentLensCore/Updates/VersionStatus.swift`, `Sources/AgentLensCore/Updates/PEP440Version.swift` *(new)*, `Sources/AgentLensCore/Updates/PyPIUpdateProbe.swift` *(new)*, `Sources/AgentLensCore/Updates/PyPIUpdateMetadataCache.swift` *(new)*, `Sources/AgentLensCore/Updates/UpdateProbeCoordinator.swift`, `Sources/AgentLensCore/Updates/UpdateScanRenderer.swift`, `Sources/AgentLensAppSupport/WorkflowPresentation.swift`, `Sources/AgentLensAppSupport/InventoryService.swift`, `Sources/AgentLensAppSupport/InventoryViewModel.swift`, `Sources/AgentLensApp/SettingsView.swift`, `Tests/AgentLensCoreTests/VersionComparisonTests.swift`, `Tests/AgentLensCoreTests/VersionStatusTests.swift`, `Tests/AgentLensCoreTests/PEP440VersionTests.swift` *(new)*, `Tests/AgentLensCoreTests/PyPIUpdateProbeTests.swift` *(new)*, `Tests/AgentLensCoreTests/PyPIUpdateMetadataCacheTests.swift` *(new)*, `Tests/AgentLensCoreTests/UpdateProbeCoordinatorTests.swift`, `Tests/AgentLensCoreTests/UpdateCLIIntegrationTests.swift` |
-| **M14-D** | Core `uv tool` Update & Uninstall Operations (`AcceptedOperation.uvToolUpdate`/`.uvToolUninstall`, `UvToolOperationModels`, `UvToolUpdateOperation`, `UvToolUninstallOperation`, post-action reconciliation, CLI `update`/`uninstall` wiring) | `Sources/AgentLensCore/Detection/DetectorMetadata.swift`, `Sources/AgentLensCore/Operations/UvToolOperationModels.swift` *(new)*, `Sources/AgentLensCore/Operations/UvToolUpdateOperation.swift` *(new)*, `Sources/AgentLensCore/Operations/UvToolUninstallOperation.swift` *(new)*, `Sources/agent-lens/main.swift`, `Tests/AgentLensCoreTests/DetectorMetadataTests.swift`, `Tests/AgentLensCoreTests/UvToolOperationTests.swift` *(new)*, `Tests/AgentLensCoreTests/MutationAcceptanceGateTests.swift`, `Tests/AgentLensCoreTests/UpdateCLIIntegrationTests.swift` |
-| **M14-E** | Registry Promotions (`aider`, `hermes`) & Capability Matrix Parity | `Sources/AgentLensCore/Detectors/DefaultDetectors.json`, `docs/capability-matrix.md`, `Tests/AgentLensCoreTests/CapabilityMatrixTests.swift`, `Tests/AgentLensCoreTests/BundledRegistryResourceTests.swift`, `Tests/AgentLensCoreTests/DetectorRegistryTests.swift` |
-| **M14-F** | AppSupport & SwiftUI Workflow Parity (`UvToolUpdateOperationView`, `UvToolUninstallOperationView`, `ToolDetailView`, `OwnershipVerificationView`, `MainWindow`, `InventoryViewModel`, `InventoryService`, `WorkflowPresentation`) | `Sources/AgentLensAppSupport/WorkflowPresentation.swift`, `Sources/AgentLensAppSupport/InventoryViewModel.swift`, `Sources/AgentLensAppSupport/InventoryService.swift`, `Sources/AgentLensApp/UvToolUpdateOperationView.swift` *(new)*, `Sources/AgentLensApp/UvToolUninstallOperationView.swift` *(new)*, `Sources/AgentLensApp/ToolDetailView.swift`, `Sources/AgentLensApp/OwnershipVerificationView.swift`, `Sources/AgentLensApp/MainWindow.swift`, `Tests/AgentLensAppSupportTests/WorkflowPresentationTests.swift`, `Tests/AgentLensAppSupportTests/InventoryViewModelTests.swift`, `Tests/AgentLensAppSupportTests/InventoryServiceTests.swift` |
+| **M14-A** | Live `uv`, `pip` and `pipx` feasibility; close missing evidence and independently accept the gate | `briefs/M14-A-feasibility.md` (append a dated supplement; retain the committed evidence and label its original verdict as superseded once independently decided) |
+| **M14-B** | Core Python ownership and local diagnostics; no Python mutation or network probes | `Sources/AgentLensCore/Detection/DetectorMetadata.swift`, `Sources/AgentLensCore/Detection/DetectorRegistry.swift`, `Sources/AgentLensCore/Ownership/InstallationOwnership.swift`, `Sources/AgentLensCore/Ownership/InstallationOwnershipVerifier.swift`, `Sources/AgentLensCore/Ownership/InstallationOwnershipRenderer.swift`, `Sources/AgentLensCore/Ownership/UvToolOwnershipProbe.swift` *(new)*, `Sources/AgentLensCore/Ownership/PipOwnershipProbe.swift` *(new)*, `Sources/AgentLensCore/Updates/UpdateProbeCoordinator.swift`, `Sources/AgentLensAppSupport/WorkflowPresentation.swift`, `Sources/AgentLensAppSupport/InventoryViewModel.swift`, `Sources/AgentLensApp/OwnershipVerificationView.swift`, `Tests/AgentLensCoreTests/DetectorMetadataTests.swift`, `Tests/AgentLensCoreTests/InstallationOwnershipTests.swift`, `Tests/AgentLensCoreTests/UvToolOwnershipTests.swift` *(new)*, `Tests/AgentLensCoreTests/PipOwnershipTests.swift` *(new)*, `Tests/AgentLensAppSupportTests/OwnershipVerificationTests.swift` |
+| **M14-C** | PEP 440, PyPI/update orchestration and cache, exhaustive reasons at the same build boundary | `Sources/AgentLensCore/Updates/VersionComparison.swift`, `Sources/AgentLensCore/Updates/VersionStatus.swift`, `Sources/AgentLensCore/Updates/PEP440Version.swift` *(new)*, `Sources/AgentLensCore/Updates/PyPIUpdateProbe.swift` *(new)*, `Sources/AgentLensCore/Updates/PyPIUpdateMetadataCache.swift` *(new)*, `Sources/AgentLensCore/Updates/UpdateProbeCoordinator.swift`, `Sources/AgentLensCore/Updates/UpdateScanRenderer.swift`, `Sources/AgentLensCore/Operations/NpmUpdateOperation.swift` *(exhaustive mapping of the new Python-only reason only; R14)*, `Sources/AgentLensAppSupport/WorkflowPresentation.swift`, `Sources/AgentLensAppSupport/InventoryService.swift`, `Sources/AgentLensAppSupport/InventoryViewModel.swift`, `Sources/AgentLensApp/ToolDetailView.swift`, `Sources/AgentLensApp/SettingsView.swift`, `Tests/AgentLensCoreTests/VersionComparisonTests.swift`, `Tests/AgentLensCoreTests/VersionStatusTests.swift`, `Tests/AgentLensCoreTests/PEP440VersionTests.swift` *(new)*, `Tests/AgentLensCoreTests/PyPIUpdateProbeTests.swift` *(new)*, `Tests/AgentLensCoreTests/PyPIUpdateMetadataCacheTests.swift` *(new)*, `Tests/AgentLensCoreTests/UpdateProbeCoordinatorTests.swift`, `Tests/AgentLensCoreTests/UpdateCLIIntegrationTests.swift` |
+| **M14-D** | Core uv operations and D-021 vocabulary (no CLI mutation) | `Sources/AgentLensCore/Detection/DetectorMetadata.swift`, `Sources/AgentLensCore/Operations/UvToolOperationModels.swift` *(new)*, `Sources/AgentLensCore/Operations/UvToolUpdateOperation.swift` *(new)*, `Sources/AgentLensCore/Operations/UvToolUninstallOperation.swift` *(new)*, `Tests/AgentLensCoreTests/DetectorMetadataTests.swift`, `Tests/AgentLensCoreTests/DetectorRegistryTests.swift` *(AcceptedOperation error-vocabulary pin only)*, `Tests/AgentLensCoreTests/UvToolOperationTests.swift` *(new)*, `Tests/AgentLensCoreTests/MutationAcceptanceGateTests.swift` |
+| **M14-E** | Read-only Python catalogue declarations and matrix parity; no new mutation grants | `Sources/AgentLensCore/Detectors/DefaultDetectors.json`, `docs/capability-matrix.md`, `Tests/AgentLensCoreTests/CapabilityMatrixTests.swift`, `Tests/AgentLensCoreTests/BundledRegistryResourceTests.swift`, `Tests/AgentLensCoreTests/DetectorRegistryTests.swift`, `Tests/AgentLensCoreTests/UpdateCLIIntegrationTests.swift` *(only directly affected detection/diagnostic expectations)* |
+| **M14-F** | AppSupport and native workflow parity | `Sources/AgentLensAppSupport/WorkflowPresentation.swift`, `Sources/AgentLensAppSupport/InventoryViewModel.swift`, `Sources/AgentLensAppSupport/InventoryService.swift`, `Sources/AgentLensApp/UvToolUpdateOperationView.swift` *(new)*, `Sources/AgentLensApp/UvToolUninstallOperationView.swift` *(new)*, `Sources/AgentLensApp/ToolDetailView.swift`, `Sources/AgentLensApp/OwnershipVerificationView.swift`, `Sources/AgentLensApp/MainWindow.swift`, `Tests/AgentLensAppSupportTests/WorkflowPresentationTests.swift`, `Tests/AgentLensAppSupportTests/InventoryViewModelTests.swift`, `Tests/AgentLensAppSupportTests/InventoryServiceTests.swift` |
 | **M14-G** | Disposable End-to-End Acceptance Harness & Packaging Parity | `Tests/Fixtures/M14/README.md` *(new)*, `Tests/Fixtures/M14/python_acceptance.py` *(new)*, `Tests/Fixtures/M14/PythonAcceptanceHost.swift` *(new)*, `Tests/Packaging/test_dev_app_bundle.py`, `walkthroughs/M14-python-acceptance.md` *(new)* |
-| **M14-H** | CI Floors, Decision Records, Documentation Closeout & Milestone Merge Gate | `.github/workflows/ci.yml`, `DECISIONS.md`, `HANDOFF.md`, `ROADMAP.md`, `README.md`, `docs/CONTRIBUTING.md`, `docs/catalogue-identities.md` |
+| **M14-H** | D-021 grants backed by accepted per-ID evidence, final CI floors and closeout | `.github/workflows/ci.yml`, `DECISIONS.md`, `HANDOFF.md`, `ROADMAP.md`, `README.md`, `docs/CONTRIBUTING.md`, `docs/catalogue-identities.md`, `Sources/AgentLensCore/Detectors/DefaultDetectors.json`, `docs/capability-matrix.md`, `Tests/AgentLensCoreTests/CapabilityMatrixTests.swift`, `Tests/AgentLensCoreTests/BundledRegistryResourceTests.swift`, `Tests/AgentLensCoreTests/DetectorRegistryTests.swift`, `Tests/Packaging/test_dev_app_bundle.py` |
 
-### R14 — Protected File Set (Must Remain Byte-Identical Throughout M14)
+### R14 — Protected File Set
 
-The following files enforce existing detection, npm, Homebrew formula, and Homebrew cask isolation and MUST NOT be modified during M14:
+The following files enforce existing isolation and remain byte-identical unless narrowly excepted below. `Package.swift`, `Sources/agent-lens/main.swift` and historical records are protected; diagnostics change through existing renderer/coordinator seams. A newly discovered necessary change outside the allow-list is a planning stop, not permission to edit.
 
 - `Sources/AgentLensCore/Detection/ToolDetector.swift` (heuristic `classifySource` and login-shell PATH snapshots remain frozen)
 - `Sources/AgentLensCore/Ownership/NpmOwnershipProbe.swift`
@@ -366,7 +283,7 @@ The following files enforce existing detection, npm, Homebrew formula, and Homeb
 - `Sources/AgentLensCore/Updates/HomebrewCaskUpdateProbe.swift`
 - `Sources/AgentLensCore/Updates/CaskUpdateMetadataCache.swift`
 - `Sources/AgentLensCore/Operations/OperationModels.swift` (`OperationExecutionGate.shared` remains frozen)
-- `Sources/AgentLensCore/Operations/NpmUpdateOperation.swift`
+- `Sources/AgentLensCore/Operations/NpmUpdateOperation.swift` (C only: one exhaustive mapping for the Python-only `UnknownReason` in `map(_:)`; no reachable npm behavior change)
 - `Sources/AgentLensCore/Operations/NpmUninstallOperation.swift`
 - `Sources/AgentLensCore/Operations/HomebrewOperationModels.swift`
 - `Sources/AgentLensCore/Operations/HomebrewFormulaUpdateOperation.swift`
@@ -377,93 +294,51 @@ The following files enforce existing detection, npm, Homebrew formula, and Homeb
 
 ### R15 — Quantitative Timeout Budgets & Resource Caps
 
-| Operation / Seam | Timeout Budget | Size / Entry Cap | File / Symlink Safety |
-| --- | --- | --- | --- |
-| `uv tool dir` / `uv tool dir --bin` probe | `5.0s` each | `64 KiB` stdout | Direct argv, `UV_NO_CACHE=1`, `UV_OFFLINE=1` |
-| `uv-receipt.toml` & `direct_url.json` read | Synchronous local I/O | `64 KiB` | `O_RDONLY \| O_NOFOLLOW \| O_CLOEXEC`, regular file `fstat`, TOCTOU fingerprint |
-| `pyvenv.cfg` read | Synchronous local I/O | `32 KiB` | `O_RDONLY \| O_NOFOLLOW \| O_CLOEXEC`, regular file `fstat` |
-| `.dist-info/METADATA` read | Synchronous local I/O | `256 KiB` | `O_RDONLY \| O_NOFOLLOW \| O_CLOEXEC`, single-level `site-packages` glob (max 256 entries) |
-| `.dist-info/RECORD` / `entry_points.txt` read | Synchronous local I/O | `1 MiB` / `64 KiB` | `O_RDONLY \| O_NOFOLLOW \| O_CLOEXEC` |
-| Fallback `<venv>/bin/python3 --version` | `2.0s` | `4 KiB` stdout | Only run when `pyvenv.cfg` lacks version keys |
-| PyPI JSON API fetch (`pypi.org/pypi/<pkg>/json`) | `8.0s` | `1 MiB` (`1,048,576` B) | HTTPS only, skipped for non-PyPI index provenance |
-| `pypi-update-metadata-v1.json` cache | `6h` TTL (`21,600s`) | `1 MiB` (`1,048,576` B) | `O_NOFOLLOW` read, atomic temp-file rename write |
-| `uv tool upgrade <pkg>` execution | `180.0s` | `256 KiB` output buffer | `OperationExecutionGate.shared`, `UV_NO_PROGRESS=1`, `UV_NO_MODIFY_PATH=1`, `UV_PYTHON_DOWNLOADS=never` |
-| `uv tool uninstall <pkg>` execution | `60.0s` | `256 KiB` output buffer | `OperationExecutionGate.shared`, post-removal reconciliation |
+Use the existing runner's 1 MiB hard cap and reject uv root output above 64 KiB before parsing. For files, caps are byte limits applied **during** reads, even after a successful `fstat`. Open proof files descriptor-relative with `O_NOFOLLOW | O_NONBLOCK | O_CLOEXEC`, check regular type before reading, use bounded single-level enumeration, and revalidate directories/proof before publishing or mutating. A symlink in a proof directory is not made safe by `O_NOFOLLOW` on just the leaf.
+
+| Operation / Seam | Timeout Budget | Size / Entry Cap |
+| --- | --- | --- |
+| `uv tool dir` / `uv tool dir --bin` probe | `5.0s` each | Reject more than `64 KiB` stdout |
+| `uv-receipt.toml`, `direct_url.json`, `pipx_metadata.json` | Local bounded read | `64 KiB` each |
+| `pyvenv.cfg` / `INSTALLER` | Local bounded read | `32 KiB` / `4 KiB` |
+| `.dist-info/METADATA` | Local bounded read | `256 KiB`; 256 entries per enumerated directory, with realistic layouts checked in A |
+| `.dist-info/RECORD` / `entry_points.txt` | Local bounded read | `1 MiB` / `64 KiB` |
+| PyPI JSON API fetch | `8.0s` | `1 MiB`; supported provenance only |
+| `pypi-update-metadata-v1.json` cache | `6h` TTL | `1 MiB`; regular-file bounded read, atomic replacement |
+| `uv tool upgrade` | `180.0s` | Existing dual-stream operation runner cap |
+| `uv tool uninstall` | `60.0s` | Existing dual-stream operation runner cap |
 
 ### R16 — Verification & CI Gate Commands
 
-Because this workstation uses Command Line Tools (Swift 6.4.2 without full Xcode), every Swift test command MUST pass the Testing macro plugin flag and serial swiftbuild flags:
+Use the phase-specific tests plus a clean build across Core, CLI, AppSupport and App at every product phase boundary. On this Command Line Tools workstation, use the invocation-local Swift Testing plugin workaround where needed; do not change `Package.swift`, the selected toolchain or hosted CI to compensate.
 
 ```bash
-# 1. Core test suite
-swift test --build-system swiftbuild --no-parallel \
+# SCRATCH is a fresh directory outside the repository and personal install roots.
+env -u AGENT_LENS_TEST_SCRATCH -u AGENT_LENS_TEST_PRODUCTS \
+  swift build --scratch-path "$SCRATCH/build"
+env -u AGENT_LENS_TEST_SCRATCH -u AGENT_LENS_TEST_PRODUCTS \
+  swift test --build-system swiftbuild --scratch-path "$SCRATCH/tests" --no-parallel \
   -Xswiftc -load-plugin-library \
   -Xswiftc /Library/Developer/CommandLineTools/usr/lib/swift/host/plugins/testing/libTestingMacros.dylib \
-  --filter AgentLensCoreTests
-
-# 2. AppSupport test suite
-swift test --build-system swiftbuild --no-parallel \
-  -Xswiftc -load-plugin-library \
-  -Xswiftc /Library/Developer/CommandLineTools/usr/lib/swift/host/plugins/testing/libTestingMacros.dylib \
-  --filter AgentLensAppSupportTests
-
-# 3. Frozen regression anchors
-for anchor in \
-  bundledDefaultDetectorsMatchFrozenCatalogue \
-  unknownKeysAreRejectedAtRootDefinitionFixturePackageAndQueryLevels \
-  makeDetectorUsesRegistryArgumentsInTheProductionPath \
-  productionWiringUsesOnlyTheCoreLoginShellSeams; do
-  swift test --build-system swiftbuild --no-parallel \
-    -Xswiftc -load-plugin-library \
-    -Xswiftc /Library/Developer/CommandLineTools/usr/lib/swift/host/plugins/testing/libTestingMacros.dylib \
-    --filter "$anchor"
-done
-
-# 4. Guard fixtures, packaging smoke tests & M14 disposable acceptance harness
-python3 Tests/Fixtures/M9/run_guard_fixtures.py
-python3 Tests/Packaging/test_dev_app_bundle.py
-python3 Tests/Fixtures/M14/python_acceptance.py
-
-# 5. Formatting & protected-file verification
-git diff --check
-git diff --name-only main -- \
-  Sources/AgentLensCore/Detection/ToolDetector.swift \
-  Sources/AgentLensCore/Ownership/NpmOwnershipProbe.swift \
-  Sources/AgentLensCore/Ownership/HomebrewOwnershipProbe.swift \
-  Sources/AgentLensCore/Ownership/HomebrewCaskOwnershipProbe.swift \
-  Sources/AgentLensCore/Updates/NpmUpdateProbe.swift \
-  Sources/AgentLensCore/Updates/NpmUpdateMetadataCache.swift \
-  Sources/AgentLensCore/Updates/HomebrewUpdateProbe.swift \
-  Sources/AgentLensCore/Updates/UpdateMetadataCache.swift \
-  Sources/AgentLensCore/Updates/HomebrewCaskUpdateProbe.swift \
-  Sources/AgentLensCore/Updates/CaskUpdateMetadataCache.swift \
-  Sources/AgentLensCore/Operations/OperationModels.swift \
-  Sources/AgentLensCore/Operations/NpmUpdateOperation.swift \
-  Sources/AgentLensCore/Operations/NpmUninstallOperation.swift \
-  Sources/AgentLensCore/Operations/HomebrewOperationModels.swift \
-  Sources/AgentLensCore/Operations/HomebrewFormulaUpdateOperation.swift \
-  Sources/AgentLensCore/Operations/HomebrewFormulaUninstallOperation.swift \
-  Sources/AgentLensCore/Operations/HomebrewCaskUpdateOperation.swift \
-  Sources/AgentLensCore/Operations/HomebrewCaskUninstallOperation.swift
+  --filter "$PHASE_FILTER"
 ```
+
+Verify the existing named regression anchors with the affected changes and in the combined gate: `bundledDefaultDetectorsMatchFrozenCatalogue`, `unknownKeysAreRejectedAtRootDefinitionFixturePackageAndQueryLevels`, `makeDetectorUsesRegistryArgumentsInTheProductionPath`, and `productionWiringUsesOnlyTheCoreLoginShellSeams`. For G/H, also run the existing Core/AppSupport import checks, build the debug app via `scripts/build-dev-app.py --scratch-root "$SCRATCH/app" --configuration debug`, and run `python3 Tests/Packaging/test_dev_app_bundle.py --app "$SCRATCH/app/AgentLensApp-debug.app"`. Use the G harness only once it exists, with a verified `uv` binary and isolated homes. H uses the existing hosted full build/test and packaging gates, zero skips/failures, and raises count floors from observed passing results only.
+
+Compare each candidate against its pinned phase base (names and content), including `git diff --check <phase-base>...<candidate>` and the R13/R14 path/exception audit. A clean worktree does not prove a committed patch was docs-only. Implementer transcripts and test receipts are not acceptance: the orchestrator independently observes the phase gates (D-014), gets read-only independent reviews from the owner-designated reviewers, and records the verdict before the next dispatch. No implementation, commit, push, merge or release authorization follows from this plan.
 
 ---
 
 ## 3. Detailed Phase Breakdown (`M14-A` through `M14-H`)
 
 ### Phase M14-A — Live `uv` & `pip` Feasibility Probe Gate
-- **Goal:** Verify real `uv` CLI output formats (`uv tool dir`, `uv tool dir --bin`, `uv-receipt.toml` schema, `uv tool upgrade` / `uv tool uninstall` flags and exit codes) and local `pip`/`pipx` `.dist-info` + `pyvenv.cfg` layouts inside an isolated `/tmp/agent-lens-m14-probe` scratch directory without modifying any personal environment.
-- **Deliverable:** `briefs/M14-A-feasibility.md` recording exact observed `uv-receipt.toml` TOML structure, `pyvenv.cfg` keys, `.dist-info/{METADATA,RECORD,INSTALLER,entry_points.txt,direct_url.json}` layouts, and exit code behavior.
-- **Exit Gate:** `git status --short` shows only `briefs/M14-A-feasibility.md`; `/tmp/agent-lens-m14-probe` cleaned up or isolated.
+- **What the committed report establishes:** `5ae73e5` adds only `briefs/M14-A-feasibility.md`. Its record includes an isolated stdlib venv and pip install, `Requires-Python` rejection, a PEP 668 marker on the observed Homebrew runtime, a sample shim target, and a `RECORD` row. Keep these observations. A receipt schema description and the observation that uv was not on the normal PATH do not establish that the required real-uv lifecycle was run. The report's blanket PASS is not accepted.
+- **What must be added:** Pinned real `uv` identity/version/digest; exact commands, relevant sanitized environment, separate output and exit statuses for `tool dir`, `tool dir --bin`, install, upgrade and uninstall in isolated roots; actual `pyvenv.cfg`, receipt and shim/RECORD excerpts before/after. Show an unpinned upgrade and an uninstall in explicit non-default roots with a sibling environment unchanged. Include primary vs `--with`, index/direct source and constraint evidence (including what is *not* persisted), and verify interpreter retention and exact flags. Check real pipx pip/installer metadata and the selected script-to-site-packages/interpreter relationship for each claimed pip layout. Observe Homebrew's layout read-only or reproduce it in scratch; never install into `/opt/homebrew` or a personal prefix. Record ambiguities or unsupported layouts for an owner decision rather than calling them verified.
+- **Exit Gate:** Reproducible commands and representative receipts in the report, with raw scratch paths treated as ephemeral. Verify the scoped isolation observations and clean disposable targets. The Phase A evidence commit changes only `briefs/M14-A-feasibility.md`, on top of the separate master-plan revision. Both owner-designated reviewers and the orchestrator must independently clear the pinned evidence; record the result before dispatch. Conclusions apply to the tested tools and layouts only, not future product phases.
 
 ### Phase M14-B — Core Python Ownership (`uvTool` & `pip`)
-- **Goal:** Add `.uvTool` and `.pip` to `PackageManager`, implement `UvToolOwnershipProbe` and `PipOwnershipProbe` with `PythonEnvironmentMetadata`, wire deterministic routing in `InstallationOwnershipVerifier`, and update exhaustive switches in `UpdateProbeCoordinator`, CLI, AppSupport, and App views so the entire project compiles cleanly and passes all unit tests.
-- **Key Tests Added (`UvToolOwnershipTests.swift`, `PipOwnershipTests.swift`):**
-  - Verified `uv` tool layout with valid `uv-receipt.toml`, `pyvenv.cfg`, `.dist-info/METADATA`, and `RECORD` / `entry_points.txt`.
-  - Refusal when `<uv-tool-bin-dir>/<exe>` symlink points to a different package's venv (cross-environment symlink hijack defense).
-  - Refusal when `uv-receipt.toml` is a symlink (`O_NOFOLLOW`), oversized (> 64 KiB), missing, or declares a mismatched primary requirement.
-  - Verified `pip` ownership across `.virtualEnvironment`, `.pipxEnvironment`, `.externallyManagedSystem` (PEP 668 `EXTERNALLY-MANAGED`), and `.sharedPrefix` even when `uv` is not installed on `PATH`, plus Cellar Python (`python@3.15`) fallthrough when a detector declares both `homebrewFormula` and `pip`.
-  - Standalone git checkout wrapper (`~/.hermes/hermes-agent/.hermes/bin/hermes`) remains unverified and is never misclassified as `uvTool` or `pip`.
+- **Goal:** Add Python vocabulary, bounded ownership proof and read-only diagnostics per R1; all product targets compile with Python actions disabled and no PyPI requests. Keep bundled declarations unchanged until E.
+- **Key Tests (`UvToolOwnershipTests.swift`, `PipOwnershipTests.swift`):** Use the A receipts as fixture shapes. Verify the selected canonical script, exact managed shim and distro's installed-file evidence. Refuse cross-target roots/shims, missing or stale proof, symlinked/faulting proof components, receipt mismatch or malformed input, and the same distribution declaring a console script without owning the selected file. Prove pipx both with uv absent and with a shared uv/pipx bin directory; receipt/root evidence → no pip fallback. Distinguish pip, pipx, a marker-bearing system runtime, shared prefix, another Python installer, and standalone wrappers. Confirm the most common supported paths, not just a hand-built tree.
 
 ### Phase M14-C — Core PEP 440 Engine, `requires_python` & PyPI Update Probe
 - **Goal:** Implement `PEP440Version` and `PEP440SpecifierSet` in `PEP440Version.swift`, extend `VersionScheme` with `.pep440` and `UnknownReason` with `.pythonInterpreterIncompatible`, implement `PyPIUpdateProbe` and `PyPIUpdateMetadataCache` (`pypi-update-metadata-v1.json`), and wire `.uvTool` and `.pip` into `UpdateProbeCoordinator`.
@@ -473,32 +348,30 @@ git diff --name-only main -- \
   - PyPI candidate filtering: yanked release rejection, prerelease filtering, `requires_python` compatibility filtering (selecting highest compatible release when available, or reporting `.unknown(installed: ..., reason: .pythonInterpreterIncompatible)` when all newer releases require a newer Python interpreter), custom index / VCS provenance refusal (`.unsupportedRegistry`), and 6-hour cache TTL + interpreter-keyed cache isolation.
 
 ### Phase M14-D — Core `uv tool` Update & Uninstall Operations
-- **Goal:** Add `.uvToolUpdate` and `.uvToolUninstall` to `AcceptedOperation` (while keeping `pip` absent from `AcceptedOperation`), implement `UvToolOperationModels.swift`, `UvToolUpdateOperation.swift`, and `UvToolUninstallOperation.swift` serialized through `OperationExecutionGate.shared`, and wire CLI `agent-lensupdate` and `agent-lensuninstall` with `--dry-run` and `--confirm`.
+- **Goal:** Add the uv-only D-021 vocabulary and Core operation adapters, serialize through `OperationExecutionGate.shared`, and prove R5–R8 refusals and reconciliation. No CLI mutation verbs or bundled grants.
 - **Key Tests Added (`UvToolOperationTests.swift`, `MutationAcceptanceGateTests.swift`):**
-  - Pre-flight refusal when ownership is unverified, when `acceptedOperations` lacks `uvToolUpdate`/`uvToolUninstall`, when `uv-receipt.toml` contains an exact version pin (`==`), or when `uv-receipt.toml` specifies a custom `--index-url` / VCS source.
-  - TOCTOU refusal (`.preconditionChanged`) when `uv-receipt.toml`, `METADATA`, or the executable fingerprint changes between `prepare` and `execute`.
-  - Post-upgrade reconciliation: `.updated` when version advances, `.failed(.versionUnchanged)` when exit 0 fails to advance an outdated version, `.failed(.commandFailedStateIntact)` when exit != 0 leaves prior version intact, and `.failed(.verificationLostAfterUpgrade)` when environment is corrupted.
-  - Post-uninstall reconciliation: `.uninstalled`, `.uninstalledWithRemainingExecutable` when a shadowed copy remains on `PATH`, and `.failed(.installationStillPresent)` when `<uv-tool-dir>/<pkg>` survives exit 0.
-  - Explicit CLI policy refusal when `update` or `uninstall` is invoked on a `.pip`-owned tool.
+  - D-021 refusal before I/O; unverified/stale selection, changed roots/config/interpreter, exact pins including extras, unsupported provenance/channel and candidates outside receipt bounds do not launch Update.
+  - Confirm cannot execute in another uv domain; evidence drift and repeated claims refuse. Uninstall binds every managed shim and remains offline.
+  - Reconcile normalized version equality, downgrade, success, changed-on-error, partial removal, missing proof, cancellation, timeout, and remaining executable on a different path.
 
-### Phase M14-E — Registry Promotions (`aider`, `hermes`) & Capability Matrix Parity
-- **Goal:** Promote `aider` (`uvTool:aider-chat`, `pip:aider-chat`, `extraSearchRoots: ["~/.local/bin"]`, `uvToolUpdate`, `uvToolUninstall`) and `hermes` (`uvTool:hermes-agent`, `pip:hermes-agent`, `uvToolUpdate`, `uvToolUninstall`) in `DefaultDetectors.json` and `docs/capability-matrix.md`, and update `CapabilityMatrixTests`, `BundledRegistryResourceTests`, and `DetectorRegistryTests`.
+### Phase M14-E — Read-Only Registry Declarations & Capability Matrix Parity
+- **Goal:** Add Python package declarations for `aider` and `hermes`, plus the `aider` extra search root, in `DefaultDetectors.json` and the capability matrix. Preserve current Homebrew grants. Add no built-in uv grants here; G uses controlled fixture definitions and H applies owner-authorized, accepted grants.
 - **Key Verifications:**
   - All 4 frozen anchors pass.
   - Do-Not-Declare PyPI assertions added to `BundledRegistryResourceTests` verifying that `goose`, `dsh`, and `agy` declare zero `.uvTool` or `.pip` entries.
 
 ### Phase M14-F — AppSupport & SwiftUI Workflow Parity
-- **Goal:** Wire `UvToolUpdateOperationView` and `UvToolUninstallOperationView` into `ToolDetailView`, `MainWindow`, and `InventoryViewModel`, update `WorkflowPresentation` to enable `uv tool` mutations and render context-specific read-only guidance for `.pip` environment kinds, and update `OwnershipVerificationView` and `SettingsView`.
+- **Goal:** Wire `UvToolUpdateOperationView` and `UvToolUninstallOperationView` into `ToolDetailView`, `MainWindow`, and `InventoryViewModel`. Update `WorkflowPresentation` to enable verified, granted `uv tool` mutations and render context-specific read-only pip guidance. Extend `OwnershipVerificationView` as needed; the cache-clearing `SettingsView` change ships in C.
 - **Key Tests Added (`WorkflowPresentationTests.swift`, `InventoryViewModelTests.swift`, `InventoryServiceTests.swift`):**
   - Action availability and read-only badge/guidance copy for `.uvTool` vs `.pip` (`.virtualEnvironment`, `.pipxEnvironment`, `.externallyManagedSystem`, `.sharedPrefix`).
   - Full ViewModel state transitions for `uvTool` update and uninstall preview → execute → reconcile → inventory refresh + PyPI cache invalidation.
 
 ### Phase M14-G — Disposable Acceptance Harness & Packaging Parity
-- **Goal:** Author `Tests/Fixtures/M14/python_acceptance.py`, `Tests/Fixtures/M14/PythonAcceptanceHost.swift`, `Tests/Fixtures/M14/README.md`, and `walkthroughs/M14-python-acceptance.md`, and extend `Tests/Packaging/test_dev_app_bundle.py` to assert bundled `DefaultDetectors.json` carries the M14 `aider` and `hermes` Python promotions.
-- **Exit Gate:** All 7 end-to-end scenarios in `python_acceptance.py` pass with zero touches to real `$HOME/.local` or `/opt/homebrew`.
+- **Goal:** Author `Tests/Fixtures/M14/python_acceptance.py`, `Tests/Fixtures/M14/PythonAcceptanceHost.swift`, `Tests/Fixtures/M14/README.md`, and `walkthroughs/M14-python-acceptance.md`; extend `Tests/Packaging/test_dev_app_bundle.py` for the Python declarations before any mutation grants. Run the native journey with a separately staged scratch app bundle carrying test-only grants and fixture environment; never change the shipped registry to enable the test.
+- **Exit Gate:** Real uv passes all R12 scenarios in scratch, and the orchestrator separately observes the native journey. Retain per-ID Update/Uninstall receipts, negative policy cases and no-personal-mutation evidence. Packaging asserts Python declarations with existing grants unchanged; test-only fixtures do not grant production authority.
 
 ### Phase M14-H — CI Floors, Decision Records & Documentation Closeout
-- **Goal:** Ratchet test count floors in `.github/workflows/ci.yml` to the new M14 baseline, add `python_acceptance.py` to CI, record M14 architectural decisions in `DECISIONS.md`, and update `HANDOFF.md`, `ROADMAP.md`, `README.md`, `docs/CONTRIBUTING.md`, and `docs/catalogue-identities.md`.
+- **Goal:** Apply only accepted and separately authorized D-021 grants at the final gate; update catalogue, matrix, and packaging expectations together. Ratchet CI floors from observed passing counts and run the real-uv harness using pinned CI provisioning. Record rulings and accepted evidence in `DECISIONS.md`, refresh living docs, and preserve separate owner merge/release decisions.
 
 ---
 
@@ -511,8 +384,8 @@ git diff --name-only main -- \
    - **Recommended Ruling:** Add `"~/.local/bin"` to `aider`'s `extraSearchRoots` (matching `hermes`, `claude`, `kiro-cli`, `omp`, `dsh`, and `qodercli`).
    - **Rationale:** `uv tool install` places entry-point symlinks in `uv tool dir --bin`, which defaults to `~/.local/bin` under the XDG Base Directory specification. On macOS machines where the user installed `uv` or `pipx` without adding `~/.local/bin` to `/etc/paths` or `~/.zprofile`, `aider` installed via `uv tool install aider-chat` would be missed by `ToolDetector` unless `"~/.local/bin"` is in `extraSearchRoots`.
 3. **`OD-M14-3` — Handling `--with` Extra Requirements in `uv-receipt.toml` During `uv tool upgrade`:**
-   - **Recommended Ruling:** Allow `uv tool upgrade <package>` when `uv-receipt.toml` includes standard PyPI `--with` extras (disclosing them in the preview sheet), because `uv tool upgrade` reads `uv-receipt.toml` natively and preserves `[tool].requirements` extras; refuse only when any requirement in `uv-receipt.toml` uses an exact version pin (`==` / `===`), a custom `--index-url` / `--find-links`, or a non-registry VCS/path/URL source.
-   - **Rationale:** Users commonly install Python tools with plugins (e.g. `uv tool install aider-chat --with playwright`); blocking upgrades on benign PyPI `--with` extras would needlessly degrade UX when `uv` natively preserves them.
+   - **Proposed, not settled:** Allow standard PyPI extras and disclose them only after the real-uv gate proves they survive upgrade without index/interpreter/constraint changes. Exact pins on any receipt requirement and direct/custom/unknown sources remain outside update scope. Refuse unproven receipt variants.
+   - **Approval boundaries:** The owner approves the plan and supported layouts before B, names the implementer and independent reviewers, and approves D-021 grants per ID after accepted evidence. Keep CLI mutation out of M14 absent a separate authorized decision under D-022.
 
 ---
 
@@ -526,7 +399,7 @@ git diff --name-only main -- \
    - *Mitigation:* R2 and R3 implement a dedicated `PEP440Version` + `PEP440SpecifierSet` engine and filter PyPI releases against the environment's observed Python interpreter version, surfacing `.unknown(installed: ..., reason: .pythonInterpreterIncompatible)` when newer releases require a newer Python runtime.
 3. **Risk 3 (Medium) — Workstation & CI Runner `uv` Availability:**
    - *Failure mode:* `uv` is not pre-installed on the developer workstation's default `PATH` or on standard GitHub Actions macOS runners.
-   - *Mitigation:* R12 designs `Tests/Fixtures/M14/python_acceptance.py` with a local offline wheelhouse and dual-mode `uv` resolution (verifying against a real disposable `uv` binary in `/tmp` during `M14-A`/`M14-G` while remaining self-contained on clean CI runners without touching `$HOME`).
+   - *Mitigation:* Pin and verify a real uv version, isolate or supply the binary, and stop if the real-manager gate cannot run. The fixture wheel/index lifecycle is offline from the public network; it does not simulate uv.
 4. **Risk 4 (Medium) — Exhaustive Enum Switch & Error-String Test Pin Cascades:**
    - *Failure mode:* Adding `.uvTool` and `.pip` to `PackageManager`, `.pep440` to `VersionScheme`, `.pythonInterpreterIncompatible` to `UnknownReason`, and `.uvToolUpdate`/`.uvToolUninstall` to `AcceptedOperation` affects compiler exhaustiveness and error-string pins in `DetectorMetadataTests.swift` and `DetectorRegistry.swift`.
-   - *Mitigation:* R1, R4, and R13 explicitly account for every error string pin and open the exact downstream files in `M14-B`, `M14-C`, and `M14-D` so every phase compiles and passes tests at its own boundary.
+   - *Mitigation:* Add each enum case and all affected exhaustive arms/test changes at the same phase boundary. In particular C must update `ToolDetailView.plainLanguageReason` and the narrowly excepted `NpmUpdateOperation.map(_:)`. Compile all product targets, not only the Core test filter.
