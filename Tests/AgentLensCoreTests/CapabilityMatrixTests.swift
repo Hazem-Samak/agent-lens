@@ -180,6 +180,11 @@ private let requiredDocumentSubstrings = [
     "not formula proof",
     "synthetic <layout>",
     "fixed order `npm`, `homebrewFormula`, `homebrewCask`",
+    // M13 replaced the old "not yet an app button" prohibition with the affirmative native-app
+    // claim. The replacement is pinned here so the cross-row note cannot silently lose either
+    // the Homebrew Update/Uninstall offer or the R7 cask support-class boundary.
+    "The native app offers Homebrew Update",
+    "app artifacts or uninstall stanzas cannot be modified",
 ]
 
 private enum MutationCapability {

@@ -461,3 +461,33 @@ selected — implementation not authorized"). Push, publication, per-tool promot
 and any release remain separate owner decisions. Standing independent reviewers for future
 implementation: the two council models, summoned through Herdr/hc only. Rulings R1–R16 bind the
 dispatch briefs; each brief quotes them verbatim.
+
+## Delivery status (appended 2026-11-27, post-freeze)
+
+This note is appended after the freeze. Rulings R1–R16 and the frozen contract text are unchanged.
+
+**M13-A through M13-H are implemented and technically accepted on `milestone/m13-homebrew`.**
+Delivery is [PR #4](https://github.com/Hazem-Samak/agent-lens/pull/4); the acceptance record is
+[`../../walkthroughs/M13-combined-acceptance.md`](../../walkthroughs/M13-combined-acceptance.md)
+(888 local Swift tests — 726 Core + 162 AppSupport, zero failures and zero skips — 21 guard
+fixtures, 9 packaging checks, all seven hosted gates at the exact SHA, four contained promotion
+lifecycles, a native cask Cancel/Confirm/rescan journey, and shipping-CLI parity). The shipped
+product is frozen at `00ed6ec`; `17ff7fb` adds only the CI floor calibration and the
+capability-matrix correction, and `71a8d43` adds only the acceptance record and D-024.
+
+The authorization scope recorded above — "M13 PLANNING + freeze/commit on the milestone branch
+ONLY. Implementation is NOT authorized; no implementer is selected" — was the state on 2026-11-21.
+The implementation authorization that followed is **not recorded in this repository**, so this note
+claims only what is verifiable: the phases were implemented, the combined acceptance passed, and the
+branch was pushed with an open PR. The merge into `main` and any release remain separate owner
+decisions.
+
+Three allow-list deviations found in the merged-candidate review on 2026-11-27 are ratified here
+rather than silently absorbed: `SettingsView.swift` and `OwnershipVerificationView.swift` (not in
+any phase allow-list; both edits remove sentences the shipped feature makes false), two extra
+fail-closed cask environment keys in `HomebrewOperationEnvironment.swift` (`HOMEBREW_NO_SUDO=1`,
+plus removing `SUDO_ASKPASS` and `HOMEBREW_SUDO_THROUGH_SUDO_USER` for cask mutations only), and
+the `docs/CONTRIBUTING.md` edit made in M13-B although §5 of the master plan protects `docs/**`
+except `docs/capability-matrix.md`. The last is ratified together with a correction of that file's
+remaining closed-vocabulary and cell-grammar rules, which still contradicted the shipped registry
+and matrix. No ruling is changed, widened or narrowed.

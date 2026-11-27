@@ -426,3 +426,42 @@ implementer**. Later briefs follow accepted dependencies. The implementer receiv
 never the scope document (briefs/README.md). Reviewers never edit; no two agents write the same
 candidate concurrently. Implementation, push, PR, merge, promotions, and release are separate
 owner authorizations; none is granted by this freeze.
+
+## 10. Delivery status (appended 2026-11-27, after the freeze)
+
+This note is appended after the freeze. Sections 1–9 and rulings R1–R16 are unchanged; nothing in
+this note rewrites the planning-time authorization scope.
+
+**M13-A through M13-H are implemented and technically accepted on `milestone/m13-homebrew`.**
+The delivery is [PR #4](https://github.com/Hazem-Samak/agent-lens/pull/4) and the acceptance record
+is [`../walkthroughs/M13-combined-acceptance.md`](../walkthroughs/M13-combined-acceptance.md):
+888 local Swift tests (726 Core + 162 AppSupport, zero failures, zero skips), 21 guard fixtures, 9
+packaging checks, all seven hosted gates at the exact SHA, four contained promotion lifecycles, a
+native cask Cancel/Confirm/rescan journey and shipping-CLI parity. The shipped product is frozen at
+`00ed6ec`; `17ff7fb` adds only the CI floor calibration and the capability-matrix correction, and
+`71a8d43` adds only the acceptance record and D-024. The promotion set is exactly OD-M13-1:
+`hermes`, `aider`, `goose` formulae and the `kiro-cli` cask.
+
+The authorization statements above — "planning + freeze/commit ONLY", "implementation is NOT
+authorized; no implementer is selected" — recorded the state of the planning phase on 2026-11-21.
+The implementation authorization that followed is not recorded in this repository, so this note
+states only what is verifiable: the phases were implemented, the combined acceptance passed, and
+the branch was pushed with an open PR. The merge into `main` and any release remain separate owner
+decisions under §9.
+
+Three deviations from the per-phase allow-lists in §5 were found in the merged-candidate review on
+2026-11-27 and are ratified here rather than silently absorbed:
+
+1. `Sources/AgentLensApp/SettingsView.swift` and `Sources/AgentLensApp/OwnershipVerificationView.swift`
+   are not in any phase allow-list. Both edits remove sentences that the shipped feature makes
+   false ("updates or uninstalls remain unavailable"); the plan's allow-list was incomplete, not the
+   code. Ratified as required truthfulness corrections.
+2. `Sources/AgentLensCore/Operations/HomebrewOperationEnvironment.swift` adds `HOMEBREW_NO_SUDO=1`
+   for cask mutations and removes `SUDO_ASKPASS` and `HOMEBREW_SUDO_THROUGH_SUDO_USER` for cask
+   mutations only, beyond R6's closed key list. Both are fail-closed against elevation and are
+   disclosed in the effect text. Ratified as an additive safety strengthening.
+3. `docs/CONTRIBUTING.md` was edited in M13-B although §5 protects `docs/**` except
+   `docs/capability-matrix.md`. The edit is ratified, and the same change corrects the file's
+   remaining closed-vocabulary and cell-grammar rules so they match the shipped registry and matrix.
+
+No ruling R1–R16 is changed, widened or narrowed by this note.

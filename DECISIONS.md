@@ -706,3 +706,56 @@ authority: only an accepted, revalidated Homebrew operation may run, and app-art
 uninstall-stanza casks remain informational. The
 [M13 combined acceptance record](walkthroughs/M13-combined-acceptance.md) documents the branch
 gate and its limits; merge and public release remain separate decisions.
+
+## M13 — owner review corrections and PR #4 push (2026-11-27)
+
+The owner reviewed [PR #4](https://github.com/Hazem-Samak/agent-lens/pull/4)
+(`milestone/m13-homebrew`) and authorized the corrections below and the push of the corrected
+branch. **The merge into `main` and any release remain separate owner decisions and are not
+granted by this entry.** No product source changed: this correction touches documentation, one
+test assertion, and one trailing whitespace only. The safety envelope (ROADMAP §6), the rulings
+R1–R16, the D-021 fail-closed gate and the shipped mutation behaviour are untouched.
+
+**Corrections, each found in the merged-candidate review and each verified against the code:**
+
+- `README.md` asserted "Update remains unavailable for Homebrew" and "Uninstall remains unavailable
+  for Homebrew, cask", and that "M13 (Homebrew management) is the next milestone and is not yet
+  authorized". All three are false for the merged candidate, which ships Homebrew Update and
+  Uninstall for the OD-M13-1 promotion set. The README now documents the confirmed Homebrew Update
+  and Uninstall workflows, the cask latest-check tri-state, the separate cask metadata document,
+  and M13's actual delivery state.
+- `docs/CONTRIBUTING.md` still declared `acceptedOperations` closed to `npmUpdate`/`npmUninstall`
+  while the shipped registry defines six operation cases, and still restricted the Update/Uninstall
+  matrix cell to `yes: npm (verified npm-global copies only)` while the shipped matrix emits
+  `yes: homebrewFormula (verified Homebrew formula copies only)` and
+  `yes: homebrewCask (verified Homebrew cask copies only)`. The contributor contract contradicted
+  the code it governs. Both rules, and the D-021 promotion clause, now name each manager's own
+  verified kind and match the shipped registry and matrix.
+- `briefs/M13-planning/proposal-grok.md:166` carried one trailing space, so `git diff --check` — a
+  gate in the master plan's per-phase local gate set — failed on the whole milestone diff with exit
+  2. Hosted CI does not run that gate, which is why the hosted run was green. The space is removed.
+- `Tests/AgentLensCoreTests/CapabilityMatrixTests.swift` deleted the `"not yet an app button"`
+  required-document substring in `17ff7fb` instead of re-pointing it, leaving the new affirmative
+  cross-row claim unpinned. The replacement claim and the R7 cask support-class boundary are now
+  asserted instead: the assertion is restored, not weakened.
+
+**Allow-list deviations ratified rather than silently absorbed** (`briefs/M13-plan.md` §5):
+
+1. `Sources/AgentLensApp/SettingsView.swift` and `Sources/AgentLensApp/OwnershipVerificationView.swift`
+   are in no phase allow-list. Both edits remove user-facing sentences that the shipped Homebrew
+   management makes false. The allow-list was incomplete; the edits are required truthfulness
+   corrections.
+2. `Sources/AgentLensCore/Operations/HomebrewOperationEnvironment.swift` adds `HOMEBREW_NO_SUDO=1`
+   and removes `SUDO_ASKPASS` and `HOMEBREW_SUDO_THROUGH_SUDO_USER` for cask mutations only,
+   beyond R6's closed key list. Both are fail-closed against elevation and are disclosed in the
+   effect text. Removing them would weaken the no-elevation guarantee, so they stand as an additive
+   safety strengthening.
+3. The M13-B edit to `docs/CONTRIBUTING.md` is ratified, together with the correction of that
+   file's remaining closed-vocabulary and cell-grammar rules recorded above.
+
+**Verification on the corrected candidate:** the full local gate set passed — `swift build`;
+726 Core + 162 AppSupport = 888 Swift tests with zero failures and zero skips; both Core
+UI-free import guards (42 Core files, 6 AppSupport files); 21 guard fixtures; the debug app
+build; 9 packaging tests; and a clean `git diff --check` over the whole milestone diff. The
+shipped acceptance evidence is unchanged: see
+[the M13 combined acceptance record](walkthroughs/M13-combined-acceptance.md) and D-024.
