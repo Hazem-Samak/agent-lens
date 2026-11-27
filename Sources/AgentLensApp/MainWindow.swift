@@ -62,6 +62,8 @@ public struct MainWindow: View {
     }
 
     public var body: some View {
+        let updateToken = model.updatePresentationToken
+        let uninstallToken = model.uninstallPresentationToken
         NavigationSplitView {
             sidebarView
         } content: {
@@ -90,8 +92,8 @@ public struct MainWindow: View {
                     cancelAndJoin: {
                         cancelActiveAction()
                         await model.cancel()
-                        await model.cancelUpdate()
-                        await model.cancelUninstall()
+                        await model.cancelUpdate(presenting: nil)
+                        await model.cancelUninstall(presenting: nil)
                     }
                 )
             }
@@ -99,68 +101,150 @@ public struct MainWindow: View {
         .task {
             await model.launch()
         }
-        .sheet(isPresented: updateSheetBinding, onDismiss: {
-            model.dismissUpdate()
+        .sheet(isPresented: npmUpdateSheetBinding(token: updateToken), onDismiss: {
+            dismissUpdate(presenting: updateToken)
         }) {
+            let token = model.updatePresentationToken
             UpdateOperationView(
-                preview: model.updatePreview ?? model.updatePreparation?.preview,
-                outcome: model.updateOutcome,
-                unavailable: model.updateUnavailableReason,
+                preview: (model.updatePreview ?? model.updatePreparation?.preview)?.npm,
+                outcome: model.updateOutcome?.npm,
+                unavailable: model.updateUnavailableReason?.npm,
                 isExecuting: model.isExecutingUpdate,
                 isCancelling: model.isCancelling,
                 onConfirm: {
-                    runAction {
-                        await model.confirmSelectedUpdate()
-                    }
+                    confirmUpdate(presenting: token)
                 },
                 onCancel: {
-                    Task { @MainActor in
-                        await model.cancelUpdate()
-                    }
+                    cancelUpdate(presenting: token)
                 },
                 onDismiss: {
-                    model.dismissUpdate()
+                    dismissUpdate(presenting: token)
                 }
             )
             .interactiveDismissDisabled(model.isExecutingUpdate)
         }
-        .sheet(isPresented: uninstallSheetBinding, onDismiss: {
-            model.dismissUninstall()
+        .sheet(isPresented: homebrewUpdateSheetBinding(token: updateToken), onDismiss: {
+            dismissUpdate(presenting: updateToken)
         }) {
+            let token = model.updatePresentationToken
+            HomebrewUpdateOperationView(
+                preview: (model.updatePreview ?? model.updatePreparation?.preview)?.homebrew,
+                outcome: model.updateOutcome?.homebrew,
+                unavailable: model.updateUnavailableReason?.homebrew,
+                isExecuting: model.isExecutingUpdate,
+                isCancelling: model.isCancelling,
+                onConfirm: {
+                    confirmUpdate(presenting: token)
+                },
+                onCancel: {
+                    cancelUpdate(presenting: token)
+                },
+                onDismiss: {
+                    dismissUpdate(presenting: token)
+                }
+            )
+            .interactiveDismissDisabled(model.isExecutingUpdate)
+        }
+        .sheet(isPresented: npmUninstallSheetBinding(token: uninstallToken), onDismiss: {
+            dismissUninstall(presenting: uninstallToken)
+        }) {
+            let token = model.uninstallPresentationToken
             UninstallOperationView(
-                preview: model.uninstallPreview ?? model.uninstallPreparation?.preview,
-                outcome: model.uninstallOutcome,
-                unavailable: model.uninstallUnavailableReason,
+                preview: (model.uninstallPreview ?? model.uninstallPreparation?.preview)?.npm,
+                outcome: model.uninstallOutcome?.npm,
+                unavailable: model.uninstallUnavailableReason?.npm,
                 isExecuting: model.isExecutingUninstall,
                 isCancelling: model.isCancelling,
                 onConfirm: {
-                    runAction {
-                        await model.confirmSelectedUninstall()
-                    }
+                    confirmUninstall(presenting: token)
                 },
                 onCancel: {
-                    Task { @MainActor in
-                        await model.cancelUninstall()
-                    }
+                    cancelUninstall(presenting: token)
                 },
                 onDismiss: {
-                    model.dismissUninstall()
+                    dismissUninstall(presenting: token)
+                }
+            )
+            .interactiveDismissDisabled(model.isExecutingUninstall)
+        }
+        .sheet(isPresented: homebrewUninstallSheetBinding(token: uninstallToken), onDismiss: {
+            dismissUninstall(presenting: uninstallToken)
+        }) {
+            let token = model.uninstallPresentationToken
+            HomebrewUninstallOperationView(
+                preview: (model.uninstallPreview ?? model.uninstallPreparation?.preview)?.homebrew,
+                outcome: model.uninstallOutcome?.homebrew,
+                unavailable: model.uninstallUnavailableReason?.homebrew,
+                isExecuting: model.isExecutingUninstall,
+                isCancelling: model.isCancelling,
+                onConfirm: {
+                    confirmUninstall(presenting: token)
+                },
+                onCancel: {
+                    cancelUninstall(presenting: token)
+                },
+                onDismiss: {
+                    dismissUninstall(presenting: token)
                 }
             )
             .interactiveDismissDisabled(model.isExecutingUninstall)
         }
         .background(WindowCloseObserver(onClose: {
             cancelActiveAction()
-            await model.cancelUpdate()
-            await model.cancelUninstall()
+            await model.cancelUpdate(presenting: nil)
+            await model.cancelUninstall(presenting: nil)
         }))
         .onDisappear {
             cancelActiveAction()
             Task { @MainActor in
-                await model.cancelUpdate()
-                await model.cancelUninstall()
+                await model.cancelUpdate(presenting: nil)
+                await model.cancelUninstall(presenting: nil)
             }
         }
+    }
+
+    // MARK: - Sheet actions
+    //
+    // Every sheet callback carries the opaque presentation token the sheet was built with, so a
+    // callback that arrives after the presentation was superseded acts on nothing. A missing token
+    // (no presentation on screen) is a no-op.
+
+    private func confirmUpdate(presenting token: OperationPresentationToken?) {
+        guard let token else { return }
+        runAction {
+            await model.confirmSelectedUpdate(presenting: token)
+        }
+    }
+
+    private func cancelUpdate(presenting token: OperationPresentationToken?) {
+        guard let token else { return }
+        Task { @MainActor in
+            await model.cancelUpdate(presenting: token)
+        }
+    }
+
+    private func dismissUpdate(presenting token: OperationPresentationToken?) {
+        guard let token else { return }
+        model.dismissUpdate(presenting: token)
+    }
+
+    private func confirmUninstall(presenting token: OperationPresentationToken?) {
+        guard let token else { return }
+        runAction {
+            await model.confirmSelectedUninstall(presenting: token)
+        }
+    }
+
+    private func cancelUninstall(presenting token: OperationPresentationToken?) {
+        guard let token else { return }
+        Task { @MainActor in
+            await model.cancelUninstall(presenting: token)
+        }
+    }
+
+    private func dismissUninstall(presenting token: OperationPresentationToken?) {
+        guard let token else { return }
+        model.dismissUninstall(presenting: token)
     }
 
     // MARK: - Action lifetime management
@@ -297,8 +381,8 @@ public struct MainWindow: View {
         return AppCommandActions(
             isBusy: model.isBusy,
             isSheetPresented: model.isUpdateSheetPresented || model.isUninstallSheetPresented,
-            updateAffordanceIsPrepare: presentation?.update == .prepareNpmUpdate,
-            uninstallAffordanceIsPrepare: presentation?.uninstall == .prepareNpmUninstall,
+            updateAffordanceIsPrepare: presentation?.update.isPrepare ?? false,
+            uninstallAffordanceIsPrepare: presentation?.uninstall.isPrepare ?? false,
             canVerifyInstallation: model.selectedEntry.map(ToolDetailView.canVerifyOwnership) ?? false,
             selectDestination: { destination in
                 selectedDestination = destination
@@ -526,20 +610,40 @@ public struct MainWindow: View {
         }
     }
 
-    private var updateSheetBinding: Binding<Bool> {
+    /// The four sheet bindings. Each carries the presentation token its sheet was built with, so a
+    /// dismissal that arrives after a replacement is installed cannot clear the replacement.
+    private func npmUpdateSheetBinding(token: OperationPresentationToken?) -> Binding<Bool> {
         Binding(
-            get: { model.isUpdateSheetPresented },
+            get: { model.isNpmUpdateSheetPresented },
             set: { presented in
-                if !presented { model.dismissUpdate() }
+                if !presented, let token { model.dismissUpdate(presenting: token) }
             }
         )
     }
 
-    private var uninstallSheetBinding: Binding<Bool> {
+    private func homebrewUpdateSheetBinding(token: OperationPresentationToken?) -> Binding<Bool> {
         Binding(
-            get: { model.isUninstallSheetPresented },
+            get: { model.isHomebrewUpdateSheetPresented },
             set: { presented in
-                if !presented { model.dismissUninstall() }
+                if !presented, let token { model.dismissUpdate(presenting: token) }
+            }
+        )
+    }
+
+    private func npmUninstallSheetBinding(token: OperationPresentationToken?) -> Binding<Bool> {
+        Binding(
+            get: { model.isNpmUninstallSheetPresented },
+            set: { presented in
+                if !presented, let token { model.dismissUninstall(presenting: token) }
+            }
+        )
+    }
+
+    private func homebrewUninstallSheetBinding(token: OperationPresentationToken?) -> Binding<Bool> {
+        Binding(
+            get: { model.isHomebrewUninstallSheetPresented },
+            set: { presented in
+                if !presented, let token { model.dismissUninstall(presenting: token) }
             }
         )
     }

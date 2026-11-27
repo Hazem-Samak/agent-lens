@@ -4,7 +4,7 @@ A macOS-native utility that tells you **which AI CLI tools are actually installe
 
 This repository surfaces the diagnostic that no existing tool answers: when multiple copies of an AI CLI exist on your machine, which one wins — and why. See `AGENT_LENS_SCOPE.md` for the full scope and `DECISIONS.md` for settled design decisions.
 
-The [complete application roadmap](ROADMAP.md) maps the remaining work from Homebrew management through signed distribution. **M0–M12 are delivered to `main`.** M10 landed in PR #1 at `65f7a82` (2026-11-08). M11, the fourteen-entry catalogue, landed in [PR #2](https://github.com/Hazem-Samak/agent-lens/pull/2) at `8d07ba4` (2026-11-12). M12, the native diagnostic and operation workflow, landed in [PR #3](https://github.com/Hazem-Samak/agent-lens/pull/3) at `934a26c` (2026-11-13); hosted CI passed on that merge ([run 43444962792](https://github.com/Hazem-Samak/agent-lens/actions/runs/43444962792)). The M8 keyboard-only Copy/Reveal check is closed. Only Codex has accepted npm Update and Uninstall. No public app release has been published. M13 (Homebrew management) is the next milestone and is not yet authorized.
+The [complete application roadmap](ROADMAP.md) maps the remaining work from Homebrew management through signed distribution. **M0–M12 are delivered to `main`.** M10 landed in PR #1 at `65f7a82` (2026-11-08). M11, the fourteen-entry catalogue, landed in [PR #2](https://github.com/Hazem-Samak/agent-lens/pull/2) at `8d07ba4` (2026-11-12). M12, the native diagnostic and operation workflow, landed in [PR #3](https://github.com/Hazem-Samak/agent-lens/pull/3) at `934a26c` (2026-11-13); hosted CI passed on that merge ([run 43444962792](https://github.com/Hazem-Samak/agent-lens/actions/runs/43444962792)). The M8 keyboard-only Copy/Reveal check is closed. Only Codex has accepted npm Update and Uninstall. M13 (native Homebrew management) is implemented and technically accepted on `milestone/m13-homebrew` ([PR #4](https://github.com/Hazem-Samak/agent-lens/pull/4)); it is **not yet merged into `main`**. No public app release has been published.
 
 ## Catalogue and contributing
 
@@ -62,7 +62,7 @@ For a selected, verified **npm-global** installation whose current status is `up
 
 Cancel releases the owned operation scratch with no process. Confirm performs a fresh local scan plus complete ownership/registry/metadata and operation-root revalidation, then runs one exact-version global install with the verified manager. Lifecycle scripts may run under npm policy; Agent Lens does not sandbox them and claims no rollback or atomicity. After any launched operation the app rescans locally and verifies the resulting installation; exit zero alone is not success. stdout and stderr remain separate, bounded, and in memory.
 
-There is no update mutation CLI command. Update remains unavailable for Homebrew, standalone, ambiguous, unverified, custom-registry, prerelease, non-newer, or offline cases.
+There is no update mutation CLI command. Update remains unavailable for standalone, ambiguous, unverified, custom-registry, prerelease, non-newer, or offline cases. Homebrew formula and cask updates are covered in [Confirmed Homebrew Update](#confirmed-homebrew-update).
 
 Implementation and local verification evidence: [M10-C implementation](walkthroughs/M10-C-implementation.md).
 
@@ -74,17 +74,48 @@ Cancel releases the owned operation scratch with no process. Confirm repeats a f
 
 After any launched removal the app rescans locally. Exit zero alone is not success: the exact recorded package directory must be observed absent and the selected target released, with no failed observation. A replacement directory, unreadable prefix, still-live target, nonzero exit, timeout, or cancellation is never reported as clean removal. The destructive sheet keeps Cancel as the default action; closing the window or quitting cancels and joins a launched operation and performs bounded reconciliation.
 
-Uninstall shares one mutation gate with Update; Update and Uninstall cannot run concurrently. There is no uninstall mutation CLI command. Uninstall remains unavailable for Homebrew, cask, pip/uv, standalone, ambiguous, unverified, or unprotected-source cases.
+Uninstall shares one mutation gate with Update; Update and Uninstall cannot run concurrently. There is no uninstall mutation CLI command. Uninstall remains unavailable for pip/uv, standalone, ambiguous, unverified, or unprotected-source cases. Homebrew formula and cask uninstalls are covered in [Confirmed Homebrew Uninstall](#confirmed-homebrew-uninstall).
 
 Implementation and local verification evidence: [M10-D implementation](walkthroughs/M10-D-implementation.md).
 
+## Confirmed Homebrew Update
+
+For a selected, **verified** Homebrew formula or supported cask whose status is `update available`, the native app can prepare an exact update preview. Verification is the manager's own evidence: a declared package is a candidate, never ownership proof and never permission to run a manager command. The preview shows the installed and target versions, the full package identity (the formula's full name, or the cask token and its tap), the manager prefix and cellar, the working directory, the effect, and the literal argv.
+
+The support class is narrow by design. A formula update runs `brew upgrade --formula --yes <full_name>`; a cask update runs `brew upgrade --cask --yes <full_token>`. Only CLI casks qualify. A cask whose fresh manager metadata declares an uninstall stanza, an app artifact, a disabled state, a `:latest` version, or a self-updating state is refused with a typed reason before any mutation process starts. Ownership of an app-bundle cask can still be verified diagnostically — verified ownership is not mutation eligibility.
+
+Cancel releases the owned operation scratch with no process. Confirm revalidates the live proof, the pinned state, the support class and the operation root, then runs exactly one Homebrew command. Every mutation runs in its own session with no controlling terminal, so no interactive prompt can block it, and Homebrew's own automatic update, analytics, install cleanup and autoremove are disabled for the run; an upgrade additionally suppresses Homebrew's outdated-dependents check so dependents are not upgraded as a side effect. The operation is bounded to 900 seconds.
+
+After any launched operation the app rescans locally and reconciles the result; exit zero alone is not success. stdout and stderr remain separate, bounded, and in memory. The shipping CLI stays read-only: there is no Homebrew mutation verb in `agent-lens`.
+
+Implementation and local verification evidence: [M13 combined acceptance](walkthroughs/M13-combined-acceptance.md).
+
+## Confirmed Homebrew Uninstall
+
+For a selected, **verified** Homebrew formula or supported cask, the native app can prepare an exact uninstall preview. It shows the full package identity, the manager prefix and cellar, the installed version, every installed keg, the working directory, the effect, and the literal argv: `brew uninstall --formula <full_name>` or `brew uninstall --cask <full_token>`.
+
+The support class is the same as for Update: only CLI casks qualify, so a cask with an app artifact or an uninstall stanza is refused with a typed reason before any mutation process starts. Uninstall is otherwise more permissive than Update — a deprecated, disabled, `:latest` or self-updating cask can still be removed, because removal stays valid for those states — but a pinned cask is refused and needs a new preview.
+
+The preview states the whole-cask consequence: removal targets the whole named cask, including every verified installed command-line artifact, and **cask removal may remove a companion app, not only the selected CLI**. The zap step is never run — Agent Lens does not ask Homebrew to clean the configuration and caches that zap names, so zap-listed files survive.
+
+Cancel releases the owned operation scratch with no process. Confirm revalidates and then runs exactly one Homebrew command under the same suppression environment and session rules as Update. Homebrew's dependent refusal is surfaced honestly and never bypassed: Agent Lens does not use `--ignore-dependencies` and does not retry. Uninstall removes the linked keg only; older kegs of the same formula may remain installed but unlinked, and the result reports them as disclosed residue rather than claiming the formula was completely removed. An interrupted or failed removal may leave a partial state that must be re-observed.
+
+After any launched removal the app rescans locally and reconciles the result; exit zero alone is not success. The shipping CLI stays read-only: there is no Homebrew mutation verb in `agent-lens`.
+
+Implementation and local verification evidence: [M13 combined acceptance](walkthroughs/M13-combined-acceptance.md).
+
 ## Update status limitations
 
-- **Homebrew formulae** and **npm-global** tools are checked. An npm tool is only checked when its
-  installation ownership and its effective registry were verified in the same probe stage; standalone,
-  unsupported managers, and npm tools whose ownership or registry could not be verified show `unknown`.
+- **Homebrew formulae**, **supported Homebrew casks** and **npm-global** tools are checked. An npm tool
+  is only checked when its installation ownership and its effective registry were verified in the same
+  probe stage; standalone, unsupported managers, and npm tools whose ownership or registry could not
+  be verified show `unknown`.
 - Latest values are **the latest known to Homebrew metadata**, not guaranteed newest upstream releases. The
   checker never runs `brew update`, so the displayed time is the observation time, not an upstream refresh time.
+- For a cask, the latest value is the manager's own verdict from bounded `brew info` and `brew outdated`
+  queries — Agent Lens has no cask version comparator. A `:latest` cask, a self-updating cask, a disabled
+  cask and inconsistent metadata are `unknown`, never "up to date", and a pinned cask reported as outdated
+  still counts as an available update and is labelled pinned; that does not authorize updating it.
 - For npm the latest value is the public registry's `dist-tags.latest` for the package recorded by the
   verified installation, read with a bounded `npm view` against the pinned public registry; prerelease and
   unsupported version text stays unknown.
@@ -100,6 +131,11 @@ Implementation and local verification evidence: [M10-D implementation](walkthrou
   stable probe-context digest — never raw environment values. Only fully validated successful observations are
   stored; an ambiguous or unverifiable identity is a cache miss, never a guess, and is repaired only by that
   tool's own newly verified metadata.
+- Verified cask metadata is reused for six hours from a third, **separate** document
+  (`~/Library/Caches/AgentLens/cask-update-metadata-v1.json`, schema 1, capped at 1 MiB). It is never an
+  extension of the formula or npm documents, never supplies a formula or npm lookup, and never authorizes an
+  operation. Only successful, unambiguous comparisons are stored; an unknown or ambiguous cask result is never
+  cached.
 - The npm registry-config, metadata and version invocations each run with their own private cache and log
   directory under the app-owned scratch base, and that directory is removed when the invocation returns; npm
   never writes your own cache or configuration, and no probe reads or writes a project's `node_modules`. If

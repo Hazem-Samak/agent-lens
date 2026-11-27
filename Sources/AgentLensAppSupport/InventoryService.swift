@@ -299,7 +299,7 @@ public struct InventoryService: Sendable {
         guard case .updateAvailable = entry.updateStatus,
               entry.update?.npmPackage != nil
         else { return .unavailable(.notUpdateAvailable) }
-        guard let clickedPair = Self.selectedPair(entry.diagnostic) else {
+        guard let clickedPair = entry.diagnostic.observedSelectionPair else {
             return .unavailable(.noVerifiedSelection)
         }
         let environment = await environment.sessionEnvironment()
@@ -328,7 +328,7 @@ public struct InventoryService: Sendable {
             }
             guard !Task.isCancelled else { return .unavailable(.cancelled) }
             guard let freshEntry = fresh.entries.first(where: { $0.registryID == registryID }),
-                  let freshPair = Self.selectedPair(freshEntry.diagnostic),
+                  let freshPair = freshEntry.diagnostic.observedSelectionPair,
                   freshPair.entry == clickedPair.entry,
                   freshPair.target == clickedPair.target
             else { return .unavailable(.identityUnverified) }
@@ -347,17 +347,6 @@ public struct InventoryService: Sendable {
         } onCancel: {
             task.cancel()
         }
-    }
-
-    private static func selectedPair(_ diagnostic: ToolPathDiagnostic) -> (entry: String, target: String)? {
-        let candidate: PathCandidateObservation
-        switch diagnostic.selection {
-        case .winner(let value): candidate = value
-        case .offPath(let value, _): candidate = value
-        case .notInstalled, .inconsistent: return nil
-        }
-        guard let target = candidate.canonicalTarget, !target.isEmpty else { return nil }
-        return (candidate.entryPath, target)
     }
 
     /// Consumes one approved preparation. The Core operation performs all revalidation and the
@@ -419,7 +408,7 @@ public struct InventoryService: Sendable {
     public func prepareUninstall(for entry: InventoryEntry) async -> NpmUninstallPrepareResult {
         guard let published = entry.ownership?.verifiedInstallation,
               published.manager == .npm,
-              let clickedPair = Self.selectedPair(entry.diagnostic),
+              let clickedPair = entry.diagnostic.observedSelectionPair,
               published.selection.entryPath == clickedPair.entry,
               published.selection.canonicalTarget == clickedPair.target
         else { return .unavailable(.identityUnverified) }
@@ -446,7 +435,7 @@ public struct InventoryService: Sendable {
             }
             guard !Task.isCancelled else { return .unavailable(.cancelled) }
             guard let freshEntry = fresh.entries.first(where: { $0.registryID == registryID }),
-                  let freshPair = Self.selectedPair(freshEntry.diagnostic),
+                  let freshPair = freshEntry.diagnostic.observedSelectionPair,
                   freshPair.entry == clickedPair.entry,
                   freshPair.target == clickedPair.target
             else { return .unavailable(.identityUnverified) }
@@ -514,6 +503,436 @@ public struct InventoryService: Sendable {
     @discardableResult
     public func cancelUninstall(_ preparation: NpmUninstallPreparation) -> Bool {
         NpmUninstallOperation.cancel(preparation)
+    }
+
+    // MARK: Homebrew formula update operation
+
+    /// Freshly prepares one selected Homebrew formula update. The published update result supplies
+    /// the manager-verified kind and the clicked selection; a fresh scan must still identify that
+    /// exact registry entry and canonical target before Core re-observes the manager.
+    public func prepareFormulaUpdate(for entry: InventoryEntry) async -> HomebrewFormulaUpdatePrepareResult {
+        guard case .updateAvailable = entry.updateStatus,
+              ManagementPresentation.verifiedHomebrewUpdateKind(entry) == .formula
+        else { return .unavailable(.notUpdateAvailable) }
+        guard let clickedPair = entry.diagnostic.observedSelectionPair else {
+            return .unavailable(.noVerifiedSelection)
+        }
+        let environment = await environment.sessionEnvironment()
+        let registry = self.registry
+        let scanner = self.scanner
+        let runner = updateRunner
+        let currentDirectory = currentDirectory
+        let rootBase = operationRootBaseURL
+        let registryID = entry.registryID
+        let task = Task.detached(priority: .utility) {
+            let fresh: InventorySnapshot
+            do {
+                fresh = try await Self.scanAll(
+                    environment: environment,
+                    registry: registry,
+                    scanner: scanner,
+                    currentDirectory: currentDirectory
+                )
+            } catch {
+                return HomebrewFormulaUpdatePrepareResult.unavailable(
+                    Task.isCancelled ? .cancelled : .probeFailed
+                )
+            }
+            guard !Task.isCancelled else { return .unavailable(.cancelled) }
+            guard let freshEntry = fresh.entries.first(where: { $0.registryID == registryID }),
+                  let freshPair = freshEntry.diagnostic.observedSelectionPair,
+                  freshPair.entry == clickedPair.entry,
+                  freshPair.target == clickedPair.target
+            else { return .unavailable(.identityUnverified) }
+            return await HomebrewFormulaUpdateOperation.prepare(
+                definition: freshEntry.definition,
+                diagnostic: freshEntry.diagnostic,
+                environment: environment,
+                currentDirectory: currentDirectory,
+                runner: runner,
+                operationRootBaseURL: rootBase,
+                uptime: { DispatchTime.now().uptimeNanoseconds }
+            )
+        }
+        return await withTaskCancellationHandler {
+            await task.value
+        } onCancel: {
+            task.cancel()
+        }
+    }
+
+    /// Consumes one approved formula update preparation. Core performs all revalidation and the
+    /// single mutation; this service refreshes the local inventory for presentation. Only this
+    /// manager kind's Core outcome is returned, beside the reconciliation's fresh snapshot.
+    public func executeFormulaUpdate(
+        _ preparation: HomebrewFormulaUpdatePreparation
+    ) async -> (outcome: HomebrewFormulaUpdateOutcome, snapshot: InventorySnapshot?) {
+        await executeHomebrewUpdate(preparation)
+    }
+
+    /// Releases a pending formula update preview without launching a process.
+    @discardableResult
+    public func cancelFormulaUpdate(_ preparation: HomebrewFormulaUpdatePreparation) -> Bool {
+        HomebrewFormulaUpdateOperation.cancel(preparation)
+    }
+
+    // MARK: Homebrew cask update operation
+
+    /// Freshly prepares one selected Homebrew cask update. The published update result supplies the
+    /// manager-verified kind and the clicked selection; a fresh scan must still identify that exact
+    /// registry entry and canonical target before Core re-observes the manager.
+    public func prepareCaskUpdate(for entry: InventoryEntry) async -> HomebrewCaskUpdatePrepareResult {
+        guard case .updateAvailable = entry.updateStatus,
+              ManagementPresentation.verifiedHomebrewUpdateKind(entry) == .cask
+        else { return .unavailable(.notUpdateAvailable) }
+        guard let clickedPair = entry.diagnostic.observedSelectionPair else {
+            return .unavailable(.noVerifiedSelection)
+        }
+        let environment = await environment.sessionEnvironment()
+        let registry = self.registry
+        let scanner = self.scanner
+        let runner = updateRunner
+        let currentDirectory = currentDirectory
+        let rootBase = operationRootBaseURL
+        let registryID = entry.registryID
+        let task = Task.detached(priority: .utility) {
+            let fresh: InventorySnapshot
+            do {
+                fresh = try await Self.scanAll(
+                    environment: environment,
+                    registry: registry,
+                    scanner: scanner,
+                    currentDirectory: currentDirectory
+                )
+            } catch {
+                return HomebrewCaskUpdatePrepareResult.unavailable(
+                    Task.isCancelled ? .cancelled : .probeFailed
+                )
+            }
+            guard !Task.isCancelled else { return .unavailable(.cancelled) }
+            guard let freshEntry = fresh.entries.first(where: { $0.registryID == registryID }),
+                  let freshPair = freshEntry.diagnostic.observedSelectionPair,
+                  freshPair.entry == clickedPair.entry,
+                  freshPair.target == clickedPair.target
+            else { return .unavailable(.identityUnverified) }
+            return await HomebrewCaskUpdateOperation.prepare(
+                definition: freshEntry.definition,
+                diagnostic: freshEntry.diagnostic,
+                environment: environment,
+                currentDirectory: currentDirectory,
+                runner: runner,
+                operationRootBaseURL: rootBase,
+                uptime: { DispatchTime.now().uptimeNanoseconds }
+            )
+        }
+        return await withTaskCancellationHandler {
+            await task.value
+        } onCancel: {
+            task.cancel()
+        }
+    }
+
+    /// Consumes one approved cask update preparation.
+    public func executeCaskUpdate(
+        _ preparation: HomebrewCaskUpdatePreparation
+    ) async -> (outcome: HomebrewCaskUpdateOutcome, snapshot: InventorySnapshot?) {
+        await executeHomebrewUpdate(preparation)
+    }
+
+    /// Releases a pending cask update preview without launching a process.
+    @discardableResult
+    public func cancelCaskUpdate(_ preparation: HomebrewCaskUpdatePreparation) -> Bool {
+        HomebrewCaskUpdateOperation.cancel(preparation)
+    }
+
+    // MARK: Homebrew formula uninstall operation
+
+    /// Freshly prepares one selected Homebrew formula uninstall. A verified formula ownership
+    /// observation for the exact clicked selection gates the request; Core repeats the live proof.
+    public func prepareFormulaUninstall(
+        for entry: InventoryEntry
+    ) async -> HomebrewFormulaUninstallPrepareResult {
+        guard let published = entry.ownership?.verifiedInstallation,
+              published.manager == .homebrewFormula,
+              let clickedPair = entry.diagnostic.observedSelectionPair,
+              published.selection.entryPath == clickedPair.entry,
+              published.selection.canonicalTarget == clickedPair.target
+        else { return .unavailable(.identityUnverified) }
+        let environment = await environment.sessionEnvironment()
+        let registry = self.registry
+        let scanner = self.scanner
+        let runner = updateRunner
+        let currentDirectory = currentDirectory
+        let rootBase = operationRootBaseURL
+        let registryID = entry.registryID
+        let task = Task.detached(priority: .utility) {
+            let fresh: InventorySnapshot
+            do {
+                fresh = try await Self.scanAll(
+                    environment: environment,
+                    registry: registry,
+                    scanner: scanner,
+                    currentDirectory: currentDirectory
+                )
+            } catch {
+                return HomebrewFormulaUninstallPrepareResult.unavailable(
+                    Task.isCancelled ? .cancelled : .probeFailed
+                )
+            }
+            guard !Task.isCancelled else { return .unavailable(.cancelled) }
+            guard let freshEntry = fresh.entries.first(where: { $0.registryID == registryID }),
+                  let freshPair = freshEntry.diagnostic.observedSelectionPair,
+                  freshPair.entry == clickedPair.entry,
+                  freshPair.target == clickedPair.target
+            else { return .unavailable(.identityUnverified) }
+            return await HomebrewFormulaUninstallOperation.prepare(
+                definition: freshEntry.definition,
+                diagnostic: freshEntry.diagnostic,
+                environment: environment,
+                currentDirectory: currentDirectory,
+                runner: runner,
+                operationRootBaseURL: rootBase,
+                uptime: { DispatchTime.now().uptimeNanoseconds }
+            )
+        }
+        return await withTaskCancellationHandler {
+            await task.value
+        } onCancel: {
+            task.cancel()
+        }
+    }
+
+    /// Consumes one approved formula uninstall preparation.
+    public func executeFormulaUninstall(
+        _ preparation: HomebrewFormulaUninstallPreparation
+    ) async -> (outcome: HomebrewFormulaUninstallOutcome, snapshot: InventorySnapshot?) {
+        await executeHomebrewUninstall(preparation)
+    }
+
+    /// Releases a pending formula uninstall preview without launching a process.
+    @discardableResult
+    public func cancelFormulaUninstall(_ preparation: HomebrewFormulaUninstallPreparation) -> Bool {
+        HomebrewFormulaUninstallOperation.cancel(preparation)
+    }
+
+    // MARK: Homebrew cask uninstall operation
+
+    /// Freshly prepares one selected Homebrew cask uninstall. A verified cask ownership observation
+    /// for the exact clicked selection gates the request; Core repeats the live proof.
+    public func prepareCaskUninstall(
+        for entry: InventoryEntry
+    ) async -> HomebrewCaskUninstallPrepareResult {
+        guard let published = entry.ownership?.verifiedInstallation,
+              published.manager == .homebrewCask,
+              let clickedPair = entry.diagnostic.observedSelectionPair,
+              published.selection.entryPath == clickedPair.entry,
+              published.selection.canonicalTarget == clickedPair.target
+        else { return .unavailable(.identityUnverified) }
+        let environment = await environment.sessionEnvironment()
+        let registry = self.registry
+        let scanner = self.scanner
+        let runner = updateRunner
+        let currentDirectory = currentDirectory
+        let rootBase = operationRootBaseURL
+        let registryID = entry.registryID
+        let task = Task.detached(priority: .utility) {
+            let fresh: InventorySnapshot
+            do {
+                fresh = try await Self.scanAll(
+                    environment: environment,
+                    registry: registry,
+                    scanner: scanner,
+                    currentDirectory: currentDirectory
+                )
+            } catch {
+                return HomebrewCaskUninstallPrepareResult.unavailable(
+                    Task.isCancelled ? .cancelled : .probeFailed
+                )
+            }
+            guard !Task.isCancelled else { return .unavailable(.cancelled) }
+            guard let freshEntry = fresh.entries.first(where: { $0.registryID == registryID }),
+                  let freshPair = freshEntry.diagnostic.observedSelectionPair,
+                  freshPair.entry == clickedPair.entry,
+                  freshPair.target == clickedPair.target
+            else { return .unavailable(.identityUnverified) }
+            return await HomebrewCaskUninstallOperation.prepare(
+                definition: freshEntry.definition,
+                diagnostic: freshEntry.diagnostic,
+                environment: environment,
+                currentDirectory: currentDirectory,
+                runner: runner,
+                operationRootBaseURL: rootBase,
+                uptime: { DispatchTime.now().uptimeNanoseconds }
+            )
+        }
+        return await withTaskCancellationHandler {
+            await task.value
+        } onCancel: {
+            task.cancel()
+        }
+    }
+
+    /// Consumes one approved cask uninstall preparation.
+    public func executeCaskUninstall(
+        _ preparation: HomebrewCaskUninstallPreparation
+    ) async -> (outcome: HomebrewCaskUninstallOutcome, snapshot: InventorySnapshot?) {
+        await executeHomebrewUninstall(preparation)
+    }
+
+    /// Releases a pending cask uninstall preview without launching a process.
+    @discardableResult
+    public func cancelCaskUninstall(_ preparation: HomebrewCaskUninstallPreparation) -> Bool {
+        HomebrewCaskUninstallOperation.cancel(preparation)
+    }
+
+    // MARK: Homebrew execution plumbing
+
+    /// One shared post-launch reconciliation closure: a fresh login-shell/local rescan supplies the
+    /// post-mutation facts to Core and the snapshot the window publishes. It runs independently of
+    /// the caller's cancellation, so an interrupted operation still settles honestly.
+    private func homebrewReconcileAfterLaunch(
+        snapshotBox: OperationSnapshotBox
+    ) -> @Sendable (DetectorDefinition) async -> (ToolPathDiagnostic, ShellEnvironment)? {
+        let service = self
+        return { definition in
+            let freshTask = Task.detached(priority: .utility) {
+                try? await service.refreshedLocalSnapshot()
+            }
+            guard let fresh = await freshTask.value,
+                  let entry = fresh.entries.first(where: { $0.registryID == definition.id })
+            else { return nil }
+            snapshotBox.store(fresh)
+            let freshEnvironment = await service.environment.sessionEnvironment()
+            return (entry.diagnostic, freshEnvironment)
+        }
+    }
+
+    private func executeHomebrewUpdate(
+        _ preparation: HomebrewFormulaUpdatePreparation
+    ) async -> (outcome: HomebrewFormulaUpdateOutcome, snapshot: InventorySnapshot?) {
+        let environment = await environment.sessionEnvironment()
+        let scanner = self.scanner
+        let runner = updateRunner
+        let operationRunner = self.operationRunner
+        let gate = operationGate
+        let snapshotBox = OperationSnapshotBox()
+        let reconcile = homebrewReconcileAfterLaunch(snapshotBox: snapshotBox)
+        let task = Task.detached(priority: .utility) {
+            let outcome = await HomebrewFormulaUpdateOperation.execute(
+                confirmed: preparation,
+                environment: environment,
+                scan: { definition, shellEnvironment, directory in
+                    scanner(definition.makeDetector(), shellEnvironment, directory)
+                },
+                reconcileAfterLaunch: reconcile,
+                updateRunner: runner,
+                operationRunner: operationRunner,
+                gate: gate,
+                uptime: { DispatchTime.now().uptimeNanoseconds }
+            )
+            return (outcome: outcome, snapshot: snapshotBox.take())
+        }
+        return await withTaskCancellationHandler {
+            await task.value
+        } onCancel: {
+            task.cancel()
+        }
+    }
+
+    private func executeHomebrewUpdate(
+        _ preparation: HomebrewCaskUpdatePreparation
+    ) async -> (outcome: HomebrewCaskUpdateOutcome, snapshot: InventorySnapshot?) {
+        let environment = await environment.sessionEnvironment()
+        let scanner = self.scanner
+        let runner = updateRunner
+        let operationRunner = self.operationRunner
+        let gate = operationGate
+        let snapshotBox = OperationSnapshotBox()
+        let reconcile = homebrewReconcileAfterLaunch(snapshotBox: snapshotBox)
+        let task = Task.detached(priority: .utility) {
+            let outcome = await HomebrewCaskUpdateOperation.execute(
+                confirmed: preparation,
+                environment: environment,
+                scan: { definition, shellEnvironment, directory in
+                    scanner(definition.makeDetector(), shellEnvironment, directory)
+                },
+                reconcileAfterLaunch: reconcile,
+                updateRunner: runner,
+                operationRunner: operationRunner,
+                gate: gate,
+                uptime: { DispatchTime.now().uptimeNanoseconds }
+            )
+            return (outcome: outcome, snapshot: snapshotBox.take())
+        }
+        return await withTaskCancellationHandler {
+            await task.value
+        } onCancel: {
+            task.cancel()
+        }
+    }
+
+    private func executeHomebrewUninstall(
+        _ preparation: HomebrewFormulaUninstallPreparation
+    ) async -> (outcome: HomebrewFormulaUninstallOutcome, snapshot: InventorySnapshot?) {
+        let environment = await environment.sessionEnvironment()
+        let scanner = self.scanner
+        let runner = updateRunner
+        let operationRunner = self.operationRunner
+        let gate = operationGate
+        let snapshotBox = OperationSnapshotBox()
+        let reconcile = homebrewReconcileAfterLaunch(snapshotBox: snapshotBox)
+        let task = Task.detached(priority: .utility) {
+            let outcome = await HomebrewFormulaUninstallOperation.execute(
+                confirmed: preparation,
+                environment: environment,
+                scan: { definition, shellEnvironment, directory in
+                    scanner(definition.makeDetector(), shellEnvironment, directory)
+                },
+                reconcileAfterLaunch: reconcile,
+                updateRunner: runner,
+                operationRunner: operationRunner,
+                gate: gate,
+                uptime: { DispatchTime.now().uptimeNanoseconds }
+            )
+            return (outcome: outcome, snapshot: snapshotBox.take())
+        }
+        return await withTaskCancellationHandler {
+            await task.value
+        } onCancel: {
+            task.cancel()
+        }
+    }
+
+    private func executeHomebrewUninstall(
+        _ preparation: HomebrewCaskUninstallPreparation
+    ) async -> (outcome: HomebrewCaskUninstallOutcome, snapshot: InventorySnapshot?) {
+        let environment = await environment.sessionEnvironment()
+        let scanner = self.scanner
+        let runner = updateRunner
+        let operationRunner = self.operationRunner
+        let gate = operationGate
+        let snapshotBox = OperationSnapshotBox()
+        let reconcile = homebrewReconcileAfterLaunch(snapshotBox: snapshotBox)
+        let task = Task.detached(priority: .utility) {
+            let outcome = await HomebrewCaskUninstallOperation.execute(
+                confirmed: preparation,
+                environment: environment,
+                scan: { definition, shellEnvironment, directory in
+                    scanner(definition.makeDetector(), shellEnvironment, directory)
+                },
+                reconcileAfterLaunch: reconcile,
+                updateRunner: runner,
+                operationRunner: operationRunner,
+                gate: gate,
+                uptime: { DispatchTime.now().uptimeNanoseconds }
+            )
+            return (outcome: outcome, snapshot: snapshotBox.take())
+        }
+        return await withTaskCancellationHandler {
+            await task.value
+        } onCancel: {
+            task.cancel()
+        }
     }
 
     // MARK: Offload

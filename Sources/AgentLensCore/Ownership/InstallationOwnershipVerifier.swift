@@ -59,9 +59,16 @@ public enum InstallationOwnershipVerifier {
         }
 
         let source = diagnostic.detectedTool.source
+        let hasNpm = definition.packages.contains { $0.manager == .npm }
+        let hasFormula = definition.packages.contains { $0.manager == .homebrewFormula }
+        let hasCask = definition.packages.contains { $0.manager == .homebrewCask }
         let outcome: InstallationOwnershipOutcome
-        switch source {
-        case "npm":
+        // Routing order (R1): npm only for an npm source with an npm declaration; the formula
+        // proof only for a brew source with a formula declaration; otherwise a declared cask is
+        // proved by the cask route regardless of the heuristic source. A cask declaration never
+        // falls through to a previous branch's failure, and a cask proof never borrows a formula
+        // result.
+        if source == "npm", hasNpm {
             outcome = await verifyNpm(
                 definition: definition,
                 selection: selected,
@@ -69,7 +76,7 @@ public enum InstallationOwnershipVerifier {
                 runner: runner,
                 currentDirectory: currentDirectory
             )
-        case "brew":
+        } else if source == "brew", hasFormula {
             outcome = await verifyHomebrew(
                 definition: definition,
                 selection: selected,
@@ -77,7 +84,33 @@ public enum InstallationOwnershipVerifier {
                 runner: runner,
                 currentDirectory: currentDirectory
             )
-        default:
+        } else if hasCask {
+            outcome = await verifyHomebrewCask(
+                definition: definition,
+                selection: selected,
+                environment: environment,
+                runner: runner,
+                currentDirectory: currentDirectory
+            )
+        } else if source == "npm" {
+            // Preserves the existing no-declaration refusal for npm sources.
+            outcome = await verifyNpm(
+                definition: definition,
+                selection: selected,
+                environment: environment,
+                runner: runner,
+                currentDirectory: currentDirectory
+            )
+        } else if source == "brew" {
+            // Preserves the existing no-declaration refusal for brew sources.
+            outcome = await verifyHomebrew(
+                definition: definition,
+                selection: selected,
+                environment: environment,
+                runner: runner,
+                currentDirectory: currentDirectory
+            )
+        } else {
             outcome = .unknown(.unsupportedSource)
         }
 
@@ -155,6 +188,34 @@ public enum InstallationOwnershipVerifier {
             return .unknown(.managerUnavailable)
         }
         return await HomebrewOwnershipProbe.verify(
+            definition: definition,
+            selection: selection,
+            manager: manager,
+            environment: environment,
+            runner: runner
+        )
+    }
+
+    private static func verifyHomebrewCask(
+        definition: DetectorDefinition,
+        selection: ObservedExecutable,
+        environment: ShellEnvironment,
+        runner: UpdateCommandRunner,
+        currentDirectory: String
+    ) async -> InstallationOwnershipOutcome {
+        switch HomebrewCaskOwnershipProbe.declaredCaskPreflight(definition: definition) {
+        case .refused(let reason):
+            return .unknown(reason)
+        case .names:
+            break
+        }
+        guard let manager = resolveBrew(
+            environment: environment,
+            currentDirectory: currentDirectory
+        ) else {
+            return .unknown(.managerUnavailable)
+        }
+        return await HomebrewCaskOwnershipProbe.verify(
             definition: definition,
             selection: selection,
             manager: manager,

@@ -1321,3 +1321,1056 @@ private final class M10DUninstallOperationRunner: OperationCommandRunner, @unche
     #expect(result.outcome.reconciliation?.selectedTargetReleased == true)
     #expect(result.snapshot?.entries.first?.installState == .notInstalled)
 }
+
+// MARK: - M13-G Homebrew formula operation boundary
+
+/// Mutable manager answers shared by the read-only queries and the operation runner, so the
+/// post-launch observation sees exactly the mutation the runner performed.
+final class AppFormulaManagerState: @unchecked Sendable {
+    private let lock = NSLock()
+    private var installed: [String]
+    private var listed: String
+    let stable: String
+
+    init(installed: [String], listedPath: String, stable: String) {
+        self.installed = installed
+        self.listed = listedPath
+        self.stable = stable
+    }
+
+    var installedKegs: [String] { lock.lock(); defer { lock.unlock() }; return installed }
+    var listedPath: String { lock.lock(); defer { lock.unlock() }; return listed }
+
+    func upgrade(to keg: String, listedPath: String) {
+        lock.lock()
+        installed = [keg] + installed.filter { $0 != keg }
+        listed = listedPath
+        lock.unlock()
+    }
+
+    func removeAll() {
+        lock.lock()
+        installed = []
+        lock.unlock()
+    }
+}
+
+/// A disposable synthetic Homebrew formula installation:
+/// `<prefix>/Cellar/<formula>/<keg>/bin/<formula>` linked from `<prefix>/bin`, with a synthetic
+/// `brew` executable. No real manager is ever invoked.
+struct AppFormulaOperationFixture: Sendable {
+    let root: URL
+    let prefix: URL
+    let cellar: String
+    let binDirectory: String
+    let brewPath: String
+    let formulaName: String
+    let installedKeg: String
+    let targetVersion: String
+    let target: String
+    let operationBase: URL
+    let environment: ShellEnvironment
+    let definition: DetectorDefinition
+    let definitions: [DetectorDefinition]
+    let state: AppFormulaManagerState
+
+    init(_ label: String) throws {
+        let rootValue = try appSupportScratchRoot(label)
+        let prefixValue = rootValue.appendingPathComponent("prefix", isDirectory: true)
+        let formula = "hermes-agent"
+        let keg = "1.0.0"
+        let targetURL = prefixValue
+            .appendingPathComponent("Cellar/\(formula)/\(keg)/bin/\(formula)")
+        try writeFixtureExecutable(prefixValue.appendingPathComponent("bin/brew"))
+        try m13gWriteExecutable(targetURL, version: "1.0.0")
+        let link = prefixValue.appendingPathComponent("bin/\(formula)")
+        try FileManager.default.createDirectory(
+            at: link.deletingLastPathComponent(), withIntermediateDirectories: true
+        )
+        try FileManager.default.createSymbolicLink(atPath: link.path, withDestinationPath: targetURL.path)
+        let canonicalPrefix = prefixValue.resolvingSymlinksInPath()
+        let canonicalTarget = targetURL.resolvingSymlinksInPath().path
+        let joinedPath = canonicalPrefix.appendingPathComponent("bin").path
+        let environmentValue = ShellEnvironment(
+            shellPath: "/bin/zsh",
+            pathEntries: [joinedPath],
+            pathJoined: joinedPath,
+            raw: ["PATH": joinedPath, "HOME": rootValue.appendingPathComponent("home").path],
+            isDegraded: false
+        )
+        let data = Data("""
+        {"schemaVersion":2,"detectors":[{"id":"hermes-id","displayName":"Hermes","executableName":"hermes-agent","category":"aiAgent","packages":[{"manager":"homebrewFormula","name":"hermes-agent"}],"acceptedOperations":["homebrewFormulaUpdate","homebrewFormulaUninstall"],"versionQuery":{"arguments":["--version"],"stream":"stdout","line":"first"}},{"id":"beta-id","displayName":"Beta","executableName":"beta","category":"aiHarness","packages":[],"versionQuery":{"arguments":["--version"],"stream":"stdout","line":"first"}}]}
+        """.utf8)
+        let operationBaseValue = rootValue.appendingPathComponent("operation-base", isDirectory: true)
+        try FileManager.default.createDirectory(
+            at: operationBaseValue, withIntermediateDirectories: false,
+            attributes: [.posixPermissions: 0o700]
+        )
+        self.root = rootValue
+        self.prefix = canonicalPrefix
+        self.cellar = canonicalPrefix.appendingPathComponent("Cellar").path
+        self.binDirectory = joinedPath
+        self.brewPath = canonicalPrefix.appendingPathComponent("bin/brew").path
+        self.formulaName = formula
+        self.installedKeg = keg
+        self.targetVersion = "2.0.0"
+        self.target = canonicalTarget
+        self.operationBase = operationBaseValue
+        self.environment = environmentValue
+        self.definitions = try DetectorRegistry.validate(data: data)
+        self.definition = self.definitions[0]
+        self.state = AppFormulaManagerState(
+            installed: [keg], listedPath: canonicalTarget, stable: "2.0.0"
+        )
+    }
+
+    var managerHandler: @Sendable (String, [String]) -> CommandOutcome {
+        let cellar = cellar
+        let prefix = prefix.path
+        let formula = formulaName
+        let target = target
+        let state = state
+        return { _, arguments in
+            switch arguments.first {
+            case "--prefix":
+                return .success(Data((prefix + "\n").utf8))
+            case "--cellar":
+                return .success(Data((cellar + "\n").utf8))
+            case "info":
+                let kegs = state.installedKegs
+                let installed = kegs
+                    .map { "{\"version\":\"\($0)\",\"installed_on_request\":true}" }
+                    .joined(separator: ",")
+                let envelope = """
+                {"formulae":[{"name":"\(formula)","full_name":"\(formula)","tap":"homebrew/core",\
+                "revision":0,"versions":{"stable":"\(state.stable)","head":null,"bottle":true},\
+                "installed":[\(installed)],"pinned":false,"deprecated":false,"disabled":false}],"casks":[]}
+                """
+                return .success(Data(envelope.utf8))
+            case "list":
+                if arguments.contains("--pinned") { return .success(Data()) }
+                if arguments.contains("--verbose") {
+                    let listed = state.listedPath
+                    return .success(Data((listed + "\n").utf8))
+                }
+                return .success(Data())
+            case "outdated":
+                let kegs = state.installedKegs
+                guard kegs != [state.stable] else {
+                    return .success(Data("{\"formulae\":[],\"casks\":[]}".utf8))
+                }
+                let installed = kegs.map { "\"\($0)\"" }.joined(separator: ",")
+                let envelope = """
+                {"formulae":[{"name":"\(formula)","installed_versions":[\(installed)],\
+                "current_version":"\(state.stable)","pinned":false}],"casks":[]}
+                """
+                return .success(Data(envelope.utf8))
+            default:
+                return .failure(.spawnFailure)
+            }
+        }
+    }
+
+    func makeService(
+        operationRunner: OperationCommandRunner,
+        updateRunner: UpdateCommandRunner? = nil
+    ) -> InventoryService {
+        let environment = self.environment
+        let definitions = self.definitions
+        let handler = self.managerHandler
+        let manager = updateRunner ?? RecordingManagerRunner(handler: handler)
+        let source = SessionEnvironmentSource(
+            resolve: { environment },
+            loginShellPath: { "/bin/sh" },
+            capture: { _ in
+                ShellEnvironmentResolver.CaptureOutcome(dump: environment.raw, timedOut: false)
+            },
+            build: { _, _ in environment }
+        )
+        return InventoryService(
+            environment: SessionEnvironmentProvider(source: source),
+            registry: { definitions },
+            scanner: { detector, env, cwd in
+                PathDiagnosticsScanner.scan(detector: detector, environment: env, currentDirectory: cwd)
+            },
+            updateRunner: manager,
+            operationRunner: operationRunner,
+            operationGate: OperationExecutionGate(),
+            operationRootBaseURL: operationBase,
+            updateCacheURL: root.appendingPathComponent("cache.json"),
+            currentDirectory: root.path,
+            clock: fixedClock()
+        )
+    }
+
+    /// A published entry carrying the manager-verified update identity the presentation gate
+    /// reads. The diagnostic and definition are the real scanned values; the observed selection is
+    /// copied exactly as the coordinator copies it (the PATH-slot entry and its canonical target).
+    func updatedEntry(_ entry: InventoryEntry) -> InventoryEntry {
+        let selected = entry.diagnostic.observedSelectionPair
+        return InventoryEntry(
+            definition: entry.definition,
+            diagnostic: entry.diagnostic,
+            update: ToolUpdateResult(
+                registryID: entry.registryID,
+                displayName: entry.definition.displayName,
+                diagnosticIndex: 0,
+                diagnostic: entry.diagnostic,
+                localVersion: "1.0.0",
+                selectedEntryPath: selected?.entry,
+                selectedTarget: selected?.target,
+                selectedKegVersion: installedKeg,
+                managerEntryPath: brewPath,
+                managerTarget: brewPath,
+                managerFingerprint: nil,
+                managerCellar: cellar,
+                formulaStem: formulaName,
+                fullFormulaName: formulaName,
+                status: .updateAvailable(installed: Version("1.0.0"), latest: Version(targetVersion)),
+                provenance: .freshProbe(observedAt: Date(timeIntervalSince1970: 0))
+            ),
+            ownership: entry.ownership
+        )
+    }
+}
+
+private func m13gWriteExecutable(_ url: URL, version: String) throws {
+    try FileManager.default.createDirectory(
+        at: url.deletingLastPathComponent(), withIntermediateDirectories: true
+    )
+    try Data("#!/bin/sh\necho 'hermes-agent \(version)'\nexit 0\n".utf8).write(to: url)
+    try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: url.path)
+}
+
+/// Performs the update mutation the real manager would: stages the new keg, relinks the selected
+/// executable, and updates the manager-answer state the post-launch observation reads.
+final class AppFormulaUpgradeRunner: OperationCommandRunner, @unchecked Sendable {
+    let fixture: AppFormulaOperationFixture
+    private let lock = NSLock()
+    private var calls = 0
+    var invocationCount: Int { lock.lock(); defer { lock.unlock() }; return calls }
+
+    init(fixture: AppFormulaOperationFixture) {
+        self.fixture = fixture
+    }
+
+    private func noteCall() {
+        lock.lock()
+        calls += 1
+        lock.unlock()
+    }
+
+    func run(
+        executablePath: String,
+        arguments: [String],
+        environment: [String: String],
+        currentDirectory: String,
+        timeout: TimeInterval
+    ) async -> OperationCommandResult {
+        noteCall()
+        let newTarget = fixture.prefix
+            .appendingPathComponent("Cellar/\(fixture.formulaName)/\(fixture.targetVersion)/bin/\(fixture.formulaName)")
+        try? m13gWriteExecutable(newTarget, version: fixture.targetVersion)
+        let link = fixture.prefix.appendingPathComponent("bin/\(fixture.formulaName)")
+        try? FileManager.default.removeItem(at: link)
+        try? FileManager.default.createSymbolicLink(atPath: link.path, withDestinationPath: newTarget.path)
+        fixture.state.upgrade(
+            to: fixture.targetVersion,
+            listedPath: newTarget.resolvingSymlinksInPath().path
+        )
+        return OperationCommandResult(
+            stdout: Data("upgraded\n".utf8), stderr: Data(),
+            stdoutTruncated: false, stderrTruncated: false,
+            exitStatus: 0, processStarted: true,
+            timedOut: false, cancelled: false, cleanupWarning: false
+        )
+    }
+}
+
+/// Performs the uninstall mutation the real manager would for a single linked keg.
+final class AppFormulaUninstallRunner: OperationCommandRunner, @unchecked Sendable {
+    let fixture: AppFormulaOperationFixture
+    private let lock = NSLock()
+    private var calls = 0
+    var invocationCount: Int { lock.lock(); defer { lock.unlock() }; return calls }
+
+    init(fixture: AppFormulaOperationFixture) {
+        self.fixture = fixture
+    }
+
+    private func noteCall() {
+        lock.lock()
+        calls += 1
+        lock.unlock()
+    }
+
+    func run(
+        executablePath: String,
+        arguments: [String],
+        environment: [String: String],
+        currentDirectory: String,
+        timeout: TimeInterval
+    ) async -> OperationCommandResult {
+        noteCall()
+        try? FileManager.default.removeItem(
+            at: fixture.prefix.appendingPathComponent("Cellar/\(fixture.formulaName)")
+        )
+        try? FileManager.default.removeItem(
+            at: fixture.prefix.appendingPathComponent("bin/\(fixture.formulaName)")
+        )
+        fixture.state.removeAll()
+        return OperationCommandResult(
+            stdout: Data("uninstalled\n".utf8), stderr: Data(),
+            stdoutTruncated: false, stderrTruncated: false,
+            exitStatus: 0, processStarted: true,
+            timedOut: false, cancelled: false, cleanupWarning: false
+        )
+    }
+}
+
+final class AppFormulaCountingOperationRunner: OperationCommandRunner, @unchecked Sendable {
+    private let lock = NSLock()
+    private var calls = 0
+    var invocationCount: Int { lock.lock(); defer { lock.unlock() }; return calls }
+
+    private func noteCall() {
+        lock.lock()
+        calls += 1
+        lock.unlock()
+    }
+
+    func run(
+        executablePath: String,
+        arguments: [String],
+        environment: [String: String],
+        currentDirectory: String,
+        timeout: TimeInterval
+    ) async -> OperationCommandResult {
+        noteCall()
+        return OperationCommandResult(
+            stdout: Data(), stderr: Data(),
+            stdoutTruncated: false, stderrTruncated: false,
+            exitStatus: 1, processStarted: true,
+            timedOut: false, cancelled: false, cleanupWarning: false
+        )
+    }
+}
+
+@Test func formulaUpdatePreparationAndExecutionForwardTheTypedPreviewAndPublishTheDelta() async throws {
+    let fixture = try AppFormulaOperationFixture("m13g-formula-update")
+    defer { try? FileManager.default.removeItem(at: fixture.root) }
+    let runner = AppFormulaUpgradeRunner(fixture: fixture)
+    let service = fixture.makeService(operationRunner: runner)
+    let local = try await service.localSnapshot()
+    let scanned = try #require(local.entries.first)
+    let entry = fixture.updatedEntry(scanned)
+
+    let prepared = await service.prepareFormulaUpdate(for: entry)
+    guard case .ready(let preparation) = prepared else {
+        Issue.record("expected a formula update preparation, got \(prepared)")
+        return
+    }
+    #expect(preparation.preview.kind == .formula)
+    #expect(preparation.preview.registryID == "hermes-id")
+    #expect(preparation.preview.fullName == "hermes-agent")
+    #expect(preparation.preview.prefix == fixture.prefix.path)
+    #expect(preparation.preview.timeoutSeconds == 900)
+    #expect(preparation.preview.arguments == ["upgrade", "--formula", "--yes", "hermes-agent"])
+    #expect(preparation.preview.effect.contains("900 seconds"))
+
+    let result = await service.executeFormulaUpdate(preparation)
+    let outcome = result.outcome
+    #expect(runner.invocationCount == 1)
+    #expect(outcome.processStarted)
+    #expect(outcome.state == .succeeded)
+    #expect(outcome.reconciliation?.previousKegReplaced == true)
+    #expect(outcome.reconciliation?.versionMatchesTarget == true)
+    let refreshed = try #require(result.snapshot?.entries.first)
+    #expect(refreshed.diagnostic.detectedTool.version?.contains(fixture.targetVersion) == true)
+    #expect(refreshed.installState == .installedAndOnPath)
+}
+
+@Test func formulaUpdatePreparationRefusesAnUnverifiedManagerIdentity() async throws {
+    let fixture = try AppFormulaOperationFixture("m13g-formula-update-guard")
+    defer { try? FileManager.default.removeItem(at: fixture.root) }
+    let operationRunner = AppFormulaCountingOperationRunner()
+    let service = fixture.makeService(operationRunner: operationRunner)
+    let local = try await service.localSnapshot()
+    let scanned = try #require(local.entries.first)
+
+    // The published update result still has no manager identity (a declaration is not proof).
+    let result = await service.prepareFormulaUpdate(for: scanned)
+    guard case .unavailable(let reason) = result else {
+        Issue.record("expected a typed refusal")
+        return
+    }
+    #expect(reason == .notUpdateAvailable)
+    #expect(operationRunner.invocationCount == 0)
+}
+
+@Test func formulaUninstallPreparationAndExecutionForwardTheTypedPreviewAndPublishTheRemoval() async throws {
+    let fixture = try AppFormulaOperationFixture("m13g-formula-uninstall")
+    defer { try? FileManager.default.removeItem(at: fixture.root) }
+    let runner = AppFormulaUninstallRunner(fixture: fixture)
+    let service = fixture.makeService(operationRunner: runner)
+    let local = try await service.localSnapshot()
+    let scanned = try #require(local.entries.first)
+    let ownership = await service.verifyingOwnership(of: scanned)
+    #expect(ownership.verifiedInstallation?.manager == .homebrewFormula)
+    let entry = InventoryEntry(
+        definition: scanned.definition,
+        diagnostic: scanned.diagnostic,
+        update: nil,
+        ownership: ownership
+    )
+
+    let prepared = await service.prepareFormulaUninstall(for: entry)
+    guard case .ready(let preparation) = prepared else {
+        Issue.record("expected a formula uninstall preparation, got \(prepared)")
+        return
+    }
+    #expect(preparation.preview.kind == .formula)
+    #expect(preparation.preview.installedKegs == ["1.0.0"])
+    #expect(preparation.preview.arguments == ["uninstall", "--formula", "hermes-agent"])
+
+    let result = await service.executeFormulaUninstall(preparation)
+    let outcome = result.outcome
+    #expect(runner.invocationCount == 1)
+    #expect(outcome.processStarted)
+    #expect(outcome.state == .succeeded)
+    #expect(outcome.reconciliation?.recordedKegAbsent == true)
+    #expect(outcome.reconciliation?.selectedTargetReleased == true)
+    let refreshed = try #require(result.snapshot?.entries.first)
+    #expect(refreshed.installState == .notInstalled)
+}
+
+@Test func caskUpdatePreparationNeverBorrowsAFormulaIdentity() async throws {
+    let fixture = try AppFormulaOperationFixture("m13g-cask-update-guard")
+    defer { try? FileManager.default.removeItem(at: fixture.root) }
+    let operations = AppFormulaCountingOperationRunner()
+    let service = fixture.makeService(operationRunner: operations)
+    let local = try await service.localSnapshot()
+    let scanned = try #require(local.entries.first)
+    // The published result is a verified formula identity; the cask route must refuse rather than
+    // fall back across manager kinds.
+    let entry = fixture.updatedEntry(scanned)
+    let result = await service.prepareCaskUpdate(for: entry)
+    guard case .unavailable(let reason) = result else {
+        Issue.record("expected a typed cask refusal")
+        return
+    }
+    #expect(reason == .notUpdateAvailable)
+    #expect(operations.invocationCount == 0)
+}
+
+@Test func caskUninstallPreparationRequiresVerifiedCaskOwnership() async throws {
+    let fixture = try AppFormulaOperationFixture("m13g-cask-uninstall-guard")
+    defer { try? FileManager.default.removeItem(at: fixture.root) }
+    let operations = AppFormulaCountingOperationRunner()
+    let service = fixture.makeService(operationRunner: operations)
+    let local = try await service.localSnapshot()
+    let scanned = try #require(local.entries.first)
+    let ownership = await service.verifyingOwnership(of: scanned)
+    let entry = InventoryEntry(
+        definition: scanned.definition,
+        diagnostic: scanned.diagnostic,
+        update: nil,
+        ownership: ownership
+    )
+    let result = await service.prepareCaskUninstall(for: entry)
+    guard case .unavailable(let reason) = result else {
+        Issue.record("expected a typed cask refusal")
+        return
+    }
+    #expect(reason == .identityUnverified)
+    #expect(operations.invocationCount == 0)
+}
+
+// MARK: - M13-G Homebrew cask operation boundary
+
+/// Mutable manager answers shared by the read-only cask queries (ownership verification and the
+/// confirmed observation) and the operation runners, so the post-launch reconciliation reads
+/// exactly the mutation the runner performed. No real manager is ever invoked.
+final class AppCaskManagerState: @unchecked Sendable {
+    private let lock = NSLock()
+    private var installedVersion: String?
+    private var staged: [String]
+    private var outdated: Bool
+
+    init(installedVersion: String?, staged: [String], outdated: Bool) {
+        self.installedVersion = installedVersion
+        self.staged = staged
+        self.outdated = outdated
+    }
+
+    var installed: String? {
+        lock.lock(); defer { lock.unlock() }
+        return installedVersion
+    }
+
+    var isOutdated: Bool {
+        lock.lock(); defer { lock.unlock() }
+        return outdated
+    }
+
+    var stagedPaths: [String] {
+        lock.lock(); defer { lock.unlock() }
+        return staged
+    }
+
+    func apply(installedVersion: String?, stagedPaths: [String], outdated: Bool) {
+        lock.lock()
+        self.installedVersion = installedVersion
+        self.staged = stagedPaths
+        self.outdated = outdated
+        lock.unlock()
+    }
+}
+
+/// A disposable synthetic Homebrew cask installation:
+/// `<prefix>/Caskroom/<token>/<installed>/<token>` linked from `<prefix>/bin/<token>`, the saved
+/// installed definition/receipt Homebrew leaves in `<token>/.metadata`, and a synthetic `brew`
+/// executable in `<prefix>/bin`. `npmCodex` additionally installs one npm-shaped package in the
+/// same prefix so a single service exercises both managers. No real manager, Caskroom or
+/// /Applications path is touched.
+struct AppCaskOperationFixture: Sendable {
+    let root: URL
+    let prefix: URL
+    let caskroom: URL
+    let binDirectory: URL
+    let brewPath: String
+    let entry: URL
+    let token: String
+    let tap: String
+    let installedVersion: String
+    let targetVersion: String
+    let operationBase: URL
+    let environment: ShellEnvironment
+    let registryData: Data
+    let definition: DetectorDefinition
+    let definitions: [DetectorDefinition]
+    let state: AppCaskManagerState
+    /// The npm-shaped companion installed by `npmCodex`, if any.
+    let npmGlobalRoot: URL?
+    let npmScratchDirectory: URL?
+
+    var tokenDirectory: URL { caskroom.appendingPathComponent(token, isDirectory: true) }
+
+    init(_ label: String, npmCodex: Bool = false) throws {
+        let rootValue = try appSupportScratchRoot(label)
+        let prefixValue = rootValue.appendingPathComponent("prefix", isDirectory: true)
+        let binValue = prefixValue.appendingPathComponent("bin", isDirectory: true)
+        let caskroomValue = prefixValue.appendingPathComponent("Caskroom", isDirectory: true)
+        let caskToken = "m13cask"
+        let installed = "1.0.0"
+        let latest = "2.0.0"
+        try FileManager.default.createDirectory(at: binValue, withIntermediateDirectories: true)
+        try writeFixtureExecutable(binValue.appendingPathComponent("brew"))
+
+        var detectors = [
+            """
+            {"id":"m13cask-id","displayName":"M13 Cask","executableName":"m13cask",\
+            "category":"aiAgent","packages":[{"manager":"homebrewCask","name":"m13cask"}],\
+            "acceptedOperations":["homebrewCaskUpdate","homebrewCaskUninstall"],\
+            "versionQuery":{"arguments":["--version"],"stream":"stdout","line":"first"}}
+            """,
+            """
+            {"id":"beta-id","displayName":"Beta","executableName":"beta","category":"aiHarness",\
+            "packages":[],"versionQuery":{"arguments":["--version"],"stream":"stdout","line":"first"}}
+            """,
+        ]
+        var globalRoot: URL?
+        var scratch: URL?
+        if npmCodex {
+            try writeFixtureExecutable(binValue.appendingPathComponent("npm"))
+            let npmRoot = prefixValue.appendingPathComponent("lib/node_modules", isDirectory: true)
+            let codexRoot = npmRoot.appendingPathComponent("@openai/codex", isDirectory: true)
+            let codexTarget = codexRoot.appendingPathComponent("bin/codex")
+            try m13gWriteCaskExecutable(codexTarget, token: "codex", version: "1.0.0")
+            try Data(
+                "{\"name\":\"@openai/codex\",\"version\":\"1.0.0\",\"bin\":{\"codex\":\"bin/codex\"}}".utf8
+            ).write(to: codexRoot.appendingPathComponent("package.json"))
+            try FileManager.default.createSymbolicLink(
+                atPath: binValue.appendingPathComponent("codex").path,
+                withDestinationPath: codexTarget.path
+            )
+            let scratchValue = rootValue.appendingPathComponent("npm-scratch", isDirectory: true)
+            try FileManager.default.createDirectory(
+                at: scratchValue, withIntermediateDirectories: true
+            )
+            globalRoot = npmRoot
+            scratch = scratchValue
+            detectors.append(
+                """
+                {"id":"codex-id","displayName":"Codex","executableName":"codex","category":"aiAgent",\
+                "packages":[{"manager":"npm","name":"@openai/codex"}],"acceptedOperations":["npmUpdate"],\
+                "versionQuery":{"arguments":["--version"],"stream":"stdout","line":"first"}}
+                """
+            )
+        }
+        let data = Data(
+            "{\"schemaVersion\":2,\"detectors\":[\(detectors.joined(separator: ","))]}".utf8
+        )
+        let canonicalPrefix = prefixValue.resolvingSymlinksInPath()
+        let canonicalBin = canonicalPrefix.appendingPathComponent("bin", isDirectory: true)
+        let canonicalCaskroom = canonicalPrefix.appendingPathComponent("Caskroom", isDirectory: true)
+        let joinedPath = canonicalBin.path
+        let environmentValue = ShellEnvironment(
+            shellPath: "/bin/zsh",
+            pathEntries: [joinedPath],
+            pathJoined: joinedPath,
+            raw: ["PATH": joinedPath, "HOME": rootValue.appendingPathComponent("home").path],
+            isDegraded: false
+        )
+        let operationBaseValue = rootValue.appendingPathComponent("operation-base", isDirectory: true)
+        try FileManager.default.createDirectory(
+            at: operationBaseValue, withIntermediateDirectories: false,
+            attributes: [.posixPermissions: 0o700]
+        )
+        let validated = try DetectorRegistry.validate(data: data)
+        self.root = rootValue
+        self.prefix = canonicalPrefix
+        self.caskroom = canonicalCaskroom
+        self.binDirectory = canonicalBin
+        self.brewPath = canonicalBin.appendingPathComponent("brew").path
+        self.entry = canonicalBin.appendingPathComponent(caskToken)
+        self.token = caskToken
+        self.tap = "homebrew/cask"
+        self.installedVersion = installed
+        self.targetVersion = latest
+        self.operationBase = operationBaseValue
+        self.environment = environmentValue
+        self.registryData = data
+        self.definitions = validated
+        self.definition = validated[0]
+        self.npmGlobalRoot = globalRoot
+        self.npmScratchDirectory = scratch
+        self.state = AppCaskManagerState(
+            installedVersion: nil, staged: [], outdated: false
+        )
+        try install(version: installed)
+    }
+
+    /// Writes one real Caskroom version directory with its saved installed metadata and relinks the
+    /// `prefix/bin` entry, then updates the manager answers the read-only queries read.
+    private func install(version: String) throws {
+        try? FileManager.default.removeItem(at: tokenDirectory)
+        let versionDirectory = tokenDirectory.appendingPathComponent(version, isDirectory: true)
+        let source = versionDirectory.appendingPathComponent(token)
+        try m13gWriteCaskExecutable(source, token: token, version: version)
+        try Self.writeInstalledMetadata(
+            tokenDirectory: tokenDirectory, token: token, tap: tap, version: version
+        )
+        try? FileManager.default.removeItem(at: entry)
+        try FileManager.default.createSymbolicLink(
+            atPath: entry.path, withDestinationPath: source.path
+        )
+        state.apply(
+            installedVersion: version,
+            stagedPaths: [source.resolvingSymlinksInPath().path],
+            outdated: version != targetVersion
+        )
+    }
+
+    /// The mutation `brew upgrade --cask` performs: the new staged version replaces the old one.
+    func applyUpdate() throws {
+        try install(version: targetVersion)
+    }
+
+    /// The mutation `brew uninstall --cask` performs: the token directory and link disappear.
+    func applyUninstall() throws {
+        try? FileManager.default.removeItem(at: tokenDirectory)
+        try? FileManager.default.removeItem(at: entry)
+        state.apply(installedVersion: nil, stagedPaths: [], outdated: false)
+    }
+
+    /// Homebrew's real saved layout under the cask's token directory:
+    /// `.metadata/INSTALL_RECEIPT.json`, `.metadata/config.json`, and the winning
+    /// `.metadata/<version>/<stamp>/Casks/<token>.json`.
+    static func writeInstalledMetadata(
+        tokenDirectory: URL,
+        token: String,
+        tap: String,
+        version: String
+    ) throws {
+        let metadata = tokenDirectory.appendingPathComponent(".metadata", isDirectory: true)
+        let casks = metadata
+            .appendingPathComponent(version, isDirectory: true)
+            .appendingPathComponent("20260101000000.123", isDirectory: true)
+            .appendingPathComponent("Casks", isDirectory: true)
+        try FileManager.default.createDirectory(at: casks, withIntermediateDirectories: true)
+        let receipt: [String: Any] = [
+            "source": ["tap": tap, "version": version],
+            "uninstall_flight_blocks": false,
+            "uninstall_artifacts": [["binary": [token]]],
+        ]
+        try JSONSerialization.data(withJSONObject: receipt, options: [.sortedKeys])
+            .write(to: metadata.appendingPathComponent("INSTALL_RECEIPT.json"))
+        try JSONSerialization.data(withJSONObject: [String: Any](), options: [.sortedKeys])
+            .write(to: casks.appendingPathComponent(token + ".json"))
+        let config: [String: Any] = [
+            "default": [String: Any](), "env": [String: Any](), "explicit": [String: Any](),
+        ]
+        try JSONSerialization.data(withJSONObject: config, options: [.sortedKeys])
+            .write(to: metadata.appendingPathComponent("config.json"))
+    }
+
+    /// Deterministic read-only manager answers for the four cask owner probes, the confirmed
+    /// observation, the pin list and the ordinary outdated list. Nothing is launched for real.
+    var managerHandler: @Sendable (String, [String]) -> CommandOutcome {
+        let prefixPath = prefix.path
+        let caskroomPath = caskroom.path
+        let caskToken = token
+        let caskTap = tap
+        let target = binDirectory.appendingPathComponent(token).path
+        let latest = targetVersion
+        let state = state
+        return { _, arguments in
+            switch arguments.first {
+            case "--prefix":
+                return .success(Data((prefixPath + "\n").utf8))
+            case "--caskroom":
+                return .success(Data((caskroomPath + "\n").utf8))
+            case "info":
+                let record: [String: Any] = [
+                    "token": caskToken,
+                    "full_token": caskToken,
+                    "tap": caskTap,
+                    "version": latest,
+                    "installed": state.installed.map { $0 as Any } ?? NSNull(),
+                    "auto_updates": NSNull(),
+                    "pinned": false,
+                    "outdated": state.isOutdated,
+                    "disabled": false,
+                    "old_tokens": [String](),
+                    "depends_on": [String: Any](),
+                    "artifacts": [["binary": [caskToken], "target": target]],
+                ]
+                guard let data = try? JSONSerialization.data(withJSONObject: ["casks": [record]])
+                else { return .failure(.invalidOutput) }
+                return .success(data)
+            case "list":
+                if arguments.contains("--pinned") { return .success(Data()) }
+                if arguments.contains("--verbose") {
+                    guard state.installed != nil, !state.stagedPaths.isEmpty else {
+                        return .failure(.nonzeroExit)
+                    }
+                    let text = state.stagedPaths.joined(separator: "\n") + "\n"
+                    return .success(Data(text.utf8))
+                }
+                return .success(Data())
+            case "outdated":
+                guard state.isOutdated, let installed = state.installed else {
+                    return .success(Data("{\"casks\":[]}".utf8))
+                }
+                let row: [String: Any] = [
+                    "name": caskToken,
+                    "current_version": latest,
+                    "installed_versions": [installed],
+                    "pinned": false,
+                ]
+                guard let data = try? JSONSerialization.data(withJSONObject: ["casks": [row]])
+                else { return .failure(.invalidOutput) }
+                return .success(data)
+            default:
+                return .failure(.spawnFailure)
+            }
+        }
+    }
+
+    func makeService(
+        operationRunner: OperationCommandRunner,
+        updateRunner: UpdateCommandRunner? = nil,
+        registryLoader: (@Sendable () throws -> [DetectorDefinition])? = nil
+    ) -> InventoryService {
+        let environment = self.environment
+        let definitions = self.definitions
+        let handler = self.managerHandler
+        let manager = updateRunner ?? RecordingManagerRunner(handler: handler)
+        let registry: @Sendable () throws -> [DetectorDefinition] = registryLoader ?? { definitions }
+        let source = SessionEnvironmentSource(
+            resolve: { environment },
+            loginShellPath: { "/bin/sh" },
+            capture: { _ in
+                ShellEnvironmentResolver.CaptureOutcome(dump: environment.raw, timedOut: false)
+            },
+            build: { _, _ in environment }
+        )
+        return InventoryService(
+            environment: SessionEnvironmentProvider(source: source),
+            registry: registry,
+            scanner: { detector, env, cwd in
+                PathDiagnosticsScanner.scan(detector: detector, environment: env, currentDirectory: cwd)
+            },
+            updateRunner: manager,
+            operationRunner: operationRunner,
+            operationGate: OperationExecutionGate(),
+            operationRootBaseURL: operationBase,
+            updateCacheURL: root.appendingPathComponent("cache.json"),
+            npmScratchBaseURL: npmScratchDirectory,
+            currentDirectory: root.path,
+            clock: fixedClock()
+        )
+    }
+
+    /// A published entry carrying the manager-verified cask update identity the presentation gate
+    /// reads. The diagnostic is the real scanned value; the observed selection is copied exactly as
+    /// the coordinator copies it (the PATH-slot entry and its canonical Caskroom target).
+    func updatedEntry(_ entry: InventoryEntry) -> InventoryEntry {
+        let selected = entry.diagnostic.observedSelectionPair
+        return InventoryEntry(
+            definition: entry.definition,
+            diagnostic: entry.diagnostic,
+            update: ToolUpdateResult(
+                registryID: entry.registryID,
+                displayName: entry.definition.displayName,
+                diagnosticIndex: 0,
+                diagnostic: entry.diagnostic,
+                localVersion: installedVersion,
+                selectedEntryPath: selected?.entry,
+                selectedTarget: selected?.target,
+                selectedKegVersion: nil,
+                managerEntryPath: brewPath,
+                managerTarget: brewPath,
+                managerFingerprint: nil,
+                managerCellar: nil,
+                formulaStem: nil,
+                fullFormulaName: nil,
+                caskToken: token,
+                caskFullToken: token,
+                caskTap: tap,
+                caskInstalledVersion: installedVersion,
+                caskPinned: false,
+                status: .updateAvailable(
+                    installed: Version(installedVersion), latest: Version(targetVersion)
+                ),
+                provenance: .freshProbe(observedAt: Date(timeIntervalSince1970: 0))
+            ),
+            ownership: entry.ownership
+        )
+    }
+}
+
+/// A versioned shell script standing in for a cask's command-line artifact.
+private func m13gWriteCaskExecutable(_ url: URL, token: String, version: String) throws {
+    try FileManager.default.createDirectory(
+        at: url.deletingLastPathComponent(), withIntermediateDirectories: true
+    )
+    try Data("#!/bin/sh\necho '\(token) \(version)'\nexit 0\n".utf8).write(to: url)
+    try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: url.path)
+}
+
+/// Performs the update mutation the real manager would and records the literal argv it received.
+final class AppCaskUpgradeRunner: OperationCommandRunner, @unchecked Sendable {
+    let fixture: AppCaskOperationFixture
+    private let lock = NSLock()
+    private var recorded: [[String]] = []
+
+    init(fixture: AppCaskOperationFixture) {
+        self.fixture = fixture
+    }
+
+    var invocationCount: Int {
+        lock.lock(); defer { lock.unlock() }
+        return recorded.count
+    }
+
+    var recordedArguments: [[String]] {
+        lock.lock(); defer { lock.unlock() }
+        return recorded
+    }
+
+    private func note(_ arguments: [String]) {
+        lock.lock()
+        recorded.append(arguments)
+        lock.unlock()
+    }
+
+    func run(
+        executablePath: String,
+        arguments: [String],
+        environment: [String: String],
+        currentDirectory: String,
+        timeout: TimeInterval
+    ) async -> OperationCommandResult {
+        note(arguments)
+        try? fixture.applyUpdate()
+        return OperationCommandResult(
+            stdout: Data("upgraded\n".utf8), stderr: Data(),
+            stdoutTruncated: false, stderrTruncated: false,
+            exitStatus: 0, processStarted: true,
+            timedOut: false, cancelled: false, cleanupWarning: false
+        )
+    }
+}
+
+/// Performs the removal mutation the real manager would and records the literal argv it received.
+final class AppCaskUninstallRunner: OperationCommandRunner, @unchecked Sendable {
+    let fixture: AppCaskOperationFixture
+    private let lock = NSLock()
+    private var recorded: [[String]] = []
+
+    init(fixture: AppCaskOperationFixture) {
+        self.fixture = fixture
+    }
+
+    var invocationCount: Int {
+        lock.lock(); defer { lock.unlock() }
+        return recorded.count
+    }
+
+    var recordedArguments: [[String]] {
+        lock.lock(); defer { lock.unlock() }
+        return recorded
+    }
+
+    private func note(_ arguments: [String]) {
+        lock.lock()
+        recorded.append(arguments)
+        lock.unlock()
+    }
+
+    func run(
+        executablePath: String,
+        arguments: [String],
+        environment: [String: String],
+        currentDirectory: String,
+        timeout: TimeInterval
+    ) async -> OperationCommandResult {
+        note(arguments)
+        try? fixture.applyUninstall()
+        return OperationCommandResult(
+            stdout: Data("uninstalled\n".utf8), stderr: Data(),
+            stdoutTruncated: false, stderrTruncated: false,
+            exitStatus: 0, processStarted: true,
+            timedOut: false, cancelled: false, cleanupWarning: false
+        )
+    }
+}
+
+@Test func caskUpdatePreparationCancelReprepareAndExecutionForwardTheTypedPreviewAndPublishTheDelta() async throws {
+    let fixture = try AppCaskOperationFixture("m13g-cask-update")
+    defer { try? FileManager.default.removeItem(at: fixture.root) }
+    let runner = AppCaskUpgradeRunner(fixture: fixture)
+    let service = fixture.makeService(operationRunner: runner)
+    let local = try await service.localSnapshot()
+    let scanned = try #require(local.entries.first { $0.registryID == "m13cask-id" })
+    let entry = fixture.updatedEntry(scanned)
+    #expect(ManagementPresentation.verifiedHomebrewUpdateKind(entry) == .cask)
+
+    let prepared = await service.prepareCaskUpdate(for: entry)
+    guard case .ready(let preparation) = prepared else {
+        Issue.record("expected a cask update preparation, got \(prepared)")
+        return
+    }
+    let preview = preparation.preview
+    #expect(preview.kind == .cask)
+    #expect(preview.registryID == "m13cask-id")
+    #expect(preview.token == fixture.token)
+    #expect(preview.fullToken == fixture.token)
+    #expect(preview.tap == fixture.tap)
+    #expect(preview.installedVersion == fixture.installedVersion)
+    #expect(preview.targetVersion == fixture.targetVersion)
+    #expect(preview.prefix == fixture.prefix.path)
+    #expect(preview.caskroom == fixture.caskroom.path)
+    #expect(preview.executablePath == fixture.brewPath)
+    #expect(preview.arguments == ["upgrade", "--cask", "--yes", fixture.token])
+    #expect(preview.timeoutSeconds == 900)
+    #expect(FileManager.default.fileExists(atPath: preview.workingDirectory))
+    #expect(runner.invocationCount == 0)
+
+    // Cancel releases the owned scratch root with zero mutation and no manager launch.
+    #expect(service.cancelCaskUpdate(preparation))
+    #expect(!FileManager.default.fileExists(atPath: preview.workingDirectory))
+    #expect(runner.invocationCount == 0)
+    #expect(FileManager.default.fileExists(atPath: fixture.entry.path))
+    #expect(FileManager.default.fileExists(
+        atPath: fixture.tokenDirectory.appendingPathComponent(fixture.installedVersion).path
+    ))
+
+    // The same entry re-prepares into a fresh owned root, then executes exactly once.
+    let reprepared = await service.prepareCaskUpdate(for: entry)
+    guard case .ready(let confirmed) = reprepared else {
+        Issue.record("expected a second cask update preparation, got \(reprepared)")
+        return
+    }
+    #expect(confirmed.preview.workingDirectory != preview.workingDirectory)
+    #expect(FileManager.default.fileExists(atPath: confirmed.preview.workingDirectory))
+
+    let result = await service.executeCaskUpdate(confirmed)
+    let outcome = result.outcome
+    #expect(runner.invocationCount == 1)
+    #expect(runner.recordedArguments == [["upgrade", "--cask", "--yes", fixture.token]])
+    #expect(outcome.processStarted)
+    #expect(outcome.state == .succeeded)
+    #expect(outcome.reconciliation?.beforeInstalledVersion == fixture.installedVersion)
+    #expect(outcome.reconciliation?.afterInstalledVersion == fixture.targetVersion)
+    #expect(outcome.reconciliation?.versionMatchesTarget == true)
+    #expect(outcome.reconciliation?.stagedMembershipConfirmed == true)
+    #expect(!FileManager.default.fileExists(atPath: confirmed.preview.workingDirectory))
+    let refreshed = try #require(result.snapshot?.entries.first { $0.registryID == "m13cask-id" })
+    #expect(refreshed.installState == .installedAndOnPath)
+    #expect(refreshed.diagnostic.detectedTool.version?.contains(fixture.targetVersion) == true)
+}
+
+@Test func caskUninstallPreparationCancelReprepareAndExecutionForwardTheTypedPreviewAndPublishTheRemoval() async throws {
+    let fixture = try AppCaskOperationFixture("m13g-cask-uninstall-run")
+    defer { try? FileManager.default.removeItem(at: fixture.root) }
+    let runner = AppCaskUninstallRunner(fixture: fixture)
+    let service = fixture.makeService(operationRunner: runner)
+    let local = try await service.localSnapshot()
+    let scanned = try #require(local.entries.first { $0.registryID == "m13cask-id" })
+    let ownership = await service.verifyingOwnership(of: scanned)
+    #expect(ownership.verifiedInstallation?.manager == .homebrewCask)
+    let entry = InventoryEntry(
+        definition: scanned.definition,
+        diagnostic: scanned.diagnostic,
+        update: nil,
+        ownership: ownership
+    )
+
+    let prepared = await service.prepareCaskUninstall(for: entry)
+    guard case .ready(let preparation) = prepared else {
+        Issue.record("expected a cask uninstall preparation, got \(prepared)")
+        return
+    }
+    let preview = preparation.preview
+    #expect(preview.kind == .cask)
+    #expect(preview.token == fixture.token)
+    #expect(preview.fullToken == fixture.token)
+    #expect(preview.tap == fixture.tap)
+    #expect(preview.installedVersion == fixture.installedVersion)
+    #expect(preview.prefix == fixture.prefix.path)
+    #expect(preview.caskroom == fixture.caskroom.path)
+    #expect(preview.executablePath == fixture.brewPath)
+    #expect(preview.arguments == ["uninstall", "--cask", fixture.token])
+    #expect(!preview.arguments.contains("--zap"))
+    #expect(preview.timeoutSeconds == 900)
+    #expect(FileManager.default.fileExists(atPath: preview.workingDirectory))
+    #expect(runner.invocationCount == 0)
+
+    #expect(service.cancelCaskUninstall(preparation))
+    #expect(!FileManager.default.fileExists(atPath: preview.workingDirectory))
+    #expect(runner.invocationCount == 0)
+    #expect(FileManager.default.fileExists(atPath: fixture.tokenDirectory.path))
+
+    let reprepared = await service.prepareCaskUninstall(for: entry)
+    guard case .ready(let confirmed) = reprepared else {
+        Issue.record("expected a second cask uninstall preparation, got \(reprepared)")
+        return
+    }
+    let result = await service.executeCaskUninstall(confirmed)
+    let outcome = result.outcome
+    #expect(runner.invocationCount == 1)
+    #expect(runner.recordedArguments == [["uninstall", "--cask", fixture.token]])
+    #expect(outcome.processStarted)
+    #expect(outcome.state == .succeeded)
+    #expect(outcome.reconciliation?.beforeInstalledVersion == fixture.installedVersion)
+    #expect(outcome.reconciliation?.afterInstalledVersion == nil)
+    #expect(outcome.reconciliation?.infoInstalledAbsent == true)
+    #expect(outcome.reconciliation?.tokenDirectoryAbsent == true)
+    #expect(outcome.reconciliation?.selectedTargetReleased == true)
+    #expect(!FileManager.default.fileExists(atPath: confirmed.preview.workingDirectory))
+    let refreshed = try #require(result.snapshot?.entries.first { $0.registryID == "m13cask-id" })
+    #expect(refreshed.installState == .notInstalled)
+}

@@ -48,7 +48,7 @@ unknown keys are rejected at every level. Each detector has these fields:
 | `fixture` | policy: yes | `{ "layout": <layout>, "expectedSource": <source> }`. |
 | `category` | yes | Closed: `aiAgent`, `aiCodingTool`, `aiHarness`. |
 | `packages` | yes | Array (may be empty) of `{ "manager": <manager>, "name": <package> }`; duplicates rejected. |
-| `acceptedOperations` | no | Closed: `npmUpdate`, `npmUninstall`; no duplicates. Absent/empty means informational. |
+| `acceptedOperations` | no | Closed: `npmUpdate`, `npmUninstall`, `homebrewFormulaUpdate`, `homebrewFormulaUninstall`, `homebrewCaskUpdate`, `homebrewCaskUninstall`; no duplicates. Absent/empty means informational. |
 | `informationURL` | no | HTTPS URL with a host and no user information. |
 | `uninstallInstructionsURL` | no | Same HTTPS rule; only a real published instruction page. |
 | `versionQuery` | yes | `{ "arguments": [...], "stream": <stream>, "line": <line> }`. |
@@ -111,7 +111,12 @@ Detection never implies mutation eligibility. A new tool ships **informational**
 Uninstall, even when npm ownership verifies. Promotion requires the entry's `acceptedOperations`
 to contain the operation and a separately accepted, owner-authorized mutation scenario. Do not add
 `acceptedOperations` as part of a data-only contribution, and do not present a matrix `yes` cell
-without both the accepted operation and a declared npm candidate verified as npm-global.
+without both the accepted operation and a declared candidate of that same manager kind whose
+ownership was verified by that manager's probe — an npm candidate verified as npm-global, a
+Homebrew formula candidate verified as a Homebrew formula copy, or a Homebrew cask candidate
+verified as a Homebrew cask copy. A Homebrew cask additionally needs a supported support class:
+a cask with an app artifact or an uninstall stanza stays informational however its ownership
+verifies.
 
 ## The capability matrix row
 
@@ -122,12 +127,17 @@ with these cells:
 - `tested fixture`: `synthetic <layout>` using the registry fixture layout.
 - `declared packages`: every candidate as `<manager>:<name>`, semicolon-separated, registry order;
   `none` when empty.
-- `latest-check`: `yes: npm` only with an npm candidate; `yes: homebrewFormula` only with a formula
-  candidate (both may appear, semicolon-separated); otherwise `disabled: <reason>`. A cask
-  latest-check is never `yes`.
-- `Update` / `Uninstall`: `yes: npm (verified npm-global copies only)` only for an entry whose
-  `acceptedOperations` contains the operation and which declares an npm candidate; otherwise
-  `informational: <reason>` or `disabled: <reason>`.
+- `latest-check` describes read-only update checks. Include `yes: npm`, `yes: homebrewFormula`, and
+  `yes: homebrewCask` for the respective declared package types. When more than one applies, list
+  them in that order, separated by `; `. Use `disabled: <reason>` when none applies.
+- `Update` / `Uninstall`: one `yes:` segment per accepted, matching declared package kind, in the
+  fixed order `npm`, `homebrewFormula`, `homebrewCask`, joined by `; `. The only accepted affirmative
+  segments are `yes: npm (verified npm-global copies only)`,
+  `yes: homebrewFormula (verified Homebrew formula copies only)` and
+  `yes: homebrewCask (verified Homebrew cask copies only)`. A segment appears only for an entry
+  whose `acceptedOperations` contains the matching kind-specific operation and which declares a
+  candidate of that same kind; otherwise the cell is `informational: <reason>` or
+  `disabled: <reason>`.
 - `known limits`: non-empty, specific facts — deprecations, collisions, classification surprises,
   second executables, version-shape noise, and vendor-owned updaters.
 

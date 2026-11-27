@@ -284,6 +284,16 @@ enum BoundedProcessRunner {
     /// directory, a bounded 1 MiB prefix per stream, and a process-group-bound cancellation path.
     /// Both pipes are polled together so a noisy stderr cannot deadlock stdout. `nil` means spawn
     /// failed before a process was created.
+    ///
+    /// Mutation spawn contract (M13-D R6, OD-M13-7): the child is placed in a NEW SESSION with
+    /// `POSIX_SPAWN_SETSID`, so it has no controlling terminal and no interactive prompt can block
+    /// on `/dev/tty` even when Agent Lens itself was launched from a terminal. A session leader is
+    /// also its own process group leader (`pgid == pid`), which preserves every existing
+    /// process-group TERM/KILL, reaping and existence check in this file. SETPGROUP is deliberately
+    /// NOT combined with SETSID: Darwin applies the group assignment first, so the child is already
+    /// a process-group leader when `setsid(2)` runs and `posix_spawn` fails with EPERM (verified on
+    /// this workstation). The single-stream query entry point above keeps its historical SETPGROUP
+    /// behaviour and is intentionally unchanged.
     static func runDualStream(
         executablePath: String,
         arguments: [String],
@@ -367,9 +377,9 @@ enum BoundedProcessRunner {
         var spawnAttributes: posix_spawnattr_t? = nil
         guard posix_spawnattr_init(&spawnAttributes) == 0 else { return nil }
         defer { posix_spawnattr_destroy(&spawnAttributes) }
-        guard posix_spawnattr_setflags(&spawnAttributes, Int16(POSIX_SPAWN_SETPGROUP)) == 0,
-              posix_spawnattr_setpgroup(&spawnAttributes, 0) == 0
-        else {
+        // SETSID alone: a new session leader with pgid == pid and no controlling TTY. Adding
+        // SETPGROUP is refused by Darwin (EPERM) and is unnecessary for the group semantics above.
+        guard posix_spawnattr_setflags(&spawnAttributes, Int16(POSIX_SPAWN_SETSID)) == 0 else {
             return nil
         }
 

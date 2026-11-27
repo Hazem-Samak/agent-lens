@@ -926,3 +926,23 @@ acceptance (D-014).
 - **Safety.** No `brew install`/`brew update`, no vendor install-script execution, no personal npm
   or uv install, no subagent, no other CLI, no credentials in output. Scratch was destroyed and
   its cleanup is recorded in §F.
+
+## Appendix — `agy` cask auto-update correction (dated 2026-11-26; M13-F)
+
+This appendix corrects the live-manager claim in §14 without rewriting the historical packet. The
+frozen §14 row records that cask `antigravity-cli` set `auto_updates: true`. The upstream cask
+changed on 2026-11-13 in
+[`Homebrew/homebrew-cask@a8d7b1a0825926624fd67ed83d9be43c908b9574`](https://github.com/Homebrew/homebrew-cask/commit/a8d7b1a0825926624fd67ed83d9be43c908b9574).
+The API snapshot at <https://formulae.brew.sh/api/cask/antigravity-cli.json> with
+`generated_date: 2026-11-26` reports `auto_updates: null`: the cask does not declare
+`auto_updates`, which is neither `true` nor `false`. The current `command_wrapper` artifact is
+`agy` and its environment sets `AGY_CLI_DISABLE_AUTO_UPDATE=true`. The cask caveat says automatic
+updates are disabled so Homebrew manages them and directs the user to
+`brew upgrade --cask antigravity-cli` instead of `agy update`.
+
+`autobump` (reported by the same API) is Homebrew's source-metadata bump mechanism, not a vendor
+self-updater and not a runtime auto-update declaration. The vendor `agy update` command remains a
+vendor self-updater. This note does not claim that any live installation or runtime was observed,
+does not establish install or mutation eligibility, and does not authorize `agy` for Update or
+Uninstall; the capability row remains informational with no accepted mutation scenario. The
+sources for this correction are the dated upstream commit and the dated API snapshot linked above.

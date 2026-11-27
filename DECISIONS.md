@@ -288,6 +288,7 @@ Record each milestone result here. Include the T3 Code build string so a regress
 | M10-A — Clean CI and default-TMPDIR portability | 2026-10-26 | **technically accepted on the M10 feature branch** — parent independent local406 Swift, both real bundle layouts/9 packaging each, parser39 on Python3.9/3.15, guard21, workflow controls; hosted exact candidate all7 gates including406 Swift and original9 packaging, zero skips/failures | n/a — Codex desktop orchestration, no T3 build claimed; hosted Xcode26.3/Swift6.2.4 on macOS15.7.9 arm64 | Sole implementer DeepSeekV4.1Flash/WorkBuddy/OMP; final Qwen3.8Flash/Qoder and user-authorized replacement Gemini3.8FlashHigh/agy PASS. Feature `f442aa25f513afd2ae92af7da544b405791fafa7`; [run40389308783](https://github.com/Hazem-Samak/agent-lens/actions/runs/40389308783), attempt1; artifact digest/33 receipts independently verified. See [acceptance](walkthroughs/M10-A-acceptance.md). M10-B unstarted at this row; no PR/main merge/release at this row. M8 keyboard-only gate was unverified at this delivery; M12-F closed it on 2026-11-13. |
 | M10-C R1 — Terminal-context baseline repair | 2026-11-02 | **locally technically accepted, uncommitted** — final coordinator 469/469 test events in both controlling-PTY and detached contexts; guard21, fresh app, packaging9, actual terminal CLI exact non-degraded fixture PATH; final Qoder independent PASS | n/a — OMP orchestration through Herdr; Swift 6.4 on macOS27 arm64; no T3 build claimed | River/Pi `deepseek-ai/DeepSeek-V4.1-Flash-1017`, max, sole writer. Interactive zsh stopped on SIGTTOU in the inherited controlling-terminal session; capture now disables job control with `+m`. Perch hit quota before verdict; owner explicitly waived its verdict for this repair only. [Acceptance](walkthroughs/M10-C-R1-baseline-repair.md); M10-C product implementation separately dispatched, not accepted; original two product reviewers retained; no Git/hosted/release claim. |
 | M10-C — Confirmed npm Update | 2026-11-02 | **technically accepted on the feature branch** — parent510 Swift in each controlling-TTY/detached context, guard21, fresh app, packaging9; native1.0.0→2.0.0 and ordinary packaged public0.165.0→0.166.0, Cancel unchanged, active/prepared-close cleanup; hosted exact-SHA all7 gates/510 combined Swift, zero skips/failures | n/a — OMP orchestration through Herdr; Swift6.4 local; hosted macOS15.8.2 arm64/Xcode26.3/Swift6.2.4; no T3 build claimed | River/Pi `deepseek-ai/DeepSeek-V4.1-Flash-1017`, max, sole product writer. Perch `glm-5.3-flash-starter`/max and Qoder `Qwen3.8-Max`/xhigh both final PASS, no remaining material findings. Owner-authorized implementation `fff287d79884bf2163642dfa6ef3543da5682565`; [hosted run41519177534](https://github.com/Hazem-Samak/agent-lens/actions/runs/41519177534), attempt1, digest-verified33-file artifact retained. [Evidence/limits](walkthroughs/M10-C-implementation.md). No main merge, release, or M10-D authorization. |
+| M13-H — Combined Homebrew acceptance | 2026-11-26 | **technically accepted on `milestone/m13-homebrew`** — 888 local Swift tests (726 Core + 162 AppSupport); all seven exact-SHA hosted gates; four contained promotion lifecycles, native Kiro Cancel/Confirm/rescan and CLI parity; personal manifests byte-identical | n/a — OMP through Rex; Swift 6.4.2 (swift-driver 1.168.6) locally | DeepSeek V4.1 Flash free / Token Harbor acceptance support; Grok 4.7 High and Gemini 4 Hydrogen Extra High independent reviews cleared the push. [Acceptance record](walkthroughs/M13-combined-acceptance.md); [hosted run 45873711857](https://github.com/Hazem-Samak/agent-lens/actions/runs/45873711857) at `17ff7fb`. No merge or release. |
 
 ## M10-D — acceptance (2026-11-08)
 
@@ -639,3 +640,122 @@ was true when they were written.
 `milestone/m11-catalogue` (`0589fac`) and `milestone/m12-workflow` (`44258ec`) were fully contained
 in `origin/main` and were deleted locally and on origin. After that deletion, `origin` had `main`
 only. The old M10 feature branch was already absent. No public release was authorized.
+
+## M13 — planning freeze and owner decisions (2026-11-21)
+
+Planning Council (MiniMax M3.1-Flash/xhigh via mcode; Grok 4.7/high via grok CLI; Herdr/hc
+orchestration with visible panels) produced independent proposals; the orchestrator judged and
+froze `briefs/M13-plan.md` on base `9b37a33` (`main` tip, M0–M12 delivered), commit `9208df5`, on
+the new branch `milestone/m13-homebrew`. Rulings R1–R16 (`briefs/M13-planning/judgment.md`) bind
+the dispatch briefs. Verified baseline at the base: 467 Core + 119 AppSupport = 586, guard 21,
+packaging 9, all eight local gates exit 0. The judge ran six disposable scratch-prefix feasibility
+probe rounds (real Homebrew at a pinned revision, offline local tap, binary/app cask lifecycles,
+pin/dependent/broken refusals, multi-keg uninstall truth, sudo-stanza hazard, auto_updates
+provenance); personal-prefix sentinels byte-identical throughout. Integrity audit clean: only the
+five new planning files; no product or historical record changed.
+
+**Owner decisions SETTLED (owner message 2026-11-21, "I agree with your 4 recommendations"):**
+
+- OD-M13-1 promotion set = option (b): `hermes`, `aider`, `goose` (homebrewFormulaUpdate +
+  homebrewFormulaUninstall) and `kiro-cli` (homebrewCaskUpdate + homebrewCaskUninstall). Each
+  promoted id still needs its own controlled acceptance scenario at implementation (D-021).
+  gemini/cline never (deprecated/disabled); codex cask, claude casks, opencode, omp, agy deferred.
+- OD-M13-3 brew mutation timeout = 900s (disclosed); npm stays 120s.
+- OD-M13-4 ship the cask latest-check (manager-verdict oracle, separate cache document). At
+  acceptance this supersedes D-019's "cask latest-check not shipped" consequence via a new entry
+  (D-024); D-019 itself is not reopened.
+- OD-M13-8 cask operation support class = no-uninstall-stanza CLI casks only (binary/
+  command_wrapper artifacts); app-artifact and stanza-bearing casks are informational with a typed
+  refusal (R7). Widening is a later owner decision.
+
+Ruled technical decisions carried (owner did not object): OD-M13-2 pinned-newer counts in the
+Updates badge; OD-M13-5 keep the standalone source heuristic and explain; OD-M13-6 bounded
+`brew list --pinned` cross-check; OD-M13-7 no-controlling-TTY (SETSID) mutation spawn contract with
+npm regression and both-reviewer adjudication.
+
+**Authorization scope:** the owner authorized planning, freeze/commit, and pushing the branch to
+origin ("push the branch and sync gh with local"). **Implementation is NOT authorized** ("don't
+start implem. yet"); no implementer is selected. PR creation, merge, the promotion application at
+implementation, publication, and any release remain separate owner decisions. No public release
+was published or authorized.
+
+---
+
+## D-024 — Opt-in Homebrew cask latest-check
+
+**Status:** settled at M13-H combined acceptance.
+**Source:** `AGENT_LENS_SCOPE.md` §21 and §27; `briefs/M13-plan.md` (OD-M13-4);
+`briefs/M13-planning/judgment.md` (R1–R3 and R9).
+
+M13 extends the opt-in, read-only latest-check to verified Homebrew casks. A declared cask
+identity is only a candidate: the manager and its Caskroom and installed-file evidence must tie
+the exact cask to the selected executable. The result uses Homebrew's bounded `info` and
+`outdated` metadata, not an Agent Lens cask version comparator. `:latest`, self-updating or
+disabled casks, incomplete evidence, and inconsistent metadata are unknown, not up to date. A
+verified pinned cask reported as outdated still counts as an available update and is labeled
+pinned; that does not authorize updating it.
+
+**Rationale:** Latest means latest known to this Homebrew instance at observation time, not
+latest upstream. Verified successful cask metadata lives in a separate, bounded document,
+revalidated against the live selection on use. It never supplies formula/npm lookups or
+authorizes an operation; unknown results are not cached.
+
+**Consequence:** Supersedes only D-019's exclusion of casks from the shipped latest-check.
+The formula probe and cache are unchanged. A read-only cask result does not widen D-021 mutation
+authority: only an accepted, revalidated Homebrew operation may run, and app-artifact or
+uninstall-stanza casks remain informational. The
+[M13 combined acceptance record](walkthroughs/M13-combined-acceptance.md) documents the branch
+gate and its limits; merge and public release remain separate decisions.
+
+## M13 — owner review corrections and PR #4 push (2026-11-27)
+
+The owner reviewed [PR #4](https://github.com/Hazem-Samak/agent-lens/pull/4)
+(`milestone/m13-homebrew`) and authorized the corrections below and the push of the corrected
+branch. **The merge into `main` and any release remain separate owner decisions and are not
+granted by this entry.** No product source changed: this correction touches documentation, one
+test assertion, and one trailing whitespace only. The safety envelope (ROADMAP §6), the rulings
+R1–R16, the D-021 fail-closed gate and the shipped mutation behaviour are untouched.
+
+**Corrections, each found in the merged-candidate review and each verified against the code:**
+
+- `README.md` asserted "Update remains unavailable for Homebrew" and "Uninstall remains unavailable
+  for Homebrew, cask", and that "M13 (Homebrew management) is the next milestone and is not yet
+  authorized". All three are false for the merged candidate, which ships Homebrew Update and
+  Uninstall for the OD-M13-1 promotion set. The README now documents the confirmed Homebrew Update
+  and Uninstall workflows, the cask latest-check tri-state, the separate cask metadata document,
+  and M13's actual delivery state.
+- `docs/CONTRIBUTING.md` still declared `acceptedOperations` closed to `npmUpdate`/`npmUninstall`
+  while the shipped registry defines six operation cases, and still restricted the Update/Uninstall
+  matrix cell to `yes: npm (verified npm-global copies only)` while the shipped matrix emits
+  `yes: homebrewFormula (verified Homebrew formula copies only)` and
+  `yes: homebrewCask (verified Homebrew cask copies only)`. The contributor contract contradicted
+  the code it governs. Both rules, and the D-021 promotion clause, now name each manager's own
+  verified kind and match the shipped registry and matrix.
+- `briefs/M13-planning/proposal-grok.md:166` carried one trailing space, so `git diff --check` — a
+  gate in the master plan's per-phase local gate set — failed on the whole milestone diff with exit
+  2. Hosted CI does not run that gate, which is why the hosted run was green. The space is removed.
+- `Tests/AgentLensCoreTests/CapabilityMatrixTests.swift` deleted the `"not yet an app button"`
+  required-document substring in `17ff7fb` instead of re-pointing it, leaving the new affirmative
+  cross-row claim unpinned. The replacement claim and the R7 cask support-class boundary are now
+  asserted instead: the assertion is restored, not weakened.
+
+**Allow-list deviations ratified rather than silently absorbed** (`briefs/M13-plan.md` §5):
+
+1. `Sources/AgentLensApp/SettingsView.swift` and `Sources/AgentLensApp/OwnershipVerificationView.swift`
+   are in no phase allow-list. Both edits remove user-facing sentences that the shipped Homebrew
+   management makes false. The allow-list was incomplete; the edits are required truthfulness
+   corrections.
+2. `Sources/AgentLensCore/Operations/HomebrewOperationEnvironment.swift` adds `HOMEBREW_NO_SUDO=1`
+   and removes `SUDO_ASKPASS` and `HOMEBREW_SUDO_THROUGH_SUDO_USER` for cask mutations only,
+   beyond R6's closed key list. Both are fail-closed against elevation and are disclosed in the
+   effect text. Removing them would weaken the no-elevation guarantee, so they stand as an additive
+   safety strengthening.
+3. The M13-B edit to `docs/CONTRIBUTING.md` is ratified, together with the correction of that
+   file's remaining closed-vocabulary and cell-grammar rules recorded above.
+
+**Verification on the corrected candidate:** the full local gate set passed — `swift build`;
+726 Core + 162 AppSupport = 888 Swift tests with zero failures and zero skips; both Core
+UI-free import guards (42 Core files, 6 AppSupport files); 21 guard fixtures; the debug app
+build; 9 packaging tests; and a clean `git diff --check` over the whole milestone diff. The
+shipped acceptance evidence is unchanged: see
+[the M13 combined acceptance record](walkthroughs/M13-combined-acceptance.md) and D-024.

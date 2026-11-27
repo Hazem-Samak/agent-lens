@@ -145,6 +145,7 @@
       "packages": [
         { "manager": "homebrewFormula", "name": "hermes-agent" }
       ],
+      "acceptedOperations": ["homebrewFormulaUpdate", "homebrewFormulaUninstall"],
       "informationURL": "https://hermes-agent.nousresearch.com/docs/getting-started/installation",
       "uninstallInstructionsURL": "https://hermes-agent.nousresearch.com/docs/getting-started/updating#uninstalling",
       "versionQuery": {
@@ -166,6 +167,7 @@
       "packages": [
         { "manager": "homebrewFormula", "name": "aider" }
       ],
+      "acceptedOperations": ["homebrewFormulaUpdate", "homebrewFormulaUninstall"],
       "informationURL": "https://aider.chat/docs/install.html",
       "versionQuery": {
         "arguments": ["--version"],
@@ -186,6 +188,7 @@
       "packages": [
         { "manager": "homebrewFormula", "name": "block-goose-cli" }
       ],
+      "acceptedOperations": ["homebrewFormulaUpdate", "homebrewFormulaUninstall"],
       "informationURL": "https://goose-docs.ai/docs/guides/goose-cli-commands",
       "versionQuery": {
         "arguments": ["--version"],
@@ -206,6 +209,7 @@
       "packages": [
         { "manager": "homebrewCask", "name": "kiro-cli" }
       ],
+      "acceptedOperations": ["homebrewCaskUpdate", "homebrewCaskUninstall"],
       "informationURL": "https://kiro.dev/docs/cli/",
       "uninstallInstructionsURL": "https://kiro.dev/docs/getting-started/installation/",
       "versionQuery": {

@@ -1,14 +1,17 @@
 // CapabilityMatrixTests — M11-F: the published capability matrix is enforced against the registry,
-// and a new tool can be contributed as data only.
+// and a new tool can be contributed as data only. M13-F extends the mutation grammar to exact
+// Homebrew formula/cask cells and a deterministic multi-manager order.
 //
 // Two independent properties:
 //
 // 1. MATRIX TRUTH. `docs/capability-matrix.md` is parsed deterministically (fixed header, nine
 //    cells, no escaping) and checked against `DetectorRegistry.loadDefault()`. Identity cells must
-//    match exactly; capability cells obey the M11-F rules: Update/Uninstall `yes` only for an
-//    accepted operation plus a declared npm candidate, latest-check `yes` only for npm or formula
-//    candidates, cask latest-check never `yes`, and every row carries limits. A seeded corruption
-//    must fail the same agreement function, so a green run cannot be vacuous.
+//    match exactly; capability cells obey the M11-F/M13-F rules: Update/Uninstall `yes` only for
+//    an accepted operation of the matching kind plus a declared candidate of that same manager,
+//    latest-check `yes` only for a declared npm, formula, or (M13-B) cask candidate, and every row
+//    carries limits. Multiple accepted, proved managers in one mutation cell are emitted in the
+//    fixed order npm, homebrewFormula, homebrewCask joined by `; `. A seeded corruption must fail
+//    the same agreement function, so a green run cannot be vacuous.
 //
 // 2. DATA-ONLY CONTRIBUTION. The current bundled detectors plus one extra definition are loaded
 //    through the production JSON validator and detector builder, and the extra tool is detected in
@@ -140,7 +143,11 @@ private func parseCapabilityMatrix(_ markdown: String) throws -> [CapabilityMatr
 
 // MARK: - Agreement rules
 
-private let exactMutationYes = "yes: npm (verified npm-global copies only)"
+private let exactNpmMutationYes = "yes: npm (verified npm-global copies only)"
+private let exactFormulaMutationYes =
+    "yes: homebrewFormula (verified Homebrew formula copies only)"
+private let exactCaskMutationYes =
+    "yes: homebrewCask (verified Homebrew cask copies only)"
 
 /// A cell of the form `<prefix> <non-empty reason>`.
 private func reasonCell(_ cell: String, prefix: String) -> String? {
@@ -168,37 +175,86 @@ private let requiredLimitMarkers: [String: [String]] = [
 private let requiredDocumentSubstrings = [
     "/lib/node_modules/",
     "/Cellar/",
-    "standalone",
+    "standalone classification",
+    "verified cask copy is Homebrew-owned",
     "not formula proof",
     "synthetic <layout>",
+    "fixed order `npm`, `homebrewFormula`, `homebrewCask`",
+    // M13 replaced the old "not yet an app button" prohibition with the affirmative native-app
+    // claim. The replacement is pinned here so the cross-row note cannot silently lose either
+    // the Homebrew Update/Uninstall offer or the R7 cask support-class boundary.
+    "The native app offers Homebrew Update",
+    "app artifacts or uninstall stanzas cannot be modified",
 ]
+
+private enum MutationCapability {
+    case update
+    case uninstall
+}
+
+/// Exact affirmative segments, in the one documented order npm, homebrewFormula, homebrewCask.
+/// A segment is emitted only when BOTH the matching kind-specific operation is accepted AND the
+/// detector declares a candidate of that same manager kind. An accepted grant with no matching
+/// declaration is never advertised.
+private func mutationYesSegments(
+    capability: MutationCapability,
+    definition: DetectorDefinition
+) -> [String] {
+    let declaresNPM = definition.packages.contains { $0.manager == .npm }
+    let declaresFormula = definition.packages.contains { $0.manager == .homebrewFormula }
+    let declaresCask = definition.packages.contains { $0.manager == .homebrewCask }
+    var segments: [String] = []
+    switch capability {
+    case .update:
+        if declaresNPM && definition.acceptedOperations.contains(.npmUpdate) {
+            segments.append(exactNpmMutationYes)
+        }
+        if declaresFormula && definition.acceptedOperations.contains(.homebrewFormulaUpdate) {
+            segments.append(exactFormulaMutationYes)
+        }
+        if declaresCask && definition.acceptedOperations.contains(.homebrewCaskUpdate) {
+            segments.append(exactCaskMutationYes)
+        }
+    case .uninstall:
+        if declaresNPM && definition.acceptedOperations.contains(.npmUninstall) {
+            segments.append(exactNpmMutationYes)
+        }
+        if declaresFormula && definition.acceptedOperations.contains(.homebrewFormulaUninstall) {
+            segments.append(exactFormulaMutationYes)
+        }
+        if declaresCask && definition.acceptedOperations.contains(.homebrewCaskUninstall) {
+            segments.append(exactCaskMutationYes)
+        }
+    }
+    return segments
+}
 
 private func mutationCellProblems(
     _ cell: String,
     label: String,
-    operation: AcceptedOperation,
+    capability: MutationCapability,
     definition: DetectorDefinition
 ) -> [String] {
-    let accepted = definition.acceptedOperations.contains(operation)
-    let declaresNPM = definition.packages.contains { $0.manager == .npm }
-    if accepted && declaresNPM {
-        guard cell == exactMutationYes else {
+    let expected = mutationYesSegments(capability: capability, definition: definition)
+    if expected.isEmpty {
+        if cell.hasPrefix("yes:") {
             return [
-                "\(definition.id) \(label) must be exactly '\(exactMutationYes)' for an accepted npm operation"
+                "\(definition.id) \(label) claims '\(cell)' without a matching accepted \(label.lowercased()) operation and declared manager candidate"
+            ]
+        }
+        guard isReasonCell(cell, prefix: "informational: ")
+            || isReasonCell(cell, prefix: "disabled: ")
+        else {
+            return [
+                "\(definition.id) \(label) must be an exact 'yes: <manager> (<proof scope>)' only for a matching accepted operation and matching declared manager, otherwise 'informational: <reason>' or 'disabled: <reason>'"
             ]
         }
         return []
     }
-    if cell == exactMutationYes {
+    let expectedCell = expected.joined(separator: "; ")
+    guard cell == expectedCell else {
         return [
-            "\(definition.id) \(label) claims '\(exactMutationYes)' without a matching accepted operation and declared npm candidate"
-        ]
-    }
-    guard isReasonCell(cell, prefix: "informational: ")
-        || isReasonCell(cell, prefix: "disabled: ")
-    else {
-        return [
-            "\(definition.id) \(label) must be '\(exactMutationYes)' only when accepted and npm-declared, otherwise 'informational: <reason>' or 'disabled: <reason>'"
+            "\(definition.id) \(label) must be exactly '\(expectedCell)' for its accepted operations and declared manager kinds, found '\(cell)'"
         ]
     }
     return []
@@ -211,24 +267,31 @@ private func latestCheckProblems(
     var problems: [String] = []
     let hasNPM = definition.packages.contains { $0.manager == .npm }
     let hasFormula = definition.packages.contains { $0.manager == .homebrewFormula }
+    let hasCask = definition.packages.contains { $0.manager == .homebrewCask }
 
-    if hasNPM || hasFormula {
+    if hasNPM || hasFormula || hasCask {
         var expected: [String] = []
         if hasNPM { expected.append("yes: npm") }
         if hasFormula { expected.append("yes: homebrewFormula") }
+        // M13-B ships the read-only cask latest-check; a declared cask now lists the capability
+        // beside any npm/formula probe. The cell still never implies a cask mutation.
+        if hasCask { expected.append("yes: homebrewCask") }
         let expectedCell = expected.joined(separator: "; ")
         if cell != expectedCell {
             problems.append(
-                "\(definition.id) latest-check must be '\(expectedCell)' for its declared npm/formula candidates, found '\(cell)'"
+                "\(definition.id) latest-check must be '\(expectedCell)' for its declared npm/formula/cask candidates, found '\(cell)'"
             )
         }
     } else if !isReasonCell(cell, prefix: "disabled: ") {
         problems.append(
-            "\(definition.id) latest-check must be 'disabled: <reason>' when no npm or formula candidate is declared, found '\(cell)'"
+            "\(definition.id) latest-check must be 'disabled: <reason>' when no npm, formula, or cask candidate is declared, found '\(cell)'"
         )
     }
-    if cell.contains("yes: homebrewCask") {
-        problems.append("\(definition.id) latest-check must never be 'yes' for a cask")
+    // A false cask capability claim is rejected even though the cask probe now ships.
+    if cell.contains("yes: homebrewCask") && !hasCask {
+        problems.append(
+            "\(definition.id) latest-check claims 'yes: homebrewCask' without a declared cask"
+        )
     }
     return problems
 }
@@ -299,10 +362,10 @@ private func matrixProblems(
 
         problems += latestCheckProblems(row.latestCheck, definition: definition)
         problems += mutationCellProblems(
-            row.update, label: "Update", operation: .npmUpdate, definition: definition
+            row.update, label: "Update", capability: .update, definition: definition
         )
         problems += mutationCellProblems(
-            row.uninstall, label: "Uninstall", operation: .npmUninstall, definition: definition
+            row.uninstall, label: "Uninstall", capability: .uninstall, definition: definition
         )
 
         if row.knownLimits.trimmingCharacters(in: .whitespaces).isEmpty {
@@ -356,6 +419,36 @@ private func droppingMatrixRow(in markdown: String, rowID: String) -> String? {
     lines.removeAll { matrixRowID(of: $0) == rowID }
     guard lines.count < originalCount else { return nil }
     return lines.joined(separator: "\n")
+}
+
+// MARK: - In-memory promotion proofs (never written to the bundled registry)
+
+private func derivedDefinition(
+    _ definition: DetectorDefinition,
+    acceptedOperations: [AcceptedOperation],
+    packages: [DeclaredPackage]? = nil
+) throws -> DetectorDefinition {
+    try DetectorDefinition(
+        id: definition.id,
+        displayName: definition.displayName,
+        executableName: definition.executableName,
+        extraSearchRoots: definition.extraSearchRoots,
+        fixture: definition.fixture,
+        category: definition.category,
+        packages: packages ?? definition.packages,
+        informationURL: definition.informationURL,
+        uninstallInstructionsURL: definition.uninstallInstructionsURL,
+        versionQuery: definition.versionQuery,
+        acceptedOperations: acceptedOperations
+    )
+}
+
+private func definitionsReplacing(
+    _ definitions: [DetectorDefinition],
+    id: String,
+    with replacement: DetectorDefinition
+) -> [DetectorDefinition] {
+    definitions.map { $0.id == id ? replacement : $0 }
 }
 
 // MARK: - Fixtures
@@ -419,7 +512,7 @@ private func contributionEnvironment(pathEntries: [URL]) -> ShellEnvironment {
     // A false Update claim: opencode has no accepted operations, so the exact `yes` cell must fail.
     let falseYes = try #require(
         replacingMatrixCell(
-            in: markdown, rowID: "opencode", columnIndex: 6, with: exactMutationYes
+            in: markdown, rowID: "opencode", columnIndex: 6, with: exactNpmMutationYes
         ),
         "the seeded Update-cell mutation must apply to the real matrix"
     )
@@ -428,6 +521,21 @@ private func contributionEnvironment(pathEntries: [URL]) -> ShellEnvironment {
     #expect(
         falseYesProblems.contains { $0.contains("opencode") && $0.contains("Update") },
         "the seeded false Update claim must be named: \(falseYesProblems)"
+    )
+
+    // A false cask latest-check claim: grok declares no package at all, so the shipped cask probe
+    // can never serve it. The blanket prohibition is gone, but the new rule still rejects this.
+    let falseCaskYes = try #require(
+        replacingMatrixCell(
+            in: markdown, rowID: "grok", columnIndex: 5, with: "yes: homebrewCask"
+        ),
+        "the seeded cask latest-check mutation must apply to the real matrix"
+    )
+    let falseCaskProblems = matrixProblems(markdown: falseCaskYes, definitions: definitions)
+    #expect(!falseCaskProblems.isEmpty)
+    #expect(
+        falseCaskProblems.contains { $0.contains("grok") && $0.contains("homebrewCask") },
+        "the seeded false cask latest-check claim must be named: \(falseCaskProblems)"
     )
 
     // A dropped row: the id set/order must no longer agree with the registry.
@@ -440,6 +548,288 @@ private func contributionEnvironment(pathEntries: [URL]) -> ShellEnvironment {
     #expect(
         droppedRowProblems.contains { $0.contains("opencode") },
         "the dropped row must be named: \(droppedRowProblems)"
+    )
+}
+
+@Test func capabilityMatrixAgreementAcceptsExactHomebrewMutationGrammar() throws {
+    let definitions = try DetectorRegistry.loadDefault()
+    let markdown = try String(contentsOf: capabilityMatrixFileURL, encoding: .utf8)
+
+    let hermes = try derivedDefinition(
+        try #require(definitions.first { $0.id == "hermes" }),
+        acceptedOperations: [.homebrewFormulaUpdate, .homebrewFormulaUninstall]
+    )
+    let kiro = try derivedDefinition(
+        try #require(definitions.first { $0.id == "kiro-cli" }),
+        acceptedOperations: [.homebrewCaskUpdate, .homebrewCaskUninstall]
+    )
+    let claude = try derivedDefinition(
+        try #require(definitions.first { $0.id == "claude" }),
+        acceptedOperations: [
+            .npmUpdate, .npmUninstall, .homebrewCaskUpdate, .homebrewCaskUninstall,
+        ]
+    )
+
+    var seededDefinitions = definitions
+    seededDefinitions = definitionsReplacing(seededDefinitions, id: "hermes", with: hermes)
+    seededDefinitions = definitionsReplacing(seededDefinitions, id: "kiro-cli", with: kiro)
+    seededDefinitions = definitionsReplacing(seededDefinitions, id: "claude", with: claude)
+
+    var seeded = markdown
+    seeded = try #require(replacingMatrixCell(
+        in: seeded, rowID: "hermes", columnIndex: 6, with: exactFormulaMutationYes
+    ))
+    seeded = try #require(replacingMatrixCell(
+        in: seeded, rowID: "hermes", columnIndex: 7, with: exactFormulaMutationYes
+    ))
+    seeded = try #require(replacingMatrixCell(
+        in: seeded, rowID: "kiro-cli", columnIndex: 6, with: exactCaskMutationYes
+    ))
+    seeded = try #require(replacingMatrixCell(
+        in: seeded, rowID: "kiro-cli", columnIndex: 7, with: exactCaskMutationYes
+    ))
+    let mixedNpmAndCask = "\(exactNpmMutationYes); \(exactCaskMutationYes)"
+    seeded = try #require(replacingMatrixCell(
+        in: seeded, rowID: "claude", columnIndex: 6, with: mixedNpmAndCask
+    ))
+    seeded = try #require(replacingMatrixCell(
+        in: seeded, rowID: "claude", columnIndex: 7, with: mixedNpmAndCask
+    ))
+
+    let problems = matrixProblems(markdown: seeded, definitions: seededDefinitions)
+    #expect(
+        problems.isEmpty,
+        "exact in-memory Homebrew grants must agree in deterministic order: \(problems.joined(separator: "; "))"
+    )
+    // The positive proof above is in-memory only and never a temporary shipping grant; the real
+    // document still has to agree with whatever accepted operations the bundled registry declares.
+    #expect(matrixProblems(markdown: markdown, definitions: definitions).isEmpty)
+}
+
+@Test func mutationGrammarUsesDeterministicManagerOrder() throws {
+    let definition = try DetectorDefinition(
+        id: "order-proof",
+        displayName: "Order Proof",
+        executableName: "order-proof",
+        extraSearchRoots: [],
+        fixture: nil,
+        category: .aiHarness,
+        packages: [
+            try DeclaredPackage(manager: .npm, name: "@example/order-proof"),
+            try DeclaredPackage(manager: .homebrewFormula, name: "order-proof"),
+            try DeclaredPackage(manager: .homebrewCask, name: "order-proof"),
+        ],
+        informationURL: nil,
+        uninstallInstructionsURL: nil,
+        versionQuery: .standard,
+        acceptedOperations: [
+            .npmUpdate, .homebrewFormulaUpdate, .homebrewCaskUpdate,
+        ]
+    )
+    let ordered = [
+        exactNpmMutationYes, exactFormulaMutationYes, exactCaskMutationYes,
+    ].joined(separator: "; ")
+    #expect(
+        mutationCellProblems(
+            ordered, label: "Update", capability: .update, definition: definition
+        ).isEmpty
+    )
+    let reversed = [
+        exactCaskMutationYes, exactFormulaMutationYes, exactNpmMutationYes,
+    ].joined(separator: "; ")
+    #expect(
+        !mutationCellProblems(
+            reversed, label: "Update", capability: .update, definition: definition
+        ).isEmpty
+    )
+    let missingOneManager = [exactNpmMutationYes, exactCaskMutationYes]
+        .joined(separator: "; ")
+    #expect(
+        !mutationCellProblems(
+            missingOneManager, label: "Update", capability: .update, definition: definition
+        ).isEmpty
+    )
+}
+
+@Test func capabilityMatrixAgreementRejectsSeededHomebrewCorruption() throws {
+    let definitions = try DetectorRegistry.loadDefault()
+    let markdown = try String(contentsOf: capabilityMatrixFileURL, encoding: .utf8)
+    #expect(matrixProblems(markdown: markdown, definitions: definitions).isEmpty)
+
+    // Missing formula grant: `opencode` declares formula candidates but is deliberately outside
+    // the conditional promotion set, so it remains a no-grant case before and after that lands.
+    let missingFormula = try #require(replacingMatrixCell(
+        in: markdown, rowID: "opencode", columnIndex: 6, with: exactFormulaMutationYes
+    ))
+    let missingFormulaProblems = matrixProblems(
+        markdown: missingFormula, definitions: definitions
+    )
+    #expect(
+        missingFormulaProblems.count == 1
+            && missingFormulaProblems[0].contains("opencode")
+            && missingFormulaProblems[0].contains("Update"),
+        "a missing formula grant must fail only its own cell: \(missingFormulaProblems)"
+    )
+
+    // Missing cask grant: `agy` declares the cask but has no accepted cask operation and is not
+    // conditionally approved.
+    let missingCask = try #require(replacingMatrixCell(
+        in: markdown, rowID: "agy", columnIndex: 6, with: exactCaskMutationYes
+    ))
+    let missingCaskProblems = matrixProblems(markdown: missingCask, definitions: definitions)
+    #expect(
+        missingCaskProblems.count == 1
+            && missingCaskProblems[0].contains("agy")
+            && missingCaskProblems[0].contains("Update"),
+        "a missing cask grant must fail only its own cell: \(missingCaskProblems)"
+    )
+
+    // Mismatched manager: an in-memory formula grant on a row that declares no package at all.
+    // Its real Uninstall cell remains the valid `disabled:` negative, so only Update fails.
+    let grok = try derivedDefinition(
+        try #require(definitions.first { $0.id == "grok" }),
+        acceptedOperations: [.homebrewFormulaUpdate, .homebrewFormulaUninstall]
+    )
+    let mismatchedDefinitions = definitionsReplacing(
+        definitions, id: "grok", with: grok
+    )
+    let mismatched = try #require(replacingMatrixCell(
+        in: markdown, rowID: "grok", columnIndex: 6, with: exactFormulaMutationYes
+    ))
+    let mismatchedProblems = matrixProblems(
+        markdown: mismatched, definitions: mismatchedDefinitions
+    )
+    #expect(
+        mismatchedProblems.count == 1
+            && mismatchedProblems[0].contains("grok")
+            && mismatchedProblems[0].contains("Update"),
+        "an accepted formula grant without a formula declaration must fail only Update: \(mismatchedProblems)"
+    )
+
+    // Wrong operation: an Uninstall-only grant cannot advertise Update. Seed the companion
+    // Uninstall cell to this derived definition's correct exact answer so only Update fails.
+    let hermesUninstallOnly = try derivedDefinition(
+        try #require(definitions.first { $0.id == "hermes" }),
+        acceptedOperations: [.homebrewFormulaUninstall]
+    )
+    let wrongUpdateDefinitions = definitionsReplacing(
+        definitions, id: "hermes", with: hermesUninstallOnly
+    )
+    var wrongUpdate = markdown
+    wrongUpdate = try #require(replacingMatrixCell(
+        in: wrongUpdate, rowID: "hermes", columnIndex: 7, with: exactFormulaMutationYes
+    ))
+    wrongUpdate = try #require(replacingMatrixCell(
+        in: wrongUpdate, rowID: "hermes", columnIndex: 6, with: exactFormulaMutationYes
+    ))
+    let wrongUpdateProblems = matrixProblems(
+        markdown: wrongUpdate, definitions: wrongUpdateDefinitions
+    )
+    #expect(
+        wrongUpdateProblems.count == 1
+            && wrongUpdateProblems[0].contains("hermes")
+            && wrongUpdateProblems[0].contains("Update"),
+        "an Uninstall-only grant must fail only Update: \(wrongUpdateProblems)"
+    )
+
+    // The converse: an Update-only grant cannot advertise Uninstall.
+    let hermesUpdateOnly = try derivedDefinition(
+        try #require(definitions.first { $0.id == "hermes" }),
+        acceptedOperations: [.homebrewFormulaUpdate]
+    )
+    let wrongUninstallDefinitions = definitionsReplacing(
+        definitions, id: "hermes", with: hermesUpdateOnly
+    )
+    var wrongUninstall = markdown
+    wrongUninstall = try #require(replacingMatrixCell(
+        in: wrongUninstall, rowID: "hermes", columnIndex: 6, with: exactFormulaMutationYes
+    ))
+    wrongUninstall = try #require(replacingMatrixCell(
+        in: wrongUninstall, rowID: "hermes", columnIndex: 7, with: exactFormulaMutationYes
+    ))
+    let wrongUninstallProblems = matrixProblems(
+        markdown: wrongUninstall, definitions: wrongUninstallDefinitions
+    )
+    #expect(
+        wrongUninstallProblems.count == 1
+            && wrongUninstallProblems[0].contains("hermes")
+            && wrongUninstallProblems[0].contains("Uninstall"),
+        "an Update-only grant must fail only Uninstall: \(wrongUninstallProblems)"
+    )
+
+    // Imprecise affirmative strings: the full exact scope text is required. The companion
+    // Uninstall cell is the derived definition's correct answer.
+    let hermesFullGrant = try derivedDefinition(
+        try #require(definitions.first { $0.id == "hermes" }),
+        acceptedOperations: [.homebrewFormulaUpdate, .homebrewFormulaUninstall]
+    )
+    let fullGrantDefinitions = definitionsReplacing(
+        definitions, id: "hermes", with: hermesFullGrant
+    )
+    var imprecise = markdown
+    imprecise = try #require(replacingMatrixCell(
+        in: imprecise, rowID: "hermes", columnIndex: 7, with: exactFormulaMutationYes
+    ))
+    imprecise = try #require(replacingMatrixCell(
+        in: imprecise, rowID: "hermes", columnIndex: 6, with: "yes: homebrewFormula"
+    ))
+    let impreciseProblems = matrixProblems(
+        markdown: imprecise, definitions: fullGrantDefinitions
+    )
+    #expect(
+        impreciseProblems.count == 1
+            && impreciseProblems[0].contains("hermes")
+            && impreciseProblems[0].contains("Update"),
+        "an imprecise formula yes must fail only Update: \(impreciseProblems)"
+    )
+
+    // One manager's exact `yes` cannot stand in for another manager's grant.
+    var wrongManagerYes = markdown
+    wrongManagerYes = try #require(replacingMatrixCell(
+        in: wrongManagerYes, rowID: "hermes", columnIndex: 7, with: exactFormulaMutationYes
+    ))
+    wrongManagerYes = try #require(replacingMatrixCell(
+        in: wrongManagerYes, rowID: "hermes", columnIndex: 6, with: exactNpmMutationYes
+    ))
+    let wrongManagerYesProblems = matrixProblems(
+        markdown: wrongManagerYes, definitions: fullGrantDefinitions
+    )
+    #expect(
+        wrongManagerYesProblems.count == 1
+            && wrongManagerYesProblems[0].contains("hermes")
+            && wrongManagerYesProblems[0].contains("Update"),
+        "an npm yes cannot advertise a formula-only grant: \(wrongManagerYesProblems)"
+    )
+
+    // Empty negative reasons are not accepted, whether an affirmative grant exists or not.
+    var emptyInformational = markdown
+    emptyInformational = try #require(replacingMatrixCell(
+        in: emptyInformational, rowID: "hermes", columnIndex: 7, with: exactFormulaMutationYes
+    ))
+    emptyInformational = try #require(replacingMatrixCell(
+        in: emptyInformational, rowID: "hermes", columnIndex: 6, with: "informational:"
+    ))
+    let emptyInformationalProblems = matrixProblems(
+        markdown: emptyInformational, definitions: fullGrantDefinitions
+    )
+    #expect(
+        emptyInformationalProblems.count == 1
+            && emptyInformationalProblems[0].contains("hermes")
+            && emptyInformationalProblems[0].contains("Update"),
+        "an empty informational reason must fail only Update: \(emptyInformationalProblems)"
+    )
+
+    let emptyDisabled = try #require(replacingMatrixCell(
+        in: markdown, rowID: "opencode", columnIndex: 7, with: "disabled:"
+    ))
+    let emptyDisabledProblems = matrixProblems(
+        markdown: emptyDisabled, definitions: definitions
+    )
+    #expect(
+        emptyDisabledProblems.count == 1
+            && emptyDisabledProblems[0].contains("opencode")
+            && emptyDisabledProblems[0].contains("Uninstall"),
+        "an empty disabled reason must fail only Uninstall: \(emptyDisabledProblems)"
     )
 }
 

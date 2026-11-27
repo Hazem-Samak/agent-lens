@@ -108,8 +108,26 @@ private func registryJSON(_ detectors: [String], schemaVersion: Int = 2) -> Stri
         .aiHarness, .aiCodingTool,
     ])
     #expect(definitions.allSatisfy { $0.versionQuery == .standard })
-    #expect(definitions[0].acceptedOperations == [.npmUpdate, .npmUninstall])
-    #expect(definitions.dropFirst().allSatisfy { $0.acceptedOperations.isEmpty })
+    // One exact per-ID grant map: codex keeps npm, and only the four Homebrew-promoted
+    // entries add grants. Every other definition is explicitly empty.
+    let expectedAcceptedOperations: [String: [AcceptedOperation]] = [
+        "codex": [.npmUpdate, .npmUninstall],
+        "opencode": [],
+        "grok": [],
+        "claude": [],
+        "gemini": [],
+        "cline": [],
+        "hermes": [.homebrewFormulaUpdate, .homebrewFormulaUninstall],
+        "aider": [.homebrewFormulaUpdate, .homebrewFormulaUninstall],
+        "goose": [.homebrewFormulaUpdate, .homebrewFormulaUninstall],
+        "kiro-cli": [.homebrewCaskUpdate, .homebrewCaskUninstall],
+        "omp": [],
+        "agy": [],
+        "dsh": [],
+        "qodercli": [],
+    ]
+    #expect(Dictionary(uniqueKeysWithValues: definitions.map { ($0.id, $0.acceptedOperations) })
+            == expectedAcceptedOperations)
     #expect(definitions[0].packages == [
         try DeclaredPackage(manager: .npm, name: "@openai/codex"),
         try DeclaredPackage(manager: .homebrewCask, name: "codex"),
@@ -389,17 +407,22 @@ private func collisionIdentityViolations(in definitions: [DetectorDefinition]) -
     )
     #expect(empty[0].acceptedOperations.isEmpty)
 
-    // The complete closed vocabulary is accepted in declared order.
-    let both = try DetectorRegistry.validate(data: Data(registryJSON([
-        detectorJSON(extraFields: #""acceptedOperations":["npmUpdate","npmUninstall"]"#)
+    // The complete closed vocabulary is accepted in declared order: one case per package kind and
+    // operation (M13-D R4).
+    let vocabulary = try DetectorRegistry.validate(data: Data(registryJSON([
+        detectorJSON(extraFields: #""acceptedOperations":["npmUpdate","npmUninstall","homebrewFormulaUpdate","homebrewFormulaUninstall","homebrewCaskUpdate","homebrewCaskUninstall"]"#)
     ]).utf8))
-    #expect(both[0].acceptedOperations == [.npmUpdate, .npmUninstall])
+    #expect(vocabulary[0].acceptedOperations == [
+        .npmUpdate, .npmUninstall,
+        .homebrewFormulaUpdate, .homebrewFormulaUninstall,
+        .homebrewCaskUpdate, .homebrewCaskUninstall,
+    ])
 
     try expectError(
         .invalidField(
             field: "acceptedOperations[0]",
             id: "x",
-            reason: "must be one of npmUpdate, npmUninstall"
+            reason: "must be one of npmUpdate, npmUninstall, homebrewFormulaUpdate, homebrewFormulaUninstall, homebrewCaskUpdate, homebrewCaskUninstall"
         ),
         when: #""acceptedOperations":["npmUpgrade"]"#
     )

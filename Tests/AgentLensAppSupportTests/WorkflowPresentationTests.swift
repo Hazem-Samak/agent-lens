@@ -136,27 +136,37 @@ private func makeUpdate(
     definition: DetectorDefinition,
     diagnostic: ToolPathDiagnostic,
     status: VersionStatus,
-    npmPackage: String? = nil
+    npmPackage: String? = nil,
+    formulaStem: String? = nil,
+    fullFormulaName: String? = nil,
+    caskToken: String? = nil,
+    caskFullToken: String? = nil,
+    registryID: String? = nil,
+    selectedEntryPath: String? = nil,
+    selectedTarget: String? = nil
 ) -> ToolUpdateResult {
-    ToolUpdateResult(
-        registryID: definition.id,
+    let isHomebrew = formulaStem != nil || caskToken != nil
+    return ToolUpdateResult(
+        registryID: registryID ?? definition.id,
         displayName: definition.displayName,
         diagnosticIndex: 0,
         diagnostic: diagnostic,
         localVersion: nil,
-        selectedEntryPath: nil,
-        selectedTarget: nil,
-        selectedKegVersion: nil,
-        managerEntryPath: nil,
-        managerTarget: nil,
+        selectedEntryPath: selectedEntryPath ?? (isHomebrew ? "/fixture/bin/tool" : nil),
+        selectedTarget: selectedTarget ?? (isHomebrew ? "/fixture/targets/tool" : nil),
+        selectedKegVersion: formulaStem != nil ? "1.0.0" : nil,
+        managerEntryPath: isHomebrew ? "/fixture/prefix/bin/brew" : nil,
+        managerTarget: isHomebrew ? "/fixture/prefix/bin/brew" : nil,
         managerFingerprint: nil,
-        managerCellar: nil,
-        formulaStem: nil,
-        fullFormulaName: nil,
+        managerCellar: formulaStem != nil ? "/fixture/prefix/Cellar" : nil,
+        formulaStem: formulaStem,
+        fullFormulaName: fullFormulaName,
         npmPackage: npmPackage,
         npmRegistry: nil,
         npmTag: nil,
         npmVersion: nil,
+        caskToken: caskToken,
+        caskFullToken: caskFullToken,
         status: status,
         provenance: .freshProbe(observedAt: Date(timeIntervalSince1970: 0))
     )
@@ -164,7 +174,9 @@ private func makeUpdate(
 
 private func makeVerifiedOwnership(
     registryID: String,
-    manager: PackageManager = .npm
+    manager: PackageManager = .npm,
+    selectionEntryPath: String = "/fixture/bin/tool",
+    selectionTarget: String = "/fixture/targets/tool"
 ) -> InstallationOwnershipResult {
     let fingerprint = ExecutableFingerprint(
         device: 1,
@@ -177,8 +189,8 @@ private func makeVerifiedOwnership(
         changedNanoseconds: 7
     )
     let selection = InstallationSelectionIdentity(
-        entryPath: "/fixture/bin/tool",
-        canonicalTarget: "/fixture/targets/tool",
+        entryPath: selectionEntryPath,
+        canonicalTarget: selectionTarget,
         fingerprint: fingerprint
     )
     let installation = VerifiedInstallation(
@@ -193,8 +205,8 @@ private func makeVerifiedOwnership(
     )
     return InstallationOwnershipResult(
         registryID: registryID,
-        observedSelectedEntry: "/fixture/bin/tool",
-        observedSelectedTarget: "/fixture/targets/tool",
+        observedSelectedEntry: selectionEntryPath,
+        observedSelectedTarget: selectionTarget,
         observedAt: Date(timeIntervalSince1970: 0),
         outcome: .verified(installation)
     )
@@ -493,7 +505,7 @@ private func makeVerifiedOwnership(
     #expect(presentation.update == .prepareNpmUpdate)
     #expect(presentation.uninstall == .prepareNpmUninstall)
     #expect(presentation.otherLimits == [
-        "Homebrew cask update and uninstall are not available in this version."
+        HomebrewCaskUpdateUnavailableReason.operationNotAccepted.message
     ])
 }
 
@@ -510,9 +522,12 @@ private func makeVerifiedOwnership(
     let presentation = ManagementPresentation(entry: entry)
 
     #expect(presentation.update == .hidden)
-    #expect(presentation.uninstall == .hidden)
+    #expect(
+        presentation.uninstall
+            == .unavailable(HomebrewFormulaUninstallUnavailableReason.operationNotAccepted.message)
+    )
     #expect(presentation.otherLimits == [
-        "Homebrew formula update and uninstall are not available in this version."
+        HomebrewFormulaUpdateUnavailableReason.operationNotAccepted.message
     ])
 }
 
@@ -529,9 +544,12 @@ private func makeVerifiedOwnership(
     let presentation = ManagementPresentation(entry: entry)
 
     #expect(presentation.update == .hidden)
-    #expect(presentation.uninstall == .hidden)
+    #expect(
+        presentation.uninstall
+            == .unavailable(HomebrewCaskUninstallUnavailableReason.operationNotAccepted.message)
+    )
     #expect(presentation.otherLimits == [
-        "Homebrew cask update and uninstall are not available in this version."
+        HomebrewCaskUpdateUnavailableReason.operationNotAccepted.message
     ])
 }
 
@@ -582,8 +600,8 @@ private func makeVerifiedOwnership(
     )
 
     #expect(ManagementPresentation(entry: entry).otherLimits == [
-        "Homebrew formula update and uninstall are not available in this version.",
-        "Homebrew cask update and uninstall are not available in this version.",
+        HomebrewFormulaUpdateUnavailableReason.operationNotAccepted.message,
+        HomebrewCaskUpdateUnavailableReason.operationNotAccepted.message,
         "This copy is classified as standalone. Agent Lens does not delete standalone files.",
     ])
 }
@@ -715,11 +733,557 @@ private func makeVerifiedOwnership(
     )
 }
 
-@Test func noDeclaredNpmPackageHidesTheUninstallSlot() throws {
+@Test func noDeclaredNpmPackageHidesTheNpmUninstallRoute() throws {
     let definition = try makeDefinition(packages: [(.homebrewFormula, "tool")])
     let presentation = ManagementPresentation(
         entry: makeEntry(definition: definition, diagnostic: singleWinnerDiagnostic(source: "brew"))
     )
 
+    // The npm route is absent, but the declared formula's own Core refusal is the truthful
+    // per-entry explanation; it is never the retired fixed version sentence.
+    #expect(
+        presentation.uninstall
+            == .unavailable(HomebrewFormulaUninstallUnavailableReason.operationNotAccepted.message)
+    )
+}
+
+// MARK: - R11: Homebrew affordance truth table
+
+private func formulaUpdate(
+    definition: DetectorDefinition,
+    diagnostic: ToolPathDiagnostic,
+    target: String = "2.0.0"
+) -> ToolUpdateResult {
+    makeUpdate(
+        definition: definition,
+        diagnostic: diagnostic,
+        status: .updateAvailable(installed: Version("1.0.0"), latest: Version(target)),
+        formulaStem: "tool",
+        fullFormulaName: "tool"
+    )
+}
+
+private func caskUpdate(
+    definition: DetectorDefinition,
+    diagnostic: ToolPathDiagnostic,
+    target: String = "2.0.0"
+) -> ToolUpdateResult {
+    makeUpdate(
+        definition: definition,
+        diagnostic: diagnostic,
+        status: .updateAvailable(installed: Version("1.0.0"), latest: Version(target)),
+        caskToken: "tool",
+        caskFullToken: "tool"
+    )
+}
+
+@Test func promotedFormulaOffersBothBrewControlsWhenOwnershipIsVerified() throws {
+    let definition = try makeDefinition(
+        id: "hermes-id",
+        packages: [(.homebrewFormula, "hermes-agent")],
+        accepted: [.homebrewFormulaUpdate, .homebrewFormulaUninstall]
+    )
+    let diagnostic = singleWinnerDiagnostic(source: "brew")
+    let entry = makeEntry(
+        definition: definition,
+        diagnostic: diagnostic,
+        update: formulaUpdate(definition: definition, diagnostic: diagnostic),
+        ownership: makeVerifiedOwnership(registryID: "hermes-id", manager: .homebrewFormula)
+    )
+    let presentation = ManagementPresentation(entry: entry)
+
+    #expect(presentation.update == .prepareFormulaUpdate)
+    #expect(presentation.update.isPrepare)
+    #expect(presentation.uninstall == .prepareFormulaUninstall)
+    #expect(presentation.uninstall.isPrepare)
+    #expect(presentation.otherLimits.isEmpty)
+}
+
+@Test func promotedFormulaUpdateNeedsNoExplicitOwnershipButUninstallNeedsVerification() throws {
+    let definition = try makeDefinition(
+        id: "hermes-id",
+        packages: [(.homebrewFormula, "hermes-agent")],
+        accepted: [.homebrewFormulaUpdate, .homebrewFormulaUninstall]
+    )
+    let diagnostic = singleWinnerDiagnostic(source: "brew")
+    let entry = makeEntry(
+        definition: definition,
+        diagnostic: diagnostic,
+        update: formulaUpdate(definition: definition, diagnostic: diagnostic)
+    )
+    let presentation = ManagementPresentation(entry: entry)
+
+    #expect(presentation.update == .prepareFormulaUpdate)
+    #expect(
+        presentation.uninstall
+            == .needsVerification(
+                "Verify Installation to enable Uninstall for this Homebrew formula."
+            )
+    )
+    #expect(presentation.update.isPrepare)
+    #expect(presentation.otherLimits.isEmpty)
+}
+
+@Test func promotedCaskOffersBothBrewControlsAndSuppressesTheStandaloneSentence() throws {
+    let definition = try makeDefinition(
+        id: "kiro-id",
+        packages: [(.homebrewCask, "kiro-cli")],
+        accepted: [.homebrewCaskUpdate, .homebrewCaskUninstall]
+    )
+    let diagnostic = singleWinnerDiagnostic(source: "standalone")
+    let entry = makeEntry(
+        definition: definition,
+        diagnostic: diagnostic,
+        update: caskUpdate(definition: definition, diagnostic: diagnostic),
+        ownership: makeVerifiedOwnership(registryID: "kiro-id", manager: .homebrewCask)
+    )
+    let presentation = ManagementPresentation(entry: entry)
+
+    #expect(presentation.update == .prepareCaskUpdate)
+    #expect(presentation.uninstall == .prepareCaskUninstall)
+    // The source heuristic may still say standalone, but a verified cask copy is Homebrew-owned.
+    #expect(!presentation.otherLimits.contains { $0.contains("standalone") })
+    #expect(presentation.otherLimits.isEmpty)
+}
+
+@Test func verifiedCaskOwnershipSuppressesStandaloneWithoutAnyUpdateResult() throws {
+    let definition = try makeDefinition(
+        id: "kiro-id",
+        packages: [(.homebrewCask, "kiro-cli")],
+        accepted: [.homebrewCaskUpdate, .homebrewCaskUninstall]
+    )
+    let entry = makeEntry(
+        definition: definition,
+        diagnostic: singleWinnerDiagnostic(source: "standalone"),
+        ownership: makeVerifiedOwnership(registryID: "kiro-id", manager: .homebrewCask)
+    )
+    let presentation = ManagementPresentation(entry: entry)
+
+    #expect(presentation.update == .hidden)
+    #expect(presentation.uninstall == .prepareCaskUninstall)
+    #expect(presentation.otherLimits.isEmpty)
+}
+
+@Test func uninstallDoesNotDependOnVersionStatusButUpdateDoes() throws {
+    let definition = try makeDefinition(
+        id: "aider-id",
+        packages: [(.homebrewFormula, "aider")],
+        accepted: [.homebrewFormulaUpdate, .homebrewFormulaUninstall]
+    )
+    let entry = makeEntry(
+        definition: definition,
+        diagnostic: singleWinnerDiagnostic(source: "brew"),
+        ownership: makeVerifiedOwnership(registryID: "aider-id", manager: .homebrewFormula)
+    )
+    let presentation = ManagementPresentation(entry: entry)
+
+    #expect(presentation.update == .hidden)
+    #expect(presentation.uninstall == .prepareFormulaUninstall)
+}
+
+@Test func brewUpdateIdentityMustAgreeWithTheDeclaredManagerAndAcceptedOperation() throws {
+    // A cask-shaped update result on a formula-only, formula-accepting entry is not silently
+    // presented as a formula update; it falls back to the honest "no managed update" sentence.
+    let formulaDefinition = try makeDefinition(
+        id: "formula-id",
+        packages: [(.homebrewFormula, "tool")],
+        accepted: [.homebrewFormulaUpdate, .homebrewFormulaUninstall]
+    )
+    let formulaDiagnostic = singleWinnerDiagnostic(source: "brew")
+    let mismatched = makeEntry(
+        definition: formulaDefinition,
+        diagnostic: formulaDiagnostic,
+        update: caskUpdate(definition: formulaDefinition, diagnostic: formulaDiagnostic)
+    )
+    #expect(
+        ManagementPresentation(entry: mismatched).update
+            == .unavailable(
+                "A newer version is reported by the supported latest check. Managed update is not available for this installation in this version."
+            )
+    )
+
+    // A promoted cask accepting only its own update kind never borrows the formula reason.
+    let unaccepted = try makeDefinition(
+        id: "kiro-id",
+        packages: [(.homebrewCask, "kiro-cli")],
+        accepted: [.homebrewCaskUninstall]
+    )
+    let caskDiagnostic = singleWinnerDiagnostic(source: "brew")
+    let caskEntry = makeEntry(
+        definition: unaccepted,
+        diagnostic: caskDiagnostic,
+        update: caskUpdate(definition: unaccepted, diagnostic: caskDiagnostic)
+    )
+    #expect(
+        ManagementPresentation(entry: caskEntry).update
+            == .unavailable(HomebrewCaskUpdateUnavailableReason.operationNotAccepted.message)
+    )
+}
+
+@Test func unacceptedFormulaUpdateExplainsWhyAndDoesNotRepeatTheReason() throws {
+    let definition = try makeDefinition(
+        id: "opencode-id",
+        packages: [(.homebrewFormula, "opencode")],
+        accepted: []
+    )
+    let diagnostic = singleWinnerDiagnostic(source: "brew")
+    let entry = makeEntry(
+        definition: definition,
+        diagnostic: diagnostic,
+        update: formulaUpdate(definition: definition, diagnostic: diagnostic)
+    )
+    let presentation = ManagementPresentation(entry: entry)
+
+    #expect(
+        presentation.update
+            == .unavailable(HomebrewFormulaUpdateUnavailableReason.operationNotAccepted.message)
+    )
+    // The not-promoted "why" is already the update slot's text, so it is not duplicated as a
+    // manager-limit sentence.
+    #expect(presentation.otherLimits.isEmpty)
+    #expect(
+        presentation.uninstall
+            == .unavailable(HomebrewFormulaUninstallUnavailableReason.operationNotAccepted.message)
+    )
+}
+
+@Test func acceptedUpdateWithoutAcceptedUninstallExplainsTheRemovalGap() throws {
+    let definition = try makeDefinition(
+        id: "hermes-id",
+        packages: [(.homebrewFormula, "hermes-agent")],
+        accepted: [.homebrewFormulaUpdate]
+    )
+    let diagnostic = singleWinnerDiagnostic(source: "brew")
+    let entry = makeEntry(
+        definition: definition,
+        diagnostic: diagnostic,
+        update: formulaUpdate(definition: definition, diagnostic: diagnostic)
+    )
+    let presentation = ManagementPresentation(entry: entry)
+
+    #expect(presentation.update == .prepareFormulaUpdate)
+    #expect(
+        presentation.uninstall
+            == .unavailable(HomebrewFormulaUninstallUnavailableReason.operationNotAccepted.message)
+    )
+    #expect(presentation.otherLimits.isEmpty)
+}
+
+@Test func verifiedManagerKindMustMatchTheDeclaredManagerForUninstall() throws {
+    // A verified cask copy on a formula-declaring entry never offers a cask button; the declared
+    // formula's accepted operation still only reaches the verification hint.
+    let definition = try makeDefinition(
+        id: "formula-id",
+        packages: [(.homebrewFormula, "tool")],
+        accepted: [.homebrewFormulaUninstall]
+    )
+    let entry = makeEntry(
+        definition: definition,
+        diagnostic: singleWinnerDiagnostic(source: "brew"),
+        ownership: makeVerifiedOwnership(registryID: "formula-id", manager: .homebrewCask)
+    )
+    let presentation = ManagementPresentation(entry: entry)
+
+    #expect(
+        presentation.uninstall
+            == .needsVerification(
+                "Verify Installation to enable Uninstall for this Homebrew formula."
+            )
+    )
+}
+
+@Test func codexNpmRouteStaysByteIdenticalAndTheCaskOnlyExplainsItsOwnReason() throws {
+    let definition = try makeDefinition(
+        id: "codex-id",
+        displayName: "Codex",
+        packages: [(.npm, "@openai/codex"), (.homebrewCask, "codex")],
+        accepted: [.npmUpdate, .npmUninstall]
+    )
+    let diagnostic = singleWinnerDiagnostic(source: "npm")
+    let entry = makeEntry(
+        definition: definition,
+        diagnostic: diagnostic,
+        update: makeUpdate(
+            definition: definition,
+            diagnostic: diagnostic,
+            status: .updateAvailable(installed: Version("1.0.0"), latest: Version("2.0.0")),
+            npmPackage: "@openai/codex"
+        ),
+        ownership: makeVerifiedOwnership(registryID: "codex-id", manager: .npm)
+    )
+    let presentation = ManagementPresentation(entry: entry)
+
+    #expect(presentation.update == .prepareNpmUpdate)
+    #expect(presentation.uninstall == .prepareNpmUninstall)
+    #expect(presentation.otherLimits == [
+        HomebrewCaskUpdateUnavailableReason.operationNotAccepted.message
+    ])
+}
+
+@Test func notInstalledBrewEntriesOfferNoControlsAndNoLimits() throws {
+    let definition = try makeDefinition(
+        id: "hermes-id",
+        packages: [(.homebrewFormula, "hermes-agent")],
+        accepted: [.homebrewFormulaUpdate, .homebrewFormulaUninstall]
+    )
+    let entry = makeEntry(
+        definition: definition,
+        diagnostic: notInstalledDiagnostic(),
+        ownership: makeVerifiedOwnership(registryID: "hermes-id", manager: .homebrewFormula)
+    )
+    let presentation = ManagementPresentation(entry: entry)
+
+    #expect(presentation.update == .hidden)
     #expect(presentation.uninstall == .hidden)
+    #expect(presentation.otherLimits.isEmpty)
+}
+
+@Test func prepareAffordanceFlagsIdentifyExactlyTheActionableShapes() {
+    #expect(ManagementPresentation.UpdateAffordance.prepareNpmUpdate.isPrepare)
+    #expect(ManagementPresentation.UpdateAffordance.prepareFormulaUpdate.isPrepare)
+    #expect(ManagementPresentation.UpdateAffordance.prepareCaskUpdate.isPrepare)
+    #expect(!ManagementPresentation.UpdateAffordance.unavailable("reason").isPrepare)
+    #expect(!ManagementPresentation.UpdateAffordance.hidden.isPrepare)
+
+    #expect(ManagementPresentation.UninstallAffordance.prepareNpmUninstall.isPrepare)
+    #expect(ManagementPresentation.UninstallAffordance.prepareFormulaUninstall.isPrepare)
+    #expect(ManagementPresentation.UninstallAffordance.prepareCaskUninstall.isPrepare)
+    #expect(!ManagementPresentation.UninstallAffordance.needsVerification("verify").isPrepare)
+    #expect(!ManagementPresentation.UninstallAffordance.unavailable("reason").isPrepare)
+    #expect(!ManagementPresentation.UninstallAffordance.hidden.isPrepare)
+}
+
+// MARK: - R11: exact evidence, contradictions and manager shadowing
+
+@Test func promotedCaskUpdateOffersItsControlButUninstallStillNeedsVerification() throws {
+    let definition = try makeDefinition(
+        id: "kiro-id",
+        packages: [(.homebrewCask, "kiro-cli")],
+        accepted: [.homebrewCaskUpdate, .homebrewCaskUninstall]
+    )
+    let diagnostic = singleWinnerDiagnostic(source: "standalone")
+    let entry = makeEntry(
+        definition: definition,
+        diagnostic: diagnostic,
+        update: caskUpdate(definition: definition, diagnostic: diagnostic)
+    )
+    let presentation = ManagementPresentation(entry: entry)
+
+    #expect(presentation.update == .prepareCaskUpdate)
+    #expect(presentation.uninstall.isPrepare == false)
+    #expect(
+        presentation.uninstall
+            == .needsVerification(
+                "Verify Installation to enable Uninstall for this Homebrew cask."
+            )
+    )
+    // Nothing is verified yet, so the standalone classification is still disclosed.
+    #expect(presentation.otherLimits == [
+        "This copy is classified as standalone. Agent Lens does not delete standalone files."
+    ])
+}
+
+@Test func ownershipForAnotherSelectionIsNotProofForThisEntry() throws {
+    let definition = try makeDefinition(
+        id: "hermes-id",
+        packages: [(.homebrewFormula, "hermes-agent")],
+        accepted: [.homebrewFormulaUpdate, .homebrewFormulaUninstall]
+    )
+    let diagnostic = singleWinnerDiagnostic(source: "brew")
+    let update = formulaUpdate(definition: definition, diagnostic: diagnostic)
+
+    // The proof names a different selected entry (and another canonical target) than the one the
+    // diagnostics publish now. It is not this entry's proof, so no armed control may appear.
+    let otherSelection = makeEntry(
+        definition: definition,
+        diagnostic: diagnostic,
+        update: update,
+        ownership: makeVerifiedOwnership(
+            registryID: "hermes-id",
+            manager: .homebrewFormula,
+            selectionEntryPath: "/fixture/other/tool"
+        )
+    )
+    #expect(ManagementPresentation(entry: otherSelection).uninstall == .needsVerification(
+        "Verify Installation to enable Uninstall for this Homebrew formula."
+    ))
+
+    let otherTarget = makeEntry(
+        definition: definition,
+        diagnostic: diagnostic,
+        update: update,
+        ownership: makeVerifiedOwnership(
+            registryID: "hermes-id",
+            manager: .homebrewFormula,
+            selectionTarget: "/fixture/targets/other"
+        )
+    )
+    #expect(ManagementPresentation(entry: otherTarget).uninstall == .needsVerification(
+        "Verify Installation to enable Uninstall for this Homebrew formula."
+    ))
+}
+
+@Test func ownershipForAnotherRegistryEntryIsNotProofForThisEntry() throws {
+    let definition = try makeDefinition(
+        id: "hermes-id",
+        packages: [(.homebrewFormula, "hermes-agent")],
+        accepted: [.homebrewFormulaUninstall]
+    )
+    let entry = makeEntry(
+        definition: definition,
+        diagnostic: singleWinnerDiagnostic(source: "brew"),
+        ownership: makeVerifiedOwnership(registryID: "another-id", manager: .homebrewFormula)
+    )
+
+    #expect(ManagementPresentation(entry: entry).uninstall == .needsVerification(
+        "Verify Installation to enable Uninstall for this Homebrew formula."
+    ))
+}
+
+@Test func verifiedOffPathCopyOffersThePrepareRouteForItsOwnSelection() throws {
+    let definition = try makeDefinition(
+        id: "aider-id",
+        packages: [(.homebrewFormula, "aider")],
+        accepted: [.homebrewFormulaUninstall]
+    )
+    let offPath = PathCandidateObservation(
+        origin: .extraRoot(index: 0, directoryText: "/fixture/extra"),
+        entryPath: "/fixture/extra/aider",
+        kind: .executableFile,
+        canonicalTarget: "/fixture/targets/aider"
+    )
+    let diagnostic = makeDiagnostic(
+        state: .installedNotOnPath,
+        source: "brew",
+        selection: .offPath(candidate: offPath, root: "/fixture/extra"),
+        groups: [makeGroup("/fixture/targets/aider", entryPath: "/fixture/extra/aider")],
+        shadowed: 0,
+        candidates: [offPath],
+        versions: [measured("/fixture/targets/aider", "1.0.0")]
+    )
+    let entry = makeEntry(
+        definition: definition,
+        diagnostic: diagnostic,
+        ownership: makeVerifiedOwnership(
+            registryID: "aider-id",
+            manager: .homebrewFormula,
+            selectionEntryPath: "/fixture/extra/aider",
+            selectionTarget: "/fixture/targets/aider"
+        )
+    )
+
+    #expect(ManagementPresentation(entry: entry).uninstall == .prepareFormulaUninstall)
+}
+
+@Test func contradictoryHomebrewUpdateEvidenceProvesNeitherKind() throws {
+    // Both identity shapes at once cannot come from one coordinator result; the entry falls back to
+    // the honest "no managed update" sentence instead of borrowing one manager's route.
+    let definition = try makeDefinition(
+        id: "both-id",
+        packages: [(.homebrewFormula, "tool"), (.homebrewCask, "tool")],
+        accepted: [.homebrewFormulaUpdate, .homebrewCaskUpdate]
+    )
+    let diagnostic = singleWinnerDiagnostic(source: "brew")
+    let entry = makeEntry(
+        definition: definition,
+        diagnostic: diagnostic,
+        update: makeUpdate(
+            definition: definition,
+            diagnostic: diagnostic,
+            status: .updateAvailable(installed: Version("1.0.0"), latest: Version("2.0.0")),
+            formulaStem: "tool",
+            fullFormulaName: "tool",
+            caskToken: "tool",
+            caskFullToken: "tool"
+        )
+    )
+
+    #expect(
+        ManagementPresentation(entry: entry).update
+            == .unavailable(
+                "A newer version is reported by the supported latest check. Managed update is not available for this installation in this version."
+            )
+    )
+}
+
+@Test func homebrewUpdateResultForAnotherRegistryEntryOrSelectionIsNotProof() throws {
+    let definition = try makeDefinition(
+        id: "hermes-id",
+        packages: [(.homebrewFormula, "hermes-agent")],
+        accepted: [.homebrewFormulaUpdate]
+    )
+    let diagnostic = singleWinnerDiagnostic(source: "brew")
+    let sentence =
+        "A newer version is reported by the supported latest check. Managed update is not available for this installation in this version."
+
+    let otherRegistryEntry = makeEntry(
+        definition: definition,
+        diagnostic: diagnostic,
+        update: makeUpdate(
+            definition: definition,
+            diagnostic: diagnostic,
+            status: .updateAvailable(installed: Version("1.0.0"), latest: Version("2.0.0")),
+            formulaStem: "tool",
+            fullFormulaName: "tool",
+            registryID: "another-id"
+        )
+    )
+    #expect(ManagementPresentation(entry: otherRegistryEntry).update == .unavailable(sentence))
+
+    let otherSelection = makeEntry(
+        definition: definition,
+        diagnostic: diagnostic,
+        update: makeUpdate(
+            definition: definition,
+            diagnostic: diagnostic,
+            status: .updateAvailable(installed: Version("1.0.0"), latest: Version("2.0.0")),
+            formulaStem: "tool",
+            fullFormulaName: "tool",
+            selectedTarget: "/fixture/targets/other"
+        )
+    )
+    #expect(ManagementPresentation(entry: otherSelection).update == .unavailable(sentence))
+}
+
+@Test func anUnverifiedDeclaredNpmRouteCannotShadowTheVerifiedHomebrewRoute() throws {
+    // Codex-shaped entry: npm and cask declared, both removal operations accepted, and the exact
+    // verified manager is the cask. The npm slot's verification hint must not displace the cask
+    // control the entry's own proof names.
+    let definition = try makeDefinition(
+        id: "dual-id",
+        packages: [(.npm, "@scope/tool"), (.homebrewCask, "tool")],
+        accepted: [.npmUninstall, .homebrewCaskUninstall]
+    )
+    let entry = makeEntry(
+        definition: definition,
+        diagnostic: singleWinnerDiagnostic(source: "standalone"),
+        ownership: makeVerifiedOwnership(registryID: "dual-id", manager: .homebrewCask)
+    )
+    let presentation = ManagementPresentation(entry: entry)
+
+    #expect(presentation.uninstall == .prepareCaskUninstall)
+    #expect(!presentation.otherLimits.contains(HomebrewCaskUninstallUnavailableReason.operationNotAccepted.message))
+    #expect(presentation.otherLimits == [
+        HomebrewCaskUpdateUnavailableReason.operationNotAccepted.message
+    ])
+}
+
+@Test func anExactVerifiedNpmProofStillWinsItsOwnRouteOnADualEntry() throws {
+    let definition = try makeDefinition(
+        id: "dual-id",
+        packages: [(.npm, "@scope/tool"), (.homebrewCask, "tool")],
+        accepted: [.npmUninstall, .homebrewCaskUninstall]
+    )
+    let entry = makeEntry(
+        definition: definition,
+        diagnostic: singleWinnerDiagnostic(source: "standalone"),
+        ownership: makeVerifiedOwnership(registryID: "dual-id", manager: .npm)
+    )
+    let presentation = ManagementPresentation(entry: entry)
+
+    #expect(presentation.uninstall == .prepareNpmUninstall)
+    // A verified npm copy is not a cask copy, so the standalone sentence still applies.
+    #expect(presentation.otherLimits.contains(
+        "This copy is classified as standalone. Agent Lens does not delete standalone files."
+    ))
 }

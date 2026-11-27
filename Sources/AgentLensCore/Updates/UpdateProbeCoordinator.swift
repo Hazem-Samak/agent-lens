@@ -108,6 +108,15 @@ public struct ToolUpdateResult: Equatable, Sendable {
     public let npmTag: String?
     /// Observed `npm --version` text (nil when unavailable or for Homebrew results).
     public let npmVersion: String?
+    /// Cask provenance: the verified token, full token, tap, and the manager's installed version
+    /// directory. nil for formula/npm results (backwards-compatible additive context).
+    public let caskToken: String?
+    public let caskFullToken: String?
+    public let caskTap: String?
+    public let caskInstalledVersion: String?
+    /// True when the manager reports the verified cask pinned. Its newer version remains a real
+    /// update; the pin is disclosed, not hidden, and never converted into an unknown.
+    public let caskPinned: Bool
     public let status: VersionStatus
     public let provenance: UpdateProvenance
 
@@ -130,6 +139,11 @@ public struct ToolUpdateResult: Equatable, Sendable {
         npmRegistry: String? = nil,
         npmTag: String? = nil,
         npmVersion: String? = nil,
+        caskToken: String? = nil,
+        caskFullToken: String? = nil,
+        caskTap: String? = nil,
+        caskInstalledVersion: String? = nil,
+        caskPinned: Bool = false,
         status: VersionStatus,
         provenance: UpdateProvenance
     ) {
@@ -151,6 +165,11 @@ public struct ToolUpdateResult: Equatable, Sendable {
         self.npmRegistry = npmRegistry
         self.npmTag = npmTag
         self.npmVersion = npmVersion
+        self.caskToken = caskToken
+        self.caskFullToken = caskFullToken
+        self.caskTap = caskTap
+        self.caskInstalledVersion = caskInstalledVersion
+        self.caskPinned = caskPinned
         self.status = status
         self.provenance = provenance
     }
@@ -166,6 +185,12 @@ public enum UpdateProbeCoordinator {
         let selectedEntryPath: String
         let observedTarget: String
         let localVersion: String
+        /// Declared Homebrew cask tokens for a standalone cask subject; empty for formula/npm.
+        let declaredCaskTokens: [String]
+        /// The complete selected-executable identity snapshotted BEFORE stage admission for a
+        /// cask subject, so a same-path replacement is caught. nil for formula/npm (their existing
+        /// live-file revalidation is unchanged).
+        let selectedIdentity: ObservedExecutable?
 
         var registryID: String { subject.registryID }
         var displayName: String { subject.displayName }
@@ -176,6 +201,9 @@ public enum UpdateProbeCoordinator {
     private struct ManagerIdentity {
         let manager: HomebrewManager
         let fingerprint: String
+        /// The full observed executable identity. Cask work compares this snapshot; formula/npm
+        /// keep their existing fingerprint/live-file checks byte-for-byte.
+        let observed: ObservedExecutable?
     }
 
     private enum AdmittedBatchOutcome: Sendable {
@@ -197,6 +225,7 @@ public enum UpdateProbeCoordinator {
     ) async -> [ToolUpdateResult] {
         var results = [ToolUpdateResult?](repeating: nil, count: subjects.count)
         var pending: [Pending] = []
+        var caskPending: [Pending] = []
         var npmPending: [Pending] = []
 
         // Eligibility, in the brief's fixed order, decided without any process.
@@ -213,9 +242,14 @@ public enum UpdateProbeCoordinator {
                 continue
             }
             let source = tool.source
-            guard source == "brew" || source == "npm" else {
-                let reason: UnknownReason = source == "standalone" ? .noRegistry : .unsupportedSource
-                results[index] = neutral(subject, index, reason, installed: localVersion)
+            guard source == "brew" || source == "npm" || source == "standalone" else {
+                results[index] = neutral(subject, index, .unsupportedSource, installed: localVersion)
+                continue
+            }
+            // A standalone installation that declares no cask keeps its existing no-registry path.
+            let caskTokens = source == "standalone" ? declaredCaskTokens(subject.definition) : []
+            if source == "standalone", caskTokens.isEmpty {
+                results[index] = neutral(subject, index, .noRegistry, installed: localVersion)
                 continue
             }
             guard let version = tool.version,
@@ -230,20 +264,39 @@ public enum UpdateProbeCoordinator {
             case .offline:
                 results[index] = neutral(subject, index, .networkUnavailable, installed: localVersion)
             case .checkUpdates, .refresh:
+                // Snapshot the selected executable identity BEFORE admission for cask work. A
+                // formula/npm selection keeps its existing live-file revalidation.
+                let selectedIdentity = caskTokens.isEmpty
+                    ? nil
+                    : FileIdentityObserver.observeExecutable(entryPath: selection.entryPath)
+                if !caskTokens.isEmpty, selectedIdentity == nil {
+                    results[index] = neutral(
+                        subject, index, .identityUnverified, installed: localVersion
+                    )
+                    continue
+                }
                 let entry = Pending(
                     index: index,
                     subject: subject,
                     selectedEntryPath: selection.entryPath,
                     observedTarget: selection.target,
-                    localVersion: version
+                    localVersion: version,
+                    declaredCaskTokens: caskTokens,
+                    selectedIdentity: selectedIdentity
                 )
-                if source == "brew" { pending.append(entry) } else { npmPending.append(entry) }
+                if source == "brew" {
+                    pending.append(entry)
+                } else if source == "npm" {
+                    npmPending.append(entry)
+                } else {
+                    caskPending.append(entry)
+                }
             }
         }
 
         // Plain/offline runs return here with zero admission, zero cache read/write and zero
         // manager query: eligibility decided every subject without touching the stage gate.
-        guard !pending.isEmpty || !npmPending.isEmpty else {
+        guard !pending.isEmpty || !caskPending.isEmpty || !npmPending.isEmpty else {
             return finalize(results, subjects)
         }
 
@@ -252,11 +305,15 @@ public enum UpdateProbeCoordinator {
         // the local PATH lookup. A snapshot taken after admission would silently bless a manager
         // replaced while this run waited, so the pre-launch revalidation could never notice.
         var managerIdentity: ManagerIdentity?
-        if !pending.isEmpty, let manager = HomebrewManagerResolver.resolve(
+        if !pending.isEmpty || !caskPending.isEmpty, let manager = HomebrewManagerResolver.resolve(
             environment: environment,
             currentDirectory: currentDirectory
         ) {
-            managerIdentity = ManagerIdentity(manager: manager, fingerprint: fingerprint(of: manager))
+            managerIdentity = ManagerIdentity(
+                manager: manager,
+                fingerprint: fingerprint(of: manager),
+                observed: FileIdentityObserver.observeExecutable(entryPath: manager.entryPath)
+            )
         }
 
         // ONE admission for the COMPLETE optional stage — Homebrew and npm together, including a
@@ -268,7 +325,7 @@ public enum UpdateProbeCoordinator {
         let acquired = await gate.acquire(id: permitID, waitNanos: Self.stageAdmissionWaitNanoseconds)
         guard acquired else {
             let reason: UnknownReason = Task.isCancelled ? .probeFailed : .budgetExhausted
-            for entry in pending + npmPending {
+            for entry in pending + caskPending + npmPending {
                 results[entry.index] = neutral(
                     pending: entry, reason, installed: Version(entry.localVersion)
                 )
@@ -304,6 +361,27 @@ public enum UpdateProbeCoordinator {
                 )
             } else {
                 for entry in pending {
+                    results[entry.index] = neutral(pending: entry, .managerUnavailable, installed: Version(entry.localVersion))
+                }
+            }
+        }
+        if !caskPending.isEmpty {
+            if let identity = managerIdentity {
+                await resolveCaskBatch(
+                    pending: caskPending,
+                    managerIdentity: identity,
+                    environment: environment,
+                    runner: clipped,
+                    cache: CaskUpdateMetadataCache(updateCacheURL: cacheURL, now: now),
+                    mode: mode,
+                    currentDirectory: currentDirectory,
+                    now: now,
+                    uptime: uptime,
+                    stageDeadline: stageDeadline,
+                    results: &results
+                )
+            } else {
+                for entry in caskPending {
                     results[entry.index] = neutral(pending: entry, .managerUnavailable, installed: Version(entry.localVersion))
                 }
             }
@@ -562,6 +640,474 @@ public enum UpdateProbeCoordinator {
         }
     }
 
+    // MARK: cask stage
+
+    private enum AdmittedCaskBatchOutcome: Sendable {
+        case cancelled
+        case identityChanged
+        case completed(Result<HomebrewCaskBatchResult, HomebrewCaskBatchError>)
+    }
+
+    /// Runs the read-only cask latest-check after the formula batch and before npm, inside the
+    /// stage the caller already admitted. The formula batch's own gate is reacquired here, exactly
+    /// as the brief requires; no new process gate is introduced.
+    private static func resolveCaskBatch(
+        pending: [Pending],
+        managerIdentity: ManagerIdentity,
+        environment: ShellEnvironment,
+        runner: UpdateCommandRunner,
+        cache: CaskUpdateMetadataCache,
+        mode: UpdateProbeMode,
+        currentDirectory: String,
+        now: @escaping @Sendable () -> Date,
+        uptime: @escaping @Sendable () -> UInt64,
+        stageDeadline: UInt64,
+        results: inout [ToolUpdateResult?]
+    ) async {
+        let manager = managerIdentity.manager
+        let deadlineExhausted = { uptime() >= stageDeadline && !Task.isCancelled }
+        let context = caskContextFingerprint(
+            environment: environment, currentDirectory: currentDirectory
+        )
+
+        // Cancellation and the aggregate deadline are observed before any cache read or process.
+        if Task.isCancelled {
+            for entry in pending {
+                results[entry.index] = neutral(
+                    pending: entry, .probeFailed, installed: Version(entry.localVersion)
+                )
+            }
+            return
+        }
+        if deadlineExhausted() {
+            for entry in pending {
+                results[entry.index] = neutral(
+                    pending: entry, .budgetExhausted, installed: Version(entry.localVersion)
+                )
+            }
+            return
+        }
+
+        if mode == .checkUpdates {
+            // Cache-first: a fully valid hit for every cask subject avoids the manager entirely.
+            // Refresh bypasses every read.
+            var hits: [Int: CaskUpdateMetadataEntry] = [:]
+            for entry in pending {
+                guard let selectedIdentity = entry.selectedIdentity else { break }
+                let selection = CaskUpdateMetadataSelection(
+                    registryID: entry.registryID,
+                    managerEntryPath: manager.entryPath,
+                    managerTarget: manager.canonicalTarget,
+                    managerFingerprint: managerIdentity.fingerprint,
+                    selectedEntryPath: entry.selectedEntryPath,
+                    selectedTarget: entry.observedTarget,
+                    selectedFingerprint: CaskUpdateMetadataKey.selectedFingerprintDigest(
+                        selectedIdentity.fingerprint
+                    ),
+                    declarationsDigest: CaskUpdateMetadataKey.declarationsDigest(
+                        entry.declaredCaskTokens
+                    ),
+                    contextDigest: context
+                )
+                guard let cached = cache.lookup(selection) else { break }
+                hits[entry.index] = cached
+            }
+            if hits.count == pending.count {
+                // A cached hit is published only while the manager, selection, declaration set,
+                // selected executable identity and every recorded live binding still hold and the
+                // stage still has time left. It launches zero manager queries.
+                func cachedHitIsLive(
+                    _ entry: Pending,
+                    _ cached: CaskUpdateMetadataEntry
+                ) -> Bool {
+                    guard !Task.isCancelled, !deadlineExhausted(),
+                          caskManagerIsLive(managerIdentity),
+                          caskSelectionIsLive(entry),
+                          let selectedIdentity = entry.selectedIdentity,
+                          cached.selectedFingerprint == CaskUpdateMetadataKey.selectedFingerprintDigest(
+                              selectedIdentity.fingerprint
+                          ),
+                          cached.declarationsDigest == CaskUpdateMetadataKey.declarationsDigest(
+                              entry.declaredCaskTokens
+                          ),
+                          cached.registryID == entry.registryID,
+                          cached.selectedEntryPath == entry.selectedEntryPath,
+                          cached.selectedTarget == entry.observedTarget,
+                          cached.stagedBindingsAreCurrent
+                    else { return false }
+                    return true
+                }
+
+                func staleHitReason() -> UnknownReason {
+                    if Task.isCancelled { return .probeFailed }
+                    if deadlineExhausted() { return .budgetExhausted }
+                    return .identityUnverified
+                }
+
+                for entry in pending {
+                    guard let cached = hits[entry.index] else { continue }
+                    guard cachedHitIsLive(entry, cached) else {
+                        results[entry.index] = neutral(
+                            pending: entry, staleHitReason(),
+                            installed: Version(entry.localVersion)
+                        )
+                        continue
+                    }
+                    let result = cachedCaskResult(entry: entry, cached: cached)
+                    // Recheck immediately before the verified cache result is published.
+                    guard cachedHitIsLive(entry, cached) else {
+                        results[entry.index] = neutral(
+                            pending: entry, staleHitReason(),
+                            installed: Version(entry.localVersion)
+                        )
+                        continue
+                    }
+                    results[entry.index] = result
+                }
+                return
+            }
+        }
+
+        // The info query accepts at most sixteen deduplicated declared tokens. A subject is
+        // admitted only with its ENTIRE new declaration set while that whole set fits the
+        // remaining names; a rejected subject contributes no token and cannot leave an orphan
+        // name in the info request. It reports the budget reason and launches nothing of its own.
+        var includedTokens: [String] = []
+        var excludedIndices: Set<Int> = []
+        for entry in pending {
+            var newTokens: [String] = []
+            for token in entry.declaredCaskTokens
+            where !includedTokens.contains(token) && !newTokens.contains(token) {
+                newTokens.append(token)
+            }
+            guard includedTokens.count + newTokens.count <= 16 else {
+                excludedIndices.insert(entry.index)
+                continue
+            }
+            includedTokens.append(contentsOf: newTokens)
+        }
+        let batchPending = pending.filter { !excludedIndices.contains($0.index) }
+        let batchTokens = includedTokens
+        for entry in pending where excludedIndices.contains(entry.index) {
+            results[entry.index] = neutral(
+                pending: entry, .budgetExhausted, installed: Version(entry.localVersion)
+            )
+        }
+        guard !batchPending.isEmpty else { return }
+
+        // Every batch subject carries the selected executable identity snapshotted before
+        // admission. The batch revalidates that complete identity around every manager call.
+        guard let observedManager = managerIdentity.observed,
+              batchPending.allSatisfy({ $0.selectedIdentity != nil })
+        else {
+            for entry in batchPending {
+                results[entry.index] = neutral(
+                    pending: entry, .identityUnverified, installed: Version(entry.localVersion)
+                )
+            }
+            return
+        }
+        let batchSelections = batchPending.compactMap(\.selectedIdentity)
+        guard batchSelections.count == batchPending.count else {
+            for entry in batchPending {
+                results[entry.index] = neutral(
+                    pending: entry, .identityUnverified, installed: Version(entry.localVersion)
+                )
+            }
+            return
+        }
+
+        let admission = await HomebrewUpdateProbe.withBatchAdmission {
+            guard !Task.isCancelled else { return AdmittedCaskBatchOutcome.cancelled }
+            // Waiting for another scan must not turn a replaced manager or selection into authority
+            // to launch a process.
+            guard caskManagerIsLive(managerIdentity),
+                  batchPending.allSatisfy(caskSelectionIsLive)
+            else {
+                return AdmittedCaskBatchOutcome.identityChanged
+            }
+            return .completed(await HomebrewCaskUpdateProbe.runBatchWhileAdmitted(
+                manager: observedManager,
+                selections: batchSelections,
+                tokens: batchTokens,
+                environment: environment,
+                runner: runner
+            ))
+        }
+        guard let admission else {
+            for entry in batchPending {
+                results[entry.index] = neutral(
+                    pending: entry, .probeFailed, installed: Version(entry.localVersion)
+                )
+            }
+            return
+        }
+        let outcome: Result<HomebrewCaskBatchResult, HomebrewCaskBatchError>
+        switch admission {
+        case .cancelled:
+            for entry in batchPending {
+                results[entry.index] = neutral(
+                    pending: entry, .probeFailed, installed: Version(entry.localVersion)
+                )
+            }
+            return
+        case .identityChanged:
+            for entry in batchPending {
+                results[entry.index] = neutral(
+                    pending: entry, .identityUnverified, installed: Version(entry.localVersion)
+                )
+            }
+            return
+        case .completed(let result):
+            outcome = result
+        }
+        let batch: HomebrewCaskBatchResult
+        switch outcome {
+        case .failure(let error):
+            // A combined-list failure is one batch failure: every cask subject in this batch gets
+            // the same honest typed reason and no subject borrows another's partial listing.
+            let reason = caskUnknownReason(
+                for: error, stageDeadlineExhausted: deadlineExhausted()
+            )
+            for entry in batchPending {
+                results[entry.index] = neutral(
+                    pending: entry, reason, installed: Version(entry.localVersion)
+                )
+            }
+            return
+        case .success(let value):
+            batch = value
+        }
+
+        guard !Task.isCancelled else {
+            for entry in batchPending {
+                results[entry.index] = neutral(
+                    pending: entry, .probeFailed, installed: Version(entry.localVersion)
+                )
+            }
+            return
+        }
+
+        let observed = now()
+
+        func evaluateFresh(_ entry: Pending) -> HomebrewCaskEvaluation {
+            HomebrewCaskStatusResolver.evaluate(
+                declaredNames: entry.declaredCaskTokens,
+                selectedTarget: entry.observedTarget,
+                localVersion: entry.localVersion,
+                batch: batch
+            )
+        }
+
+        // A fresh comparison is publishable only while the manager, the selection, every captured
+        // root/directory binding and the live membership (including the narrow moved-app link)
+        // still reproduce the SAME verified comparison.
+        func freshComparisonIsLive(
+            _ entry: Pending,
+            _ comparison: HomebrewCaskComparison
+        ) -> Bool {
+            guard caskManagerIsLive(managerIdentity),
+                  caskSelectionIsLive(entry),
+                  HomebrewCaskUpdateProbe.batchIsLive(
+                      manager: observedManager,
+                      selections: batchSelections,
+                      batch: batch
+                  ),
+                  case .verified(let current) = evaluateFresh(entry),
+                  current == comparison
+            else { return false }
+            return true
+        }
+
+        var toPersist: [Int: CaskUpdateMetadataEntry] = [:]
+        for entry in batchPending {
+            guard caskManagerIsLive(managerIdentity), caskSelectionIsLive(entry),
+                  HomebrewCaskUpdateProbe.batchIsLive(
+                      manager: observedManager,
+                      selections: batchSelections,
+                      batch: batch
+                  )
+            else {
+                results[entry.index] = neutral(
+                    pending: entry, .identityUnverified, installed: Version(entry.localVersion)
+                )
+                continue
+            }
+            let evaluation = evaluateFresh(entry)
+            // Recheck after comparison and immediately before publishing this fresh result.
+            guard caskManagerIsLive(managerIdentity), caskSelectionIsLive(entry) else {
+                results[entry.index] = neutral(
+                    pending: entry, .identityUnverified, installed: Version(entry.localVersion)
+                )
+                continue
+            }
+            switch evaluation {
+            case .unknown(let reason):
+                results[entry.index] = neutral(
+                    pending: entry, reason, installed: Version(entry.localVersion)
+                )
+            case .verified(let comparison):
+                guard freshComparisonIsLive(entry, comparison) else {
+                    results[entry.index] = neutral(
+                        pending: entry, .identityUnverified,
+                        installed: Version(entry.localVersion)
+                    )
+                    continue
+                }
+                results[entry.index] = caskResult(
+                    entry: entry,
+                    comparison: comparison,
+                    manager: manager,
+                    managerFingerprint: managerIdentity.fingerprint,
+                    observedAt: observed
+                )
+                // Any verified, successful comparison is reusable metadata: upToDate AND
+                // updateAvailable. Unknown outcomes are never persisted. R3 permits only an exact
+                // staged-target decomposition in the cache, so a freshly verified moved app is
+                // published but never written or restored.
+                guard comparison.status.isVerifiedComparison,
+                      case .success(let staged) = HomebrewCaskTargetParser.parse(
+                          selectedTarget: entry.observedTarget,
+                          caskroom: batch.caskroom.canonicalPath
+                      ),
+                      staged.token == comparison.token,
+                      staged.versionDirectory == comparison.installedVersion,
+                      let binding = batch.stagedBindings.first(where: {
+                          $0.token == comparison.token
+                              && $0.version == comparison.installedVersion
+                      }),
+                      let selectedIdentity = entry.selectedIdentity
+                else { continue }
+                toPersist[entry.index] = CaskUpdateMetadataEntry(
+                    registryID: entry.registryID,
+                    managerEntryPath: manager.entryPath,
+                    managerTarget: manager.canonicalTarget,
+                    managerFingerprint: managerIdentity.fingerprint,
+                    prefix: batch.prefix.reportedPath,
+                    prefixCanonical: batch.prefix.canonicalPath,
+                    prefixDevice: batch.prefix.identity.device,
+                    prefixInode: batch.prefix.identity.inode,
+                    caskroom: batch.caskroom.reportedPath,
+                    caskroomCanonical: batch.caskroom.canonicalPath,
+                    caskroomDevice: batch.caskroom.identity.device,
+                    caskroomInode: batch.caskroom.identity.inode,
+                    token: comparison.token,
+                    fullToken: comparison.fullToken,
+                    tap: comparison.tap,
+                    installedVersion: comparison.installedVersion,
+                    tokenDirectoryPath: binding.tokenDirectory.path,
+                    tokenDirectoryDevice: binding.tokenDirectory.identity.device,
+                    tokenDirectoryInode: binding.tokenDirectory.identity.inode,
+                    versionDirectoryPath: binding.versionDirectory.path,
+                    versionDirectoryDevice: binding.versionDirectory.identity.device,
+                    versionDirectoryInode: binding.versionDirectory.identity.inode,
+                    selectedEntryPath: entry.selectedEntryPath,
+                    selectedTarget: entry.observedTarget,
+                    selectedFingerprint: CaskUpdateMetadataKey.selectedFingerprintDigest(
+                        selectedIdentity.fingerprint
+                    ),
+                    declarationsDigest: CaskUpdateMetadataKey.declarationsDigest(
+                        entry.declaredCaskTokens
+                    ),
+                    contextDigest: context,
+                    version: comparison.version,
+                    pinned: comparison.pinned,
+                    managerOutdated: comparison.managerOutdated,
+                    observedAt: observed
+                )
+            }
+        }
+
+        // A second per-selection check catches changes made after result construction. The same
+        // check gates metadata persistence.
+        if Task.isCancelled {
+            for entry in batchPending {
+                results[entry.index] = neutral(
+                    pending: entry, .probeFailed, installed: Version(entry.localVersion)
+                )
+            }
+            return
+        }
+        for entry in batchPending where results[entry.index]?.status.isVerifiedComparison == true {
+            guard let published = results[entry.index],
+                  case .verified(let comparison) = evaluateFresh(entry),
+                  freshComparisonIsLive(entry, comparison),
+                  published.status == comparison.status,
+                  published.caskToken == comparison.token,
+                  published.caskFullToken == comparison.fullToken,
+                  published.caskTap == comparison.tap,
+                  published.caskInstalledVersion == comparison.installedVersion,
+                  published.caskPinned == comparison.pinned
+            else {
+                results[entry.index] = neutral(
+                    pending: entry, .identityUnverified, installed: Version(entry.localVersion)
+                )
+                toPersist.removeValue(forKey: entry.index)
+                continue
+            }
+        }
+        // The comparison is still published if it completed, but it is never stored after the
+        // aggregate stage deadline has been exhausted.
+        if deadlineExhausted() { return }
+        if !toPersist.isEmpty {
+            var persistable: [CaskUpdateMetadataEntry] = []
+            for entry in batchPending where toPersist[entry.index] != nil {
+                guard let metadata = toPersist[entry.index],
+                      caskManagerIsLive(managerIdentity),
+                      caskSelectionIsLive(entry),
+                      HomebrewCaskUpdateProbe.batchIsLive(
+                          manager: observedManager,
+                          selections: batchSelections,
+                          batch: batch
+                      ),
+                      case .verified(let comparison) = evaluateFresh(entry),
+                      freshComparisonIsLive(entry, comparison),
+                      comparison.token == metadata.token,
+                      comparison.installedVersion == metadata.installedVersion,
+                      comparison.version == metadata.version,
+                      comparison.pinned == metadata.pinned,
+                      comparison.managerOutdated == metadata.managerOutdated
+                else {
+                    results[entry.index] = neutral(
+                        pending: entry, .identityUnverified,
+                        installed: Version(entry.localVersion)
+                    )
+                    continue
+                }
+                persistable.append(metadata)
+            }
+            if !persistable.isEmpty {
+                guard !Task.isCancelled else {
+                    for entry in batchPending {
+                        results[entry.index] = neutral(
+                            pending: entry, .probeFailed, installed: Version(entry.localVersion)
+                        )
+                    }
+                    return
+                }
+                // Check every binding one last time immediately before the save.
+                guard caskManagerIsLive(managerIdentity),
+                      batchPending.allSatisfy(caskSelectionIsLive),
+                      HomebrewCaskUpdateProbe.batchIsLive(
+                          manager: observedManager,
+                          selections: batchSelections,
+                          batch: batch
+                      )
+                else {
+                    for entry in batchPending
+                    where results[entry.index]?.status.isVerifiedComparison == true {
+                        results[entry.index] = neutral(
+                            pending: entry, .identityUnverified,
+                            installed: Version(entry.localVersion)
+                        )
+                    }
+                    return
+                }
+                _ = cache.save(persistable)
+            }
+        }
+    }
+
     // MARK: npm stage
 
     /// The shared monotonic budget for one complete optional update stage (all subjects and BOTH
@@ -735,10 +1281,24 @@ public enum UpdateProbeCoordinator {
         return resolveTarget(entry.selectedEntryPath) == entry.observedTarget
     }
 
+    /// Cask work additionally requires the complete observed executable identity snapshotted
+    /// before admission. A same-path replacement changes device/inode/mtime/ctime and fails here.
+    private static func caskSelectionIsLive(_ entry: Pending) -> Bool {
+        guard let observed = entry.selectedIdentity else { return false }
+        return FileIdentityObserver.observeExecutable(entryPath: observed.entryPath) == observed
+    }
+
     private static func managerIsLive(_ identity: ManagerIdentity) -> Bool {
         guard isLiveRegularExecutable(identity.manager.entryPath) else { return false }
         guard resolveTarget(identity.manager.entryPath) == identity.manager.canonicalTarget else { return false }
         return fingerprint(of: identity.manager) == identity.fingerprint
+    }
+
+    /// Cask work additionally requires the full observed manager identity. The formula/npm
+    /// `managerIsLive` path above is unchanged.
+    private static func caskManagerIsLive(_ identity: ManagerIdentity) -> Bool {
+        guard managerIsLive(identity), let observed = identity.observed else { return false }
+        return FileIdentityObserver.observeExecutable(entryPath: observed.entryPath) == observed
     }
 
     /// A regular file (after symlink resolution) the process may execute. No tool is ever run —
@@ -853,6 +1413,122 @@ public enum UpdateProbeCoordinator {
             + frame("environment") + frame(String(values.count)) + pairs
             + frame("current-directory") + frame(workingDirectory)
         return UpdateMetadataKey.stableDigest(material)
+    }
+
+    /// The cask context digest: the same effective environment and working directory as the formula
+    /// digest, under its own domain label (R3). A formula digest can never decode as a cask hit.
+    private static func caskContextFingerprint(
+        environment: ShellEnvironment,
+        currentDirectory: String
+    ) -> String {
+        let values = HomebrewUpdateProbe.diagnosticEnvironment(from: environment)
+        func frame(_ text: String) -> String { "\(text.utf8.count):\(text)" }
+        let workingDirectory = URL(fileURLWithPath: currentDirectory, isDirectory: true)
+            .standardizedFileURL.path
+        let pairs = values.keys.sorted().map { frame($0) + frame(values[$0] ?? "") }.joined()
+        let material = frame("agent-lens-cask-update-context-v1")
+            + frame("environment") + frame(String(values.count)) + pairs
+            + frame("current-directory") + frame(workingDirectory)
+        return UpdateMetadataKey.stableDigest(material)
+    }
+
+    /// Opaque cask batch failures remain honest `probeFailed` results. Only explicit typed evidence
+    /// is retained; a deadline-caused cancellation is reported by cause as `budgetExhausted`.
+    private static func caskUnknownReason(
+        for error: HomebrewCaskBatchError,
+        stageDeadlineExhausted: Bool
+    ) -> UnknownReason {
+        switch error {
+        case .commandFailed(.networkUnavailable): .networkUnavailable
+        case .commandFailed(.rateLimited): .rateLimited
+        case .commandFailed(.timedOut): .queryTimedOut
+        case .commandFailed(.cancelled) where stageDeadlineExhausted: .budgetExhausted
+        case .identityUnverified: .identityUnverified
+        default: .probeFailed
+        }
+    }
+
+    /// The declared Homebrew cask tokens for one subject, in declaration order and deduplicated.
+    private static func declaredCaskTokens(_ definition: DetectorDefinition) -> [String] {
+        var tokens: [String] = []
+        for package in definition.packages where package.manager == .homebrewCask {
+            if !tokens.contains(package.name) { tokens.append(package.name) }
+        }
+        return tokens
+    }
+
+    /// One fresh cask result. `installed` remains the CLI's local version text so the existing
+    /// selected-update count stays honest; the manager's installed version directory is carried in
+    /// `caskInstalledVersion` as structural provenance.
+    private static func caskResult(
+        entry: Pending,
+        comparison: HomebrewCaskComparison,
+        manager: HomebrewManager,
+        managerFingerprint: String,
+        observedAt: Date
+    ) -> ToolUpdateResult {
+        ToolUpdateResult(
+            registryID: entry.registryID,
+            displayName: entry.displayName,
+            diagnosticIndex: entry.index,
+            diagnostic: entry.subject.diagnostic,
+            localVersion: entry.localVersion,
+            selectedEntryPath: entry.selectedEntryPath,
+            selectedTarget: entry.observedTarget,
+            selectedKegVersion: nil,
+            managerEntryPath: manager.entryPath,
+            managerTarget: manager.canonicalTarget,
+            managerFingerprint: managerFingerprint,
+            managerCellar: nil,
+            formulaStem: nil,
+            fullFormulaName: nil,
+            caskToken: comparison.token,
+            caskFullToken: comparison.fullToken,
+            caskTap: comparison.tap,
+            caskInstalledVersion: comparison.installedVersion,
+            caskPinned: comparison.pinned,
+            status: comparison.status,
+            provenance: .freshProbe(observedAt: observedAt)
+        )
+    }
+
+    /// Recomputes the cask status from the stored manager observation against the current local
+    /// version. `isStructurallyCoherent` has already restricted records to the two successful
+    /// shapes: manager-outdated with an unequal pair, or equality with no verdict.
+    private static func cachedCaskResult(
+        entry: Pending,
+        cached: CaskUpdateMetadataEntry
+    ) -> ToolUpdateResult {
+        let status: VersionStatus = cached.managerOutdated
+            ? .updateAvailable(
+                installed: Version(entry.localVersion), latest: Version(cached.version)
+            )
+            : .upToDate(
+                installed: Version(entry.localVersion), latest: Version(cached.version)
+            )
+        return ToolUpdateResult(
+            registryID: entry.registryID,
+            displayName: entry.displayName,
+            diagnosticIndex: entry.index,
+            diagnostic: entry.subject.diagnostic,
+            localVersion: entry.localVersion,
+            selectedEntryPath: entry.selectedEntryPath,
+            selectedTarget: entry.observedTarget,
+            selectedKegVersion: nil,
+            managerEntryPath: cached.managerEntryPath,
+            managerTarget: cached.managerTarget,
+            managerFingerprint: cached.managerFingerprint,
+            managerCellar: nil,
+            formulaStem: nil,
+            fullFormulaName: nil,
+            caskToken: cached.token,
+            caskFullToken: cached.fullToken,
+            caskTap: cached.tap,
+            caskInstalledVersion: cached.installedVersion,
+            caskPinned: cached.pinned,
+            status: status,
+            provenance: .cache(observedAt: cached.observedAt)
+        )
     }
 
     /// Opaque process failures remain honest `probeFailed` results. Only explicit typed evidence

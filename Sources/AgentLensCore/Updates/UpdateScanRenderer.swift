@@ -75,6 +75,21 @@ public enum UpdateScanRenderer {
     }
 
     private static func provenanceLine(for result: ToolUpdateResult) -> String? {
+        // A result carrying a cask token is a cask observation. Its provenance keeps the manager's
+        // full token, tap, installed version and pin flag visible beside the cached/fresh source.
+        if let fullToken = result.caskFullToken, let tap = result.caskTap,
+           let installed = result.caskInstalledVersion {
+            let pin = result.caskPinned ? "pinned" : "not pinned"
+            let identity = "cask \(fullToken) tap \(tap) installed \(installed); \(pin)"
+            switch result.provenance {
+            case .none:
+                return nil
+            case .freshProbe(let observedAt):
+                return "source: Homebrew cask metadata (\(identity)); checked at \(timestamp(observedAt))"
+            case .cache(let observedAt):
+                return "source: Homebrew cask metadata cache (\(identity)); observed at \(timestamp(observedAt))"
+            }
+        }
         // A result carrying an npm package is an npm observation; everything else is Homebrew.
         if let package = result.npmPackage, let registry = result.npmRegistry, let tag = result.npmTag {
             let identity = "npm package \(package) registry \(registry) tag \(tag); npm version \(result.npmVersion ?? "unknown")"
@@ -123,6 +138,10 @@ public enum UpdateScanRenderer {
         case .budgetExhausted: "update stage budget exhausted"
         case .metadataInvalid: "invalid metadata"
         case .queryTimedOut: "metadata query timed out"
+        case .caskTracksLatest: "cask version is :latest; no comparable latest version"
+        case .caskAutoUpdates: "cask manages its own updates; no comparable latest version"
+        case .caskDisabled: "cask is disabled; Homebrew does not upgrade it"
+        case .caskMetadataInconsistent: "cask installation and manager metadata disagree"
         }
     }
 

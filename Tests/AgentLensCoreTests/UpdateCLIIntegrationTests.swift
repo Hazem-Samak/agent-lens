@@ -540,7 +540,16 @@ private func builtAgentLensExecutable() throws -> String {
                 "attempt \(attempt) must be a fresh probe, never a cache hit")
     }
     let calls = readLog(s.logURL)
-    #expect(calls.count == 6, "two uncached runs must each execute the three-query batch; got \(calls)")
+    // M13-B: the fixture's standalone Claude/Kiro/AGY tools declare casks, so each admitted run
+    // also makes one bounded cask admission query (`--prefix`) that this formula-only fake brew
+    // refuses. The formula batch itself stays exactly three queries, in order.
+    let formulaBatch = [
+        "--cellar",
+        "info --json=v2 --formula codex",
+        "outdated --json=v2 --formula",
+    ]
+    #expect(calls == formulaBatch + ["--prefix"] + formulaBatch + ["--prefix"],
+            "two uncached runs must each execute the exact three-query formula batch plus one refused cask admission query; got \(calls)")
 }
 
 // MARK: End-to-end synthetic Homebrew through the built CLI
@@ -804,12 +813,16 @@ private let emptyOutdated = #"{"formulae":[],"casks":[]}"#
     #expect(expectedPrefix.contains("0.162.1"), "the unchanged local report must retain its useful version")
     #expect(result.stdout.contains("Codex  installed 0.162.1  latest known 0.162.1_1  up to date"))
     #expect(result.stdout.contains("0 updates available"))
-    // Exactly three manager commands for the single eligible formula. The cache write this mode
-    // attempts targets the real AgentLens directory and is denied by the sandbox — a neutral
-    // outcome per the production contract, so the fresh-probe status above must still stand.
-    let calls = readLog(s.logURL)
-    #expect(calls.count == 3)
-    #expect(calls.first == "--cellar")
+    // Exactly three formula queries, then the one cask admission query the standalone cask
+    // subjects make. The cache write this mode attempts targets the real AgentLens directory and
+    // is denied by the sandbox — a neutral outcome per the production contract, so the
+    // fresh-probe status above must still stand.
+    #expect(readLog(s.logURL) == [
+        "--cellar",
+        "info --json=v2 --formula codex",
+        "outdated --json=v2 --formula",
+        "--prefix",
+    ])
 }
 
 @Test func refreshThroughRealCLIIsAValidScanModeAndRunsOneBoundedBatch() throws {
@@ -820,7 +833,13 @@ private let emptyOutdated = #"{"formulae":[],"casks":[]}"#
     #expect(result.stderr.isEmpty)
     #expect(result.stdout.contains("Codex  installed 0.162.1  latest known 0.162.1_1  up to date"))
     #expect(result.stdout.contains("0 updates available"))
-    #expect(readLog(scenario.logURL).count == 3)
+    // Three formula queries plus the refused cask admission query.
+    #expect(readLog(scenario.logURL) == [
+        "--cellar",
+        "info --json=v2 --formula codex",
+        "outdated --json=v2 --formula",
+        "--prefix",
+    ])
 }
 
 @Test func realCLIAppendsAfterTheExactM5WinnerAliasShadowedAndInvalidPrefix() throws {
@@ -877,7 +896,13 @@ private let emptyOutdated = #"{"formulae":[],"casks":[]}"#
     #expect(expectedPrefix.contains("0.162.1"))
     #expect(readLog(shadowedLog).count == 1,
             "a shadowed canonical installation is queried exactly once for its own version")
-    #expect(readLog(scenario.logURL).count == 3)
+    // Three formula queries plus the refused cask admission query.
+    #expect(readLog(scenario.logURL) == [
+        "--cellar",
+        "info --json=v2 --formula codex",
+        "outdated --json=v2 --formula",
+        "--prefix",
+    ])
     let detectorCalls = readLog(detectorLog)
     #expect(detectorCalls.count == 12)
     #expect(Set(detectorCalls) == Set([
@@ -964,7 +989,13 @@ private let emptyOutdated = #"{"formulae":[],"casks":[]}"#
     #expect(output.components(separatedBy: "VERSION / UPDATE STATUS").count - 1 == 1)
     #expect(output.dropFirst(expectedPrefixWithMetadata.count).hasPrefix("\nVERSION / UPDATE STATUS\n"))
     #expect(output.contains("0 updates available\n"))
-    #expect(readLog(scenario.logURL).count == 3)
+    // Three formula queries plus the refused cask admission query.
+    #expect(readLog(scenario.logURL) == [
+        "--cellar",
+        "info --json=v2 --formula codex",
+        "outdated --json=v2 --formula",
+        "--prefix",
+    ])
 }
 
 @Test func checkUpdatesThroughRealCLIReportsUpdateAvailableAndCountsIt() throws {
@@ -1034,8 +1065,14 @@ private let emptyOutdated = #"{"formulae":[],"casks":[]}"#
         #expect(result.stdout.contains("uninstall instructions: https://opencode.ai/docs/cli/#uninstall"), "\(arguments)")
     }
 
-    // Plain and offline make zero manager calls; check and refresh each make one batch.
-    #expect(readLog(scenario.logURL).count == 6)
+    // Plain and offline make zero manager calls; check and refresh each make the exact
+    // three-query formula batch plus one refused cask admission query.
+    let formulaBatch = [
+        "--cellar",
+        "info --json=v2 --formula codex",
+        "outdated --json=v2 --formula",
+    ]
+    #expect(readLog(scenario.logURL) == formulaBatch + ["--prefix"] + formulaBatch + ["--prefix"])
 }
 
 @Test func syntheticOffPathDegradedM5ReportRemainsTheExactBytePrefix() throws {
@@ -1230,7 +1267,7 @@ private let emptyOutdated = #"{"formulae":[],"casks":[]}"#
     #expect(!result.stdout.contains("9.9.9"))
 }
 
-@Test func verifyInstallationCaskIsNeutralWithZeroManagerQueries() throws {
+@Test func verifyInstallationCaskStartsCaskRouteAndStopsOnManagerFailure() throws {
     let scenario = try makeBrewCLIScenario(
         "brew-cask-verify", info: currentInfo, outdated: emptyOutdated
     )
@@ -1241,10 +1278,12 @@ private let emptyOutdated = #"{"formulae":[],"casks":[]}"#
     #expect(result.status == 0)
     #expect(result.stderr.isEmpty)
     #expect(result.stdout.contains("  result: unknown"))
-    #expect(result.stdout.contains("  reason: Homebrew cask ownership is not supported"))
+    #expect(result.stdout.contains("  reason: The package manager query failed"))
     #expect(result.stdout.contains("  selected entry: \(scenario.binDirectory.appendingPathComponent("codex").path)"))
     #expect(result.stdout.contains("no installation changes were made"))
-    #expect(readLog(scenario.logURL).isEmpty, "cask verification must not query Homebrew")
+    // The cask route starts by asking for the manager's prefix. The fixture refuses that query,
+    // so the proof stops before `--caskroom` or any cask metadata query.
+    #expect(readLog(scenario.logURL) == ["--prefix"])
 }
 
 @Test func verifyInstallationStandaloneIsNeutralWithZeroManagerQueries() throws {
@@ -1349,4 +1388,117 @@ private let emptyOutdated = #"{"formulae":[],"casks":[]}"#
         #expect(result.stdout == expectedStdout,
                 "\(shell) stdout was not the exact closed fixture PATH; stdout: \(result.stdout), stderr: \(result.stderr)")
     }
+}
+
+// MARK: M13-B cask latest-check through the built CLI
+
+/// A synthetic cask-declaring Kiro CLI installation under a scratch Caskroom, with a formula
+/// Codex keg and the usual shadow tools. The fake brew answers the formula batch, then the cask
+/// five-command batch in the contract order.
+private struct CaskCLIScenario {
+    let scenario: BrewCLIScenario
+    let caskroom: URL
+    let stagedTarget: String
+}
+
+private func makeCaskCLIScenario(
+    _ label: String,
+    caskVersion: String,
+    outdated: Bool,
+    pinned: Bool
+) throws -> CaskCLIScenario {
+    let scenario = try makeBrewCLIScenario(
+        "cask-\(label)", info: currentInfo, outdated: emptyOutdated
+    )
+    let caskroom = scenario.root.appendingPathComponent("Caskroom", isDirectory: true)
+    let versionDirectory = caskroom.appendingPathComponent(
+        "kiro-cli/3.2.1", isDirectory: true
+    )
+    let staged = versionDirectory.appendingPathComponent("bin/kiro-cli")
+    try FileManager.default.createDirectory(
+        at: staged.deletingLastPathComponent(), withIntermediateDirectories: true
+    )
+    let script = "#!/bin/sh\nif [ \"$1\" = \"--version\" ]; then printf '%s\\n' 'kiro-cli 3.2.1'; fi\n"
+    try Data(script.utf8).write(to: staged)
+    try FileManager.default.setAttributes(
+        [.posixPermissions: 0o755], ofItemAtPath: staged.path
+    )
+    let stagedTarget = staged.resolvingSymlinksInPath().standardizedFileURL.path
+    let kiroLink = scenario.binDirectory.appendingPathComponent("kiro-cli")
+    try? FileManager.default.removeItem(at: kiroLink)
+    try FileManager.default.createSymbolicLink(
+        atPath: kiroLink.path, withDestinationPath: staged.path
+    )
+
+    let caskRecords = [
+        #"{"token":"claude-code","full_token":"claude-code","tap":"homebrew/cask","version":"2.1.322","installed":null,"auto_updates":null,"pinned":false,"outdated":false,"disabled":false}"#,
+        #"{"token":"claude-code@latest","full_token":"claude-code@latest","tap":"homebrew/cask","version":"2.1.322","installed":null,"auto_updates":null,"pinned":false,"outdated":false,"disabled":false}"#,
+        #"{"token":"kiro-cli","full_token":"kiro-cli","tap":"homebrew/cask","version":"\#(caskVersion)","installed":"3.2.1","auto_updates":null,"pinned":\#(pinned),"outdated":\#(outdated),"disabled":false}"#,
+        #"{"token":"antigravity-cli","full_token":"antigravity-cli","tap":"homebrew/cask","version":"1.5.6","installed":null,"auto_updates":null,"pinned":false,"outdated":false,"disabled":false}"#,
+    ]
+    let caskInfo = "{\"formulae\":[],\"casks\":[\(caskRecords.joined(separator: ","))]}"
+    let caskOutdated = outdated
+        ? "{\"formulae\":[],\"casks\":[{\"name\":\"kiro-cli\",\"current_version\":\"\(caskVersion)\",\"installed_versions\":[\"3.2.1\"],\"pinned\":\(pinned),\"pinned_version\":null}]}"
+        : "{\"formulae\":[],\"casks\":[]}"
+
+    let brewScript = """
+    #!/bin/sh
+    printf '%s\\n' "$*" >> \(shellQuote(scenario.logURL.path))
+    case "$*" in
+      "--cellar") printf '%s\\n' \(shellQuote(scenario.binDirectory.deletingLastPathComponent().appendingPathComponent("Cellar").path)) ;;
+      "--prefix") printf '%s\\n' \(shellQuote(scenario.binDirectory.deletingLastPathComponent().path)) ;;
+      "--caskroom") printf '%s\\n' \(shellQuote(caskroom.path)) ;;
+      "info --json=v2 --formula codex") printf '%s' \(shellQuote(currentInfo)) ;;
+      "outdated --json=v2 --formula") printf '%s' \(shellQuote(emptyOutdated)) ;;
+      "info --json=v2 --cask claude-code claude-code@latest kiro-cli antigravity-cli") printf '%s' \(shellQuote(caskInfo)) ;;
+      "outdated --json=v2 --cask") printf '%s' \(shellQuote(caskOutdated)) ;;
+      "list --verbose --cask kiro-cli") printf '%s\\n' \(shellQuote(stagedTarget)) ;;
+      *) exit 2 ;;
+    esac
+    """
+    let brewURL = scenario.binDirectory.appendingPathComponent("brew")
+    try Data(brewScript.utf8).write(to: brewURL)
+    try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: brewURL.path)
+    return CaskCLIScenario(scenario: scenario, caskroom: caskroom, stagedTarget: stagedTarget)
+}
+
+@Test func checkUpdatesThroughRealCLICaskUpdateCountsAndKeepsPinVisible() throws {
+    let s = try makeCaskCLIScenario(
+        "update", caskVersion: "3.2.2", outdated: true, pinned: true
+    )
+    let result = try runCLI(
+        ["scan", "--check-updates"], home: s.scenario.home, zdotdir: s.scenario.zdotdir
+    )
+    #expect(result.status == 0)
+    #expect(result.stderr.isEmpty)
+    #expect(result.stdout.contains("Kiro CLI  installed 3.2.1  latest known 3.2.2  update available"))
+    #expect(result.stdout.contains("1 update available"))
+    #expect(result.stdout.contains(
+        "source: Homebrew cask metadata (cask kiro-cli tap homebrew/cask installed 3.2.1; pinned); checked at"
+    ))
+    #expect(readLog(s.scenario.logURL) == [
+        "--cellar",
+        "info --json=v2 --formula codex",
+        "outdated --json=v2 --formula",
+        "--prefix",
+        "--caskroom",
+        "info --json=v2 --cask claude-code claude-code@latest kiro-cli antigravity-cli",
+        "outdated --json=v2 --cask",
+        "list --verbose --cask kiro-cli",
+    ])
+}
+
+@Test func checkUpdatesThroughRealCLICaskCurrentIsUpToDateAndNotCounted() throws {
+    let s = try makeCaskCLIScenario(
+        "current", caskVersion: "3.2.1", outdated: false, pinned: false
+    )
+    let result = try runCLI(
+        ["scan", "--check-updates"], home: s.scenario.home, zdotdir: s.scenario.zdotdir
+    )
+    #expect(result.status == 0)
+    #expect(result.stdout.contains("Kiro CLI  installed 3.2.1  latest known 3.2.1  up to date"))
+    #expect(result.stdout.contains("0 updates available"))
+    #expect(result.stdout.contains(
+        "source: Homebrew cask metadata (cask kiro-cli tap homebrew/cask installed 3.2.1; not pinned); checked at"
+    ))
 }

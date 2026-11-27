@@ -304,9 +304,17 @@ private func expectUnknownKey(
         informationURL: nil,
         uninstallInstructionsURL: nil,
         versionQuery: .standard,
-        acceptedOperations: [.npmUninstall, .npmUpdate]
+        acceptedOperations: [
+            .npmUninstall, .npmUpdate,
+            .homebrewFormulaUninstall, .homebrewFormulaUpdate,
+            .homebrewCaskUninstall, .homebrewCaskUpdate,
+        ]
     )
-    #expect(explicit.acceptedOperations == [.npmUninstall, .npmUpdate])
+    #expect(explicit.acceptedOperations == [
+        .npmUninstall, .npmUpdate,
+        .homebrewFormulaUninstall, .homebrewFormulaUpdate,
+        .homebrewCaskUninstall, .homebrewCaskUpdate,
+    ])
 
     func decoded(_ extraFields: [String]) throws -> DetectorDefinition {
         try JSONDecoder().decode(
@@ -318,8 +326,12 @@ private func expectUnknownKey(
     #expect(try decoded([]).acceptedOperations.isEmpty)
     #expect(try decoded([#""acceptedOperations":[]"#]).acceptedOperations.isEmpty)
     #expect(
-        try decoded([#""acceptedOperations":["npmUpdate","npmUninstall"]"#]).acceptedOperations
-            == [.npmUpdate, .npmUninstall]
+        try decoded([#""acceptedOperations":["npmUpdate","npmUninstall","homebrewFormulaUpdate","homebrewFormulaUninstall","homebrewCaskUpdate","homebrewCaskUninstall"]"#]).acceptedOperations
+            == [
+                .npmUpdate, .npmUninstall,
+                .homebrewFormulaUpdate, .homebrewFormulaUninstall,
+                .homebrewCaskUpdate, .homebrewCaskUninstall,
+            ]
     )
 
     func decodeFailure(_ extraFields: [String]) -> DetectorRegistryError? {
@@ -337,7 +349,21 @@ private func expectUnknownKey(
         == .invalidField(
             field: "acceptedOperations[0]",
             id: "tool",
-            reason: "must be one of npmUpdate, npmUninstall"
+            reason: "must be one of npmUpdate, npmUninstall, homebrewFormulaUpdate, homebrewFormulaUninstall, homebrewCaskUpdate, homebrewCaskUninstall"
+        ))
+    // A combined Homebrew case would silently widen a formula grant to a cask; it is not a member
+    // of the closed vocabulary.
+    #expect(decodeFailure([#""acceptedOperations":["homebrewUpdate"]"#])
+        == .invalidField(
+            field: "acceptedOperations[0]",
+            id: "tool",
+            reason: "must be one of npmUpdate, npmUninstall, homebrewFormulaUpdate, homebrewFormulaUninstall, homebrewCaskUpdate, homebrewCaskUninstall"
+        ))
+    #expect(decodeFailure([#""acceptedOperations":["homebrewFormulaUpdate","homebrewFormulaUpdate"]"#])
+        == .invalidField(
+            field: "acceptedOperations[1]",
+            id: "tool",
+            reason: "duplicate operation 'homebrewFormulaUpdate'"
         ))
     #expect(decodeFailure([#""acceptedOperations":["npmUpdate","npmUpdate"]"#])
         == .invalidField(
