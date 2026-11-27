@@ -393,3 +393,7 @@ The canonical run contains 636 copied receipt/metadata files, 86 command records
 - **No unclosed condition from the reviewed BLOCK:** the exact prefix/user shebang/linkage condition, scoped isolation, historical PATH correction, generic RECORD/entry_points correction, version scoping, cleanup record and reproduction appendix are now recorded. The remaining open items are plan decisions, not missing A evidence: B-1 pipx exact-normalization wording, and B-2/B-3 receipt-mutation/interpreter-currentness policy. If a reviewer requires a general receipt-config contract or a blanket pipx hash rule, that condition cannot be closed by this evidence and must be reported as unsupported.
 
 **This section is a correction and evidence index, not an M14-A PASS.**
+
+## 6. Phase A acceptance
+
+**PASS for ownership-only M14-B.** The orchestrator used a fresh scratch directory and clean environment to replay the pinned probe: **94 checks passed, 0 failed, 86 commands**. The inline lifecycle recipe separately exited zero after verifying the official archive, printing both roots, installing `0.85.0`, upgrading to `0.86.2`, and uninstalling. Grok 4.7 High and Gemini 4 Hydrogen Extra High independently cleared `a4d985b053` against the ownership contract at `6fd84481bd`. This replaces the original §3 verdict. It does not accept a public-PyPI policy, an upgrade command for production, or any product implementation.
